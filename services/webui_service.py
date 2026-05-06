@@ -294,17 +294,46 @@ def handle_tool(tool: str, message: str, data: dict):
                         headers={"Cache-Control": "no-cache"})
     
     if tool == "image":
-        # Extract prompt
-        prompt = message.lower()
-        for trigger in ["create an image of ", "generate an image of ", "make an image of ", "draw an image of "]:
-            if trigger in prompt:
-                prompt = message[message.lower().find(trigger) + len(trigger):]
+        # Extract prompt from message
+        prompt = message
+        triggers = [
+            "create an image of ", "generate an image of ", "make an image of ",
+            "draw an image of ", "create an image", "generate an image",
+            "make an image", "draw an image", "image of ", "picture of "
+        ]
+        for trigger in triggers:
+            if trigger in message.lower():
+                idx = message.lower().find(trigger)
+                prompt = message[idx + len(trigger):]
                 break
         
-        # Return placeholder for now (image generation uses Zo's built-in)
         def generate():
-            yield f"data: {json.dumps({'content': f'🎨 To generate an image, use the Image tool directly. Prompt: {prompt}'})}\n\n"
-            yield "data: [DONE]\n\n"
+            try:
+                resp = requests.post(
+                    f"{TOOLS_SERVICE}/generate/image",
+                    json={"prompt": prompt},
+                    timeout=120
+                )
+                result = resp.json()
+                
+                if result.get("success"):
+                    image_url = result.get("image_url", "")
+                    img_path = result.get("image_path", "")
+                    content1 = "Image Generated!\n\n"
+                    content2 = "![Generated Image](" + image_url + ")\n\n"
+                    content3 = "Saved to: " + img_path + "\n"
+                    yield "data: " + json.dumps({"content": "🎨 **Image Generated!** (Placeholder)\n"}) + "\n\n"
+                    yield "data: " + json.dumps({"content": content2}) + "\n\n"
+                    yield "data: " + json.dumps({"content": "\n*For real AI images, ask me (Zo) directly!*\n"}) + "\n\n"
+                else:
+                    err = result.get("error", "Unknown error")
+                    yield "data: " + json.dumps({"content": "Error: " + err + "\n"}) + "\n\n"
+                
+                yield "data: [DONE]\n\n"
+                
+            except Exception as e:
+                yield "data: " + json.dumps({"content": "Error: " + str(e) + "\n"}) + "\n\n"
+                yield "data: [DONE]\n\n"
         
         return Response(generate(), mimetype="text/event-stream",
                         headers={"Cache-Control": "no-cache"})

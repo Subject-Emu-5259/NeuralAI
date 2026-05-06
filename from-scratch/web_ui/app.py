@@ -8,6 +8,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
+# Disable tokenizer parallelism warning
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context, g
 from werkzeug.utils import secure_filename
 
@@ -928,6 +931,17 @@ def chat():
 with app.app_context():
     init_db()
     print(f"[NeuralAI] Database initialized at {DATABASE}")
+
+    # Pre-load model on startup to avoid first-request delay
+    print("[NeuralAI] Pre-loading model...")
+    load_model()
+    from neuralai_engine import local_model
+    try:
+        for _ in local_model.generate_sync_stream("Warmup", max_new_tokens=3):
+            pass
+        print("[NeuralAI] Model warmup complete. Ready!")
+    except Exception as w:
+        print(f"[NeuralAI] Warmup warning: {w}")
 
 
 if __name__ == "__main__":

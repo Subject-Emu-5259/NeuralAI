@@ -1,14 +1,15 @@
 # neuralai_engine.py
 #
-# Unified NeuralAI Engine
+# Unified NeuralAI Engine v2.0
 # - Router (local/uplink/tool)
-# - Local model wrapper with LoRA support
+# - Local model wrapper with LoRA support (CPU-optimized)
 # - Uplink client (4 parallel agents)
 # - Fusion logic
 # - Tool calling (terminal)
 # - Streaming helpers
 
 import asyncio
+import torch
 from typing import AsyncGenerator, Dict, Any, List, Tuple
 import aiohttp
 import asyncio.subprocess as asp
@@ -17,6 +18,9 @@ import sys
 from pathlib import Path
 import json
 import time
+
+# CPU optimization — use all available threads
+torch.set_num_threads(4)
 
 # Import tools
 PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
@@ -55,15 +59,16 @@ model = None
 tokenizer = None
 model_error = None
 
+SYSTEM_PROMPT = "<|im_start|>system\nYou are NeuralAI, a helpful AI assistant.<|im_end|>"
+
 def load_local_model():
-    """Load the local model with LoRA adapter."""
+    """Load the local model with LoRA adapter — CPU-optimized."""
     global model, tokenizer, model_error
     
     if model is not None or model_error:
         return
     
     try:
-        import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
         
@@ -74,16 +79,14 @@ def load_local_model():
         tokenizer = AutoTokenizer.from_pretrained(base_model_name)
         tokenizer.pad_token = tokenizer.eos_token
         
-        # Load base model
         print(f"[NeuralAI] Loading base model...")
         base_model = AutoModelForCausalLM.from_pretrained(
             base_model_name,
             torch_dtype=torch.float32,
             device_map=None,
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
         )
         
-        # Check if adapter exists (support both .bin and .safetensors)
         adapter_bin = adapter_path / "adapter_model.bin"
         adapter_safetensors = adapter_path / "adapter_model.safetensors"
         
@@ -97,7 +100,7 @@ def load_local_model():
         
         model.eval()
         model_error = None
-        print(f"[NeuralAI] Model ready! Parameters: {sum(p.numel() for p in model.parameters()):,}")
+        print(f"[NeuralAI] Model ready! Params: {sum(p.numel() for p in model.parameters()):,}")
     except Exception as e:
         import traceback
         print(f"[NeuralAI] Error loading model: {e}")
@@ -108,10 +111,11 @@ def load_local_model():
 
 
 class LocalModel:
-    """Local model wrapper."""
+    """Local model wrapper — CPU-optimized streaming."""
 
     def generate_sync_stream(self, prompt: str, max_new_tokens: int = 256):
-        """Generate text from local model using true streaming via TextIteratorStreamer."""
+        """Generate text using true streaming via TextIteratorStreamer.
+        Optimized: system prompt, attention_mask, top_k, repetition penalty."""
         load_local_model()
         
         if model is None or tokenizer is None:
@@ -123,25 +127,37 @@ class LocalModel:
         try:
             from transformers import TextIteratorStreamer
             import threading
-            import torch
             
-            if not prompt.startswith("<|im_start|>"):
-                full_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-            else:
+            if prompt.startswith("<|im_start|>"):
                 full_prompt = prompt
+            else:
+                full_prompt = (
+                    f"{SYSTEM_PROMPT}"
+                    f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+                )
             
-            inputs = tokenizer(full_prompt, return_tensors="pt")
+            inputs = tokenizer(
+                full_prompt,
+                return_tensors="pt",
+                padding=False,
+                truncation=True,
+                max_length=512,
+            )
             
             streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
             
             generation_kwargs = dict(
-                **inputs,
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
                 streamer=streamer,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
                 temperature=0.7,
                 top_p=0.95,
+                top_k=50,
+                repetition_penalty=1.1,
                 pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
             )
             
             thread = threading.Thread(target=model.generate, kwargs=generation_kwargs)
@@ -158,34 +174,45 @@ class LocalModel:
         load_local_model()
         
         if model is None or tokenizer is None:
-            # Fallback streaming
             text = f"[Local Model] I'm ready but the model isn't loaded. Your question: {prompt[:100]}..."
             for ch in text:
                 yield ch
             return
         
         try:
-            # Build prompt
-            full_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            if prompt.startswith("<|im_start|>"):
+                full_prompt = prompt
+            else:
+                full_prompt = (
+                    f"{SYSTEM_PROMPT}"
+                    f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+                )
             
-            inputs = tokenizer(full_prompt, return_tensors="pt")
+            inputs = tokenizer(
+                full_prompt,
+                return_tensors="pt",
+                padding=False,
+                truncation=True,
+                max_length=512,
+            )
             
-            import torch
             with torch.no_grad():
                 outputs = model.generate(
-                    **inputs,
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
                     max_new_tokens=max_new_tokens,
                     do_sample=True,
                     temperature=0.7,
                     top_p=0.95,
+                    top_k=50,
+                    repetition_penalty=1.1,
                     pad_token_id=tokenizer.eos_token_id,
+                    eos_token_id=tokenizer.eos_token_id,
                 )
             
-            # Decode only the new tokens
             new_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
             text = tokenizer.decode(new_tokens, skip_special_tokens=True)
             
-            # Stream character by character
             for ch in text:
                 yield ch
                 
@@ -195,23 +222,14 @@ class LocalModel:
                 yield ch
 
 
-# Global model instance
 local_model = LocalModel()
 
 
 def neuralai_route(msg: str) -> Tuple[str, str | None]:
-    """
-    Route message to appropriate handler.
-    Uses the clean router from neuralai_router.py if available.
-    Returns (route_type, tool_name)
-    - route_type: "local" | "uplink" | "tool"
-    - tool_name: "terminal" | "code_exec" | "file_manager" | "web_fetcher" | "database" | "git" | None
-    """
     try:
         from neuralai_router import neuralai_route as _route
         return _route(msg)
     except ImportError:
-        # Fallback routing
         lower = msg.lower()
         if any(k in lower for k in ["research", "analyze", "debug", "explain deeply"]):
             return ("uplink", None)
@@ -221,13 +239,11 @@ def neuralai_route(msg: str) -> Tuple[str, str | None]:
 
 
 async def neuralai_local(prompt: str) -> AsyncGenerator[str, None]:
-    """Generate response using local model."""
     async for token in local_model.generate(prompt, stream=True):
         yield token
 
 
 async def _post_json(session, url: str, payload: dict) -> dict:
-    """Post JSON and return response."""
     try:
         async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
             if resp.status == 200:
@@ -238,9 +254,6 @@ async def _post_json(session, url: str, payload: dict) -> dict:
 
 
 async def neuralai_uplink(prompt: str) -> str:
-    """
-    Send prompt to all 4 agents in parallel and fuse responses.
-    """
     async with aiohttp.ClientSession() as session:
         tasks = [
             _post_json(session, f"{UPLINK_BASE}:{DIALOG_PORT}/task", {"goal": prompt, "task_id": "uplink-dialog"}),
@@ -255,9 +268,6 @@ async def neuralai_uplink(prompt: str) -> str:
 
 
 def neuralai_fuse(outputs: List[Dict[str, Any]]) -> str:
-    """
-    Fuse multiple agent outputs into coherent response.
-    """
     if not outputs:
         return "[NeuralAI Uplink] No agent responses."
     
@@ -274,27 +284,22 @@ def neuralai_fuse(outputs: List[Dict[str, Any]]) -> str:
     if not parts:
         return "[NeuralAI Uplink] Agents are processing. Please try again."
     
-    return "\n\n".join(parts[:2])  # Top 2 responses
+    return "\n\n".join(parts[:2])
 
 
 async def run_shell_command(cmd: str) -> AsyncGenerator[str, None]:
-    """
-    Execute a shell command and stream output.
-    """
     proc = await asp.create_subprocess_shell(
         cmd,
         stdout=asp.PIPE,
         stderr=asp.PIPE,
     )
     
-    # Stream STDOUT
     while True:
         line = await proc.stdout.readline()
         if not line:
             break
         yield line.decode()
     
-    # Stream STDERR
     while True:
         line = await proc.stderr.readline()
         if not line:
@@ -305,9 +310,6 @@ async def run_shell_command(cmd: str) -> AsyncGenerator[str, None]:
 
 
 async def terminal_execute(msg: str) -> AsyncGenerator[str, None]:
-    """
-    Execute terminal command from message.
-    """
     lower = msg.lower()
     cmd = msg
     for prefix in ["run ", "execute ", "shell ", "command "]:
@@ -320,9 +322,6 @@ async def terminal_execute(msg: str) -> AsyncGenerator[str, None]:
 
 
 async def neuralai_tool_call(tool: str, msg: str) -> AsyncGenerator[str, None]:
-    """
-    Handle tool calls using the specialized tool classes.
-    """
     from neuralai_router import extract_tool_params
     params = extract_tool_params(msg, tool)
     
@@ -486,7 +485,7 @@ async def neuralai_tool_call(tool: str, msg: str) -> AsyncGenerator[str, None]:
                 if "table" in words:
                     idx = words.index("table")
                     if idx + 1 < len(words):
-                        table_name = words[idx+1].strip('?,.;')
+                        table_name = words[idx+1].strip("?,.;")
                 
                 result = await loop.run_in_executor(None, db_connector.schema, table_name)
                 if result["success"]:
@@ -574,16 +573,11 @@ async def neuralai_tool_call(tool: str, msg: str) -> AsyncGenerator[str, None]:
 
 
 async def stream_text(text: str) -> AsyncGenerator[str, None]:
-    """Stream text character by character."""
     for ch in text:
         yield ch
 
 
 async def neuralai_chat(msg: str) -> AsyncGenerator[str, None]:
-    """
-    Main chat entrypoint.
-    Routes to local model, uplink, or tools.
-    """
     route, tool = neuralai_route(msg)
     
     if route == "local":

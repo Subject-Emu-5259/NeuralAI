@@ -114,7 +114,7 @@ def chat():
     """Main chat endpoint - proxies to model service."""
     data = request.get_json()
     
-    message = data.get("message", "").strip()
+    message = data.get("message", data.get("prompt", "")).strip()
     conv_id = data.get("conversation_id")
     messages = data.get("messages", [])
     

@@ -679,7 +679,7 @@ def stream_words(text: str):
                 time.sleep(0.005)
         # Add newline after each line except the last empty one
         if i < len(lines) - 1:
-            yield 'data: {"content": "\\n"}\\n\\n'
+            yield 'data: {"content": "\n"}\n\n'
 
 
 INDEXED_FILES = load_registry()
@@ -692,6 +692,10 @@ except Exception:
 # ========================================
 # ROUTES
 # ========================================
+
+@app.route("/sse-test")
+def sse_test():
+    return render_template("sse_test.html")
 
 @app.route("/")
 def index():
@@ -798,6 +802,7 @@ def upload():
     )
 
 
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True) or {}
@@ -856,15 +861,15 @@ def chat():
         if route == "tool" and tool == "terminal":
             cmd = strip_terminal_prefix(user_content)
             msg_val = f'[Terminal] Executing: {cmd}\\n'
-            yield f"data: {json.dumps({'content': msg_val})}\\n\\n"
+            yield f"data: {json.dumps({'content': msg_val})}\n\n"
             msg_val2 = 'Use the Terminal tab for shell commands.\\n'
-            yield f"data: {json.dumps({'content': msg_val2})}\\n\\n"
+            yield f"data: {json.dumps({'content': msg_val2})}\n\n"
             yield "data: [DONE]\n\n"
             return
 
         if route == "uplink":
             msg_val3 = '[Neural Uplink] Routing to agent network...\\n'
-            yield f"data: {json.dumps({'content': msg_val3})}\\n\\n"
+            yield f"data: {json.dumps({'content': msg_val3})}\n\n"
             agent_response = query_uplink(user_content, messages)
             for chunk in stream_words(agent_response):
                 yield chunk
@@ -894,14 +899,14 @@ def chat():
             if chunk:
                 # Format for SSE - stream chunk by chunk directly
                 # Replace newlines so they don't break SSE format
-                if "\\n" in chunk:
-                    for i, part in enumerate(chunk.split("\\n")):
+                if "\n" in chunk:
+                    for i, part in enumerate(chunk.split("\n")):
                         if part:
-                            yield f"data: {json.dumps({'content': part})}\\n\\n"
-                        if i < len(chunk.split("\\n")) - 1:
-                            yield 'data: {"content": "\\n"}\\n\\n'
+                            yield f"data: {json.dumps({'content': part})}\n\n"
+                        if i < len(chunk.split("\n")) - 1:
+                            yield 'data: {"content": "\n"}\n\n'
                 else:
-                    yield f"data: {json.dumps({'content': chunk})}\\n\\n"
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
                 full_response += chunk
         
         # Save assistant response

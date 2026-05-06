@@ -33,12 +33,14 @@ try:
     from tools.web_fetcher import WebFetcher
     from tools.db_connector import DatabaseConnector
     from tools.git_assistant import GitAssistant
+    from tools.image_generator import ImageGenerator
     
     code_sandbox = CodeSandbox()
     file_manager = FileManager()
     web_fetcher = WebFetcher()
     db_connector = DatabaseConnector()
     git_assistant = GitAssistant()
+    image_generator = ImageGenerator()
 except ImportError as e:
     print(f"[NeuralAI Engine] Import Error: {e}")
     code_sandbox = None
@@ -46,6 +48,7 @@ except ImportError as e:
     web_fetcher = None
     db_connector = None
     git_assistant = None
+    image_generator = None
 
 # Ports
 UPLINK_BASE = "http://localhost"
@@ -325,6 +328,30 @@ async def neuralai_tool_call(tool: str, msg: str) -> AsyncGenerator[str, None]:
     from neuralai_router import extract_tool_params
     params = extract_tool_params(msg, tool)
     
+    if tool == "image_gen":
+        if not image_generator:
+            yield "[Error] Image generator not available."
+            return
+        
+        prompt = params.get("prompt", msg)
+        style = params.get("style", "realistic")
+        
+        yield f"🎨 Generating image: **{prompt}**\n\n"
+        
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, image_generator.generate, prompt, style)
+        
+        if result.get("success"):
+            image_url = result.get("image_url", "")
+            image_path = result.get("image_path", "")
+            
+            yield f"![Generated Image]({image_url})\n\n"
+            yield f"📁 Saved to: `{image_path}`\n"
+        else:
+            yield f"❌ Could not generate image: {result.get('error', 'Unknown error')}\n"
+        return
+
     if tool == "terminal":
         yield "```bash\n"
         async for line in terminal_execute(msg):

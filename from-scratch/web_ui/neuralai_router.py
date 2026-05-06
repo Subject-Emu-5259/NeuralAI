@@ -3,7 +3,7 @@
 # Clean routing logic for NeuralAI
 # - Local model is DEFAULT
 # - Uplink ONLY for heavy tasks
-# - Tools: terminal, code_exec, file_manager, web_fetcher, database, git
+# - Tools: terminal, code_exec, code_gen, image_gen, file_manager, web_fetcher, database, git
 
 from typing import Tuple, Optional, Dict, List
 import re
@@ -11,6 +11,25 @@ import re
 
 # Tool detection patterns
 TOOL_PATTERNS: Dict[str, List[str]] = {
+    # Image generation - highest priority for creative requests
+    "image_gen": [
+        "create an image", "create a image", "create image",
+        "generate an image", "generate a image", "generate image",
+        "make an image", "make a image", "make image",
+        "draw an image", "draw a image", "draw image",
+        "create a picture", "generate a picture", "make a picture",
+        "create a photo", "generate a photo", "make a photo",
+        "create a moon image", "create a sun image", "create a star image",
+        "create an ai image", "generate an ai image", "ai image",
+        "create a drawing", "generate a drawing", "make a drawing",
+        "create artwork", "generate artwork", "make artwork",
+        "create art", "generate art", "make art",
+        "image of", "picture of", "photo of", "drawing of",
+        "show me an image", "show me a picture", "show me a photo",
+        "i want an image", "i want a picture", "i want a photo",
+        "generate me an", "create me an", "make me an"
+    ],
+    
     "terminal": ["shell ", "command ", "bash ", "terminal "],
     
     "code_exec": [
@@ -22,7 +41,7 @@ TOOL_PATTERNS: Dict[str, List[str]] = {
         "execute the script", "run the script", "run code", "execute code"
     ],
     
-    # NEW: Code generation requests - AI should write AND run code
+    # Code generation requests - AI should write AND run code
     "code_gen": [
         "write code", "write a program", "write a script", "write a function",
         "write python", "write javascript", "write js",
@@ -84,6 +103,7 @@ def neuralai_route(msg: str) -> Tuple[str, Optional[str]]:
     Routes:
         ("local", None) → Main SmolLM2 model
         ("uplink", None) → Neural Uplink agent network
+        ("tool", "image_gen") → Image generation
         ("tool", "terminal") → Shell execution
         ("tool", "code_exec") → Code sandbox (run provided code)
         ("tool", "code_gen") → Code generation + execution (AI writes code)
@@ -94,35 +114,34 @@ def neuralai_route(msg: str) -> Tuple[str, Optional[str]]:
     """
     lower = msg.lower().strip()
     
-    # 1. Check for tool triggers FIRST (priority order)
-    # Terminal commands have highest priority
+    # 1. Check for image generation FIRST (highest priority for creative)
+    for pattern in TOOL_PATTERNS["image_gen"]:
+        if pattern in lower:
+            return ("tool", "image_gen")
+    
+    # 2. Terminal commands
     for prefix in TOOL_PATTERNS["terminal"]:
         if lower.startswith(prefix):
             return ("tool", "terminal")
     
-    # Check code generation requests BEFORE code execution
-    # This catches "write code", "you write", etc.
+    # 3. Check code generation requests BEFORE code execution
     for pattern in TOOL_PATTERNS["code_gen"]:
         if pattern in lower:
             return ("tool", "code_gen")
     
-    # Check other tools (order matters for priority)
+    # 4. Check other tools (order matters for priority)
     tool_order = ["git", "database", "web_fetcher", "file_manager", "code_exec"]
     for tool in tool_order:
         for pattern in TOOL_PATTERNS[tool]:
             if pattern in lower:
                 return ("tool", tool)
     
-    # 2. EVERYTHING ELSE → MAIN MODEL (default)
-    # Removing automatic uplink routing based on keywords and length per user request
+    # 5. EVERYTHING ELSE → MAIN MODEL (default)
     return ("local", None)
 
 
 def detect_tool(msg: str) -> Optional[str]:
-    """
-    Detect if a message should trigger a tool.
-    Returns tool name or None.
-    """
+    """Detect if a message should trigger a tool."""
     route, tool = neuralai_route(msg)
     if route == "tool":
         return tool
@@ -130,64 +149,65 @@ def detect_tool(msg: str) -> Optional[str]:
 
 
 def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
-    """
-    Extract parameters for a tool from the message.
-    Returns dict of extracted params.
-    """
+    """Extract parameters for a tool from the message."""
     lower = msg.lower()
     
+    if tool == "image_gen":
+        # Extract the image description
+        prompt = msg
+        # Remove trigger phrases
+        triggers = [
+            "create an image of", "create a image of", "create image of",
+            "generate an image of", "generate a image of", "generate image of",
+            "make an image of", "make a image of", "make image of",
+            "create an image", "generate an image", "make an image",
+            "show me an image of", "show me a image of",
+            "i want an image of", "i want a image of",
+            "generate me an", "create me an", "make me an"
+        ]
+        for trigger in triggers:
+            if trigger in lower:
+                idx = lower.find(trigger)
+                prompt = msg[idx + len(trigger):].strip()
+                break
+        return {"prompt": prompt or msg, "style": "realistic"}
+    
     if tool == "terminal":
-        # Extract the command
         for prefix in TOOL_PATTERNS["terminal"]:
             if lower.startswith(prefix):
                 return {"command": msg[len(prefix):].strip()}
         return {"command": msg}
     
     if tool == "code_exec":
-        # Check for language
         language = "python"
         if "javascript" in lower or "js" in lower:
             language = "javascript"
         
-        # Extract code from message - look for code patterns
-        # Try to find code in backticks first
         code_match = re.search(r'```(?:python|javascript|js)?\s*([\s\S]*?)```', msg)
         if code_match:
             return {"language": language, "code": code_match.group(1).strip()}
         
-        # Try to find code after "code:" or similar
-        code_patterns = [
-            r'code[:\s]+(.+)$',
-            r'run this (?:python|javascript|js)? code[:\s]+(.+)$',
-            r'execute (?:this )?(?:python|javascript|js)? code[:\s]+(.+)$',
-        ]
-        for pattern in code_patterns:
-            match = re.search(pattern, msg, re.IGNORECASE | re.DOTALL)
-            if match:
-                return {"language": language, "code": match.group(1).strip()}
-        
-        # If the message contains "print(" or other code indicators, extract that part
         code_indicators = ['print(', 'console.log(', 'def ', 'function ', 'import ', 'var ', 'let ', 'const ']
         for indicator in code_indicators:
             if indicator in msg:
                 idx = msg.find(indicator)
                 return {"language": language, "code": msg[idx:].strip()}
         
-        # Fallback: return the message minus the trigger words
-        trigger_words = ["run this python code:", "run this javascript code:", "run this js code:",
-                        "run this code:", "execute this code:", "run code:", "execute code:",
-                        "run python", "execute python", "run javascript", "execute javascript"]
-        code = msg
-        for trigger in trigger_words:
+        return {"language": language, "code": msg}
+    
+    if tool == "code_gen":
+        # Extract what code to generate
+        description = msg
+        triggers = ["write code to", "write a program to", "write a script to",
+                    "create a program to", "create a script to", "generate code to"]
+        for trigger in triggers:
             if trigger in lower:
                 idx = lower.find(trigger)
-                code = msg[idx + len(trigger):].strip()
+                description = msg[idx + len(trigger):].strip()
                 break
-        
-        return {"language": language, "code": code}
+        return {"description": description or msg}
     
     if tool == "web_fetcher":
-        # Extract URL
         url_pattern = r'https?://[^\s]+'
         match = re.search(url_pattern, msg)
         if match:
@@ -195,14 +215,12 @@ def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
         return {}
     
     if tool == "git":
-        # Extract git command
         for pattern in TOOL_PATTERNS["git"]:
             if pattern in lower:
                 return {"action": pattern.replace("git ", "").strip()}
         return {"action": "status"}
     
     if tool == "file_manager":
-        # Extract file path or query
         query = msg
         for pattern in TOOL_PATTERNS["file_manager"]:
             if pattern in lower:
@@ -212,7 +230,6 @@ def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
         return {"query": query or msg}
     
     if tool == "database":
-        # Extract SQL if present
         sql_keywords = ["select", "insert", "update", "delete", "create", "drop"]
         for kw in sql_keywords:
             if kw in lower:
@@ -223,13 +240,13 @@ def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
 
 
 def should_use_uplink(msg: str) -> bool:
-    """Legacy compatibility - returns True only for uplink-worthy messages."""
+    """Legacy compatibility."""
     route, _ = neuralai_route(msg)
     return route == "uplink"
 
 
 def strip_terminal_prefix(msg: str) -> str:
-    """Strip terminal prefixes from message to get the actual command."""
+    """Strip terminal prefixes from message."""
     lower = msg.lower()
     for p in TOOL_PATTERNS["terminal"]:
         if lower.startswith(p):
@@ -237,10 +254,11 @@ def strip_terminal_prefix(msg: str) -> str:
     return msg.strip()
 
 
-# Tool descriptions for UI display
 TOOL_DESCRIPTIONS = {
+    "image_gen": "Generate images using AI",
     "terminal": "Execute shell commands",
     "code_exec": "Run Python or JavaScript code safely",
+    "code_gen": "Write and execute code",
     "file_manager": "Read, write, search, and manage files",
     "web_fetcher": "Fetch and parse web content",
     "database": "Query SQLite databases",

@@ -1,0 +1,78 @@
+{
+  "best_global_step": 46,
+  "best_metric": 0.8964722752571106,
+  "best_model_checkpoint": "/home/workspace/Projects/NeuralAI/checkpoints/v2_model/checkpoint-46",
+  "epoch": 2.0,
+  "eval_steps": 500,
+  "global_step": 46,
+  "is_hyper_param_search": false,
+  "is_local_process_zero": true,
+  "is_world_process_zero": true,
+  "log_history": [
+    {
+      "epoch": 0.44077134986225897,
+      "grad_norm": 0.8213895559310913,
+      "learning_rate": 3.6e-05,
+      "loss": 2.1015718460083006,
+      "step": 10
+    },
+    {
+      "epoch": 0.8815426997245179,
+      "grad_norm": 0.7996290922164917,
+      "learning_rate": 7.6e-05,
+      "loss": 1.9393247604370116,
+      "step": 20
+    },
+    {
+      "epoch": 1.0,
+      "eval_loss": 1.6661137342453003,
+      "eval_runtime": 14.6018,
+      "eval_samples_per_second": 2.808,
+      "eval_steps_per_second": 2.808,
+      "step": 23
+    },
+    {
+      "epoch": 1.3085399449035813,
+      "grad_norm": 0.44627174735069275,
+      "learning_rate": 0.000116,
+      "loss": 1.5943522453308105,
+      "step": 30
+    },
+    {
+      "epoch": 1.7493112947658402,
+      "grad_norm": 0.3381010591983795,
+      "learning_rate": 0.00015600000000000002,
+      "loss": 1.1117855072021485,
+      "step": 40
+    },
+    {
+      "epoch": 2.0,
+      "eval_loss": 0.8964722752571106,
+      "eval_runtime": 15.4278,
+      "eval_samples_per_second": 2.658,
+      "eval_steps_per_second": 2.658,
+      "step": 46
+    }
+  ],
+  "logging_steps": 10,
+  "max_steps": 69,
+  "num_input_tokens_seen": 0,
+  "num_train_epochs": 3,
+  "save_steps": 500,
+  "stateful_callbacks": {
+    "TrainerControl": {
+      "args": {
+        "should_epoch_stop": false,
+        "should_evaluate": false,
+        "should_log": false,
+        "should_save": true,
+        "should_training_stop": false
+      },
+      "attributes": {}
+    }
+  },
+  "total_flos": 89965373752320.0,
+  "train_batch_size": 1,
+  "trial_name": null,
+  "trial_params": null
+}

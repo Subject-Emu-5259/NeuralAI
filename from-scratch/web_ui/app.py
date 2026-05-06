@@ -89,7 +89,7 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 # Database path
 DATABASE = BASE_DIR / "neuralai.db"
 
-MODEL_PATH = os.environ.get("MODEL_PATH", str(BASE_DIR.parent.parent / "checkpoints" / "final_model"))
+MODEL_PATH = os.environ.get("MODEL_PATH", str(BASE_DIR.parent.parent / "checkpoints" / "v2_model"))
 MODEL_NAME = os.environ.get("MODEL_NAME", "HuggingFaceTB/SmolLM2-360M-Instruct")
 UPLINK_URL = os.environ.get("UPLINK_URL", "http://localhost:7000")
 PORT = int(os.environ.get("PORT", "5000"))
@@ -716,6 +716,17 @@ except Exception:
 @app.route("/sse-test")
 def sse_test():
     return render_template("sse_test.html")
+
+
+# Serve generated images
+@app.route("/generated_images/<filename>")
+def serve_generated_image(filename):
+    from flask import send_from_directory
+    import os
+    image_dir = "/home/workspace/Images/NeuralAI"
+    if os.path.exists(os.path.join(image_dir, filename)):
+        return send_from_directory(image_dir, filename)
+    return "Image not found", 404
 
 @app.route("/")
 def index():

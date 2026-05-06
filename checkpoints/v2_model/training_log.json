@@ -1,0 +1,10 @@
+{
+  "base_model": "HuggingFaceTB/SmolLM2-360M-Instruct",
+  "training_samples": 363,
+  "validation_samples": 41,
+  "epochs": 3,
+  "learning_rate": 0.0002,
+  "lora_r": 16,
+  "duration_seconds": 1223.216294,
+  "completed": "2026-05-06T15:19:29.963384"
+}

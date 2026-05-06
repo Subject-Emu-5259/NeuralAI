@@ -63,30 +63,45 @@ def load_local_model():
         return
     
     try:
+        import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
+        from peft import PeftModel
         
-        base_model = "HuggingFaceTB/SmolLM2-360M-Instruct"
+        base_model_name = "HuggingFaceTB/SmolLM2-360M-Instruct"
         adapter_path = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "final_model"
         
-        tokenizer = AutoTokenizer.from_pretrained(base_model)
+        print(f"[NeuralAI] Loading tokenizer from {base_model_name}...")
+        tokenizer = AutoTokenizer.from_pretrained(base_model_name)
         tokenizer.pad_token = tokenizer.eos_token
         
-        if adapter_path.exists():
-            model = AutoModelForCausalLM.from_pretrained(
-                str(adapter_path),
-                device_map=None,
-                torch_dtype="auto"
-            )
+        # Load base model
+        print(f"[NeuralAI] Loading base model...")
+        base_model = AutoModelForCausalLM.from_pretrained(
+            base_model_name,
+            torch_dtype=torch.float32,
+            device_map=None,
+            low_cpu_mem_usage=True
+        )
+        
+        # Check if adapter exists (support both .bin and .safetensors)
+        adapter_bin = adapter_path / "adapter_model.bin"
+        adapter_safetensors = adapter_path / "adapter_model.safetensors"
+        
+        if adapter_path.exists() and (adapter_bin.exists() or adapter_safetensors.exists()):
+            print(f"[NeuralAI] Loading LoRA adapter from {adapter_path}...")
+            model = PeftModel.from_pretrained(base_model, str(adapter_path))
+            print(f"[NeuralAI] LoRA adapter loaded successfully!")
         else:
-            model = AutoModelForCausalLM.from_pretrained(
-                base_model,
-                device_map=None,
-                torch_dtype="auto"
-            )
+            print(f"[NeuralAI] No adapter found, using base model only")
+            model = base_model
         
         model.eval()
         model_error = None
+        print(f"[NeuralAI] Model ready! Parameters: {sum(p.numel() for p in model.parameters()):,}")
     except Exception as e:
+        import traceback
+        print(f"[NeuralAI] Error loading model: {e}")
+        traceback.print_exc()
         model = None
         tokenizer = None
         model_error = str(e)

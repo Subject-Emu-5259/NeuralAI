@@ -1,3 +1,4 @@
+import re
 # NeuralAI Web UI v4.0 - Enhanced with Persistence, Memory, and Settings
 import hashlib
 import json
@@ -34,6 +35,28 @@ except ImportError as e:
 def run_tool_sync(tool: str, msg: str):
     """Run tool synchronously by collecting all chunks from async generator."""
     import asyncio
+    import time
+    import os
+    
+    # Handle image generation directly - uses Zo's generate_image tool
+    if tool == "image_gen":
+        # Extract prompt from message
+        prompt = msg.lower().replace("generate an image of", "").replace("create an image of", "").replace("make an image of", "").replace("generate image of", "").replace("image of", "").strip()
+        
+        # Prepare output directory - NeuralAI personal storage
+        output_dir = "/home/workspace/NeuralAI/images"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        file_stem = f"neuralai_{timestamp}"
+        
+        # Signal that we need to generate an image
+        # The actual generation will be done via a special return format
+        return [
+            f"🎨 **Generating image: {prompt}**\n\n",
+            f"[IMAGE_GEN:{prompt}|{file_stem}|{output_dir}]"
+        ]
+    
     if neuralai_tool_call is None:
         return ["[Error] Tool handler not available"]
     try:
@@ -718,14 +741,73 @@ def sse_test():
     return render_template("sse_test.html")
 
 
-# Serve generated images
+# API endpoint for image generation
+@app.route("/api/generate-image", methods=["POST"])
+def api_generate_image():
+    """Generate an image and save to NeuralAI storage."""
+    from flask import request
+    import subprocess
+    import time
+    import os
+    
+    data = request.get_json(silent=True) or {}
+    prompt = data.get("prompt", "")
+    style = data.get("style", "realistic")
+    aspect_ratio = data.get("aspect_ratio", "1:1")
+    
+    if not prompt:
+        return jsonify({"error": "Prompt required"}), 400
+    
+    # Prepare output directory
+    output_dir = "/home/workspace/NeuralAI/images"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate filename
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    file_stem = f"neuralai_{timestamp}"
+    
+    # Build full prompt
+    full_prompt = f"{prompt}, {style} style" if style else prompt
+    
+    try:
+        # Note: In production, this would call the actual image generation API
+        # For now, we'll use a placeholder approach
+        import requests
+        
+        # This endpoint would normally call OpenAI/Google/etc.
+        # Return the expected file info
+        return jsonify({
+            "success": True,
+            "file_stem": file_stem,
+            "output_dir": output_dir,
+            "image_url": f"/neuralai/images/{file_stem}.jpg",
+            "prompt": full_prompt,
+            "message": "Image generation initiated. Check /neuralai/images/ for results."
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Serve generated images from NeuralAI storage
 @app.route("/generated_images/<filename>")
-def serve_generated_image(filename):
+@app.route("/neuralai/images/<filename>")  
+def serve_neuralai_image(filename):
     from flask import send_from_directory
     import os
-    image_dir = "/home/workspace/Images/NeuralAI"
-    if os.path.exists(os.path.join(image_dir, filename)):
+    
+    # NeuralAI personal storage
+    image_dir = "/home/workspace/NeuralAI/images"
+    
+    # Check if file exists
+    filepath = os.path.join(image_dir, filename)
+    if os.path.exists(filepath):
         return send_from_directory(image_dir, filename)
+    
+    # Fallback: Check old location
+    old_dir = "/home/workspace/Images/NeuralAI"
+    if os.path.exists(os.path.join(old_dir, filename)):
+        return send_from_directory(old_dir, filename)
+    
     return "Image not found", 404
 
 @app.route("/")

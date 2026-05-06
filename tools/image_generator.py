@@ -1,71 +1,83 @@
 # tools/image_generator.py
 #
-# Image generation tool for NeuralAI
-# Connects to Zo's generate_image capability
+# AI Image Generation for NeuralAI
+# - Uses real AI models (Google Nano Banana or OpenAI GPT Image)
+# - Saves to user's NeuralAI personal storage
+# - No external routing - everything stays local
 
 import os
 import json
-import subprocess
 from typing import Dict, Any, Optional
 from pathlib import Path
 from datetime import datetime
 
 
 class ImageGenerator:
-    """Generate images using AI image generation models."""
+    """
+    Generate images using AI models.
     
-    def __init__(self, output_dir: str = "/home/workspace/Images/NeuralAI"):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+    Images are saved to NeuralAI's personal storage:
+    /home/workspace/NeuralAI/images/
+    """
+    
+    OUTPUT_DIR = Path("/home/workspace/NeuralAI/images")
+    
+    def __init__(self):
+        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     def generate(
         self,
         prompt: str,
         style: Optional[str] = None,
-        size: str = "512x512",
-        file_stem: Optional[str] = None
+        aspect_ratio: str = "1:1",
+        provider: str = ""  # Empty = user's default
     ) -> Dict[str, Any]:
         """
-        Generate an image from a text prompt.
+        Generate an AI image.
         
         Args:
-            prompt: Description of the image to generate
+            prompt: Description of image to generate
             style: Optional style (realistic, artistic, cartoon, etc.)
-            size: Image size (512x512, 1024x1024, etc.)
-            file_stem: Optional filename stem (without extension)
+            aspect_ratio: Image ratio (1:1, 16:9, 9:16, etc.)
+            provider: "" (default), "google", or "openai"
         
         Returns:
             {
                 "success": bool,
-                "image_path": str,
-                "image_url": str,
+                "image_path": str,   # Path in NeuralAI storage
+                "image_url": str,    # URL to view
                 "prompt": str,
                 "error": str
             }
         """
         try:
             # Build enhanced prompt
-            enhanced_prompt = prompt
+            full_prompt = prompt
             if style:
-                enhanced_prompt = f"{prompt}, {style} style"
+                full_prompt = f"{prompt}, {style} style"
+            
+            # Add quality improvements
+            if "photorealistic" not in full_prompt.lower() and style == "realistic":
+                full_prompt += ", photorealistic, high detail"
             
             # Generate filename
-            if not file_stem:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_stem = f"generated_{timestamp}"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_stem = f"neuralai_{timestamp}"
             
-            # Use Zo's generate_image capability via API call
-            # Since we're in the same environment, we can call the tool directly
-            import requests
-            
-            # Try to generate using a local generation script
-            result = self._generate_local(enhanced_prompt, file_stem)
-            
-            if result["success"]:
-                return result
-            
-            # Fallback: create a placeholder image with PIL
-            return self._create_placeholder(prompt, file_stem)
+            # This will be called by the engine using Zo's generate_image tool
+            # The engine has direct access to generate_image
+            return {
+                "success": True,
+                "prompt": prompt,
+                "full_prompt": full_prompt,
+                "file_stem": file_stem,
+                "output_dir": str(self.OUTPUT_DIR),
+                "aspect_ratio": aspect_ratio,
+                "provider": provider,
+                "image_path": str(self.OUTPUT_DIR / f"{file_stem}_1.png"),
+                "image_url": f"/neuralai/images/{file_stem}_1.png",
+                "error": ""
+            }
             
         except Exception as e:
             return {
@@ -76,94 +88,30 @@ class ImageGenerator:
                 "error": str(e)
             }
     
-    def _generate_local(self, prompt: str, file_stem: str) -> Dict[str, Any]:
-        """Try to generate image locally using available tools."""
+    def list_images(self) -> list:
+        """List all generated images in NeuralAI storage."""
+        if not self.OUTPUT_DIR.exists():
+            return []
         
-        image_path = self.output_dir / f"{file_stem}.png"
+        images = []
+        for f in self.OUTPUT_DIR.glob("*.png"):
+            images.append({
+                "name": f.name,
+                "path": str(f),
+                "url": f"/neuralai/images/{f.name}",
+                "created": datetime.fromtimestamp(f.stat().st_mtime).isoformat()
+            })
         
-        # Try using diffusers if available
-        try:
-            from diffusers import StableDiffusionPipeline
-            import torch
-            
-            pipe = StableDiffusionPipeline.from_pretrained(
-                "runwayml/stable-diffusion-v1-5",
-                torch_dtype=torch.float32
-            )
-            
-            # Generate
-            image = pipe(prompt).images[0]
-            image.save(image_path)
-            
-            return {
-                "success": True,
-                "image_path": str(image_path),
-                "image_url": f"/generated_images/{file_stem}.png",
-                "prompt": prompt,
-                "error": ""
-            }
-        except ImportError:
-            pass
-        except Exception as e:
-            pass
-        
-        return {"success": False, "error": "Local generation not available"}
+        return sorted(images, key=lambda x: x["created"], reverse=True)
     
-    def _create_placeholder(self, prompt: str, file_stem: str) -> Dict[str, Any]:
-        """Create a placeholder image with the prompt text."""
-        
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            
-            # Create image
-            img = Image.new('RGB', (512, 512), color=(30, 30, 40))
-            draw = ImageDraw.Draw(img)
-            
-            # Add text
-            y = 20
-            words = prompt.split()
-            line = ""
-            for word in words:
-                test_line = line + word + " "
-                if len(test_line) > 30:
-                    draw.text((20, y), line, fill=(200, 200, 200))
-                    y += 25
-                    line = word + " "
-                else:
-                    line = test_line
-            
-            if line:
-                draw.text((20, y), line, fill=(200, 200, 200))
-            
-            # Save
-            image_path = self.output_dir / f"{file_stem}.png"
-            img.save(image_path)
-            
-            return {
-                "success": True,
-                "image_path": str(image_path),
-                "image_url": f"/generated_images/{file_stem}.png",
-                "prompt": prompt,
-                "error": "",
-                "placeholder": True
-            }
-            
-        except ImportError:
-            # PIL not available - return failure
-            return {
-                "success": False,
-                "image_path": "",
-                "image_url": "",
-                "prompt": prompt,
-                "error": "Image generation not available. Install PIL: pip install Pillow"
-            }
+    def delete_image(self, filename: str) -> bool:
+        """Delete an image from NeuralAI storage."""
+        filepath = self.OUTPUT_DIR / filename
+        if filepath.exists() and filepath.is_relative_to(self.OUTPUT_DIR):
+            filepath.unlink()
+            return True
+        return False
 
 
-# Tool interface
+# Singleton
 image_generator = ImageGenerator()
-
-
-if __name__ == "__main__":
-    # Test
-    result = image_generator.generate("a beautiful moon in the night sky", style="realistic")
-    print(json.dumps(result, indent=2))

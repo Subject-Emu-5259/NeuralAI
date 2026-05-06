@@ -83,6 +83,19 @@ TOOL_PATTERNS: Dict[str, List[str]] = {
         "show tables", "get schema", "database schema"
     ],
     
+    
+    "voice_transcribe": [
+        "transcribe", "voice note", "audio file", "transcription",
+        "convert to text", "speech to text", "voice to text",
+        "what did they say", "listen to this"
+    ],
+    
+    "research": [
+        "research", "search for", "look up", "find information",
+        "what is", "tell me about", "explain", "investigate",
+        "search the web", "web search", "google"
+    ],
+
     "git": [
         "git status", "git commit", "git push", "git pull", "git branch",
         "git log", "git diff", "git add", "git stash",

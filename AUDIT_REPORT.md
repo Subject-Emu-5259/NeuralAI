@@ -1,7 +1,7 @@
 # 🧪 NeuralAI Audit Report
 
-**Date:** 2026-04-29  
-**Version:** 3.0  
+**Date:** 2026-04-29\
+**Version:** 3.0\
 **Auditor:** Zo Computer Automated Testing
 
 ---
@@ -9,7 +9,7 @@
 ## 🎨 Frontend Components
 
 | Component | Status | Notes |
-|-----------|--------|-------|
+| --- | --- | --- |
 | Export Button | ✅ PASS | Triggers download |
 | Dark Mode Toggle | ✅ PASS | Theme switches correctly |
 | Settings Button | ✅ PASS | Opens settings modal |
@@ -29,14 +29,14 @@
 ## 🔌 API Endpoints
 
 | Endpoint | Status | Response |
-|----------|--------|----------|
+| --- | --- | --- |
 | GET /api/health | ✅ PASS | `{"ok": true, "version": "3.0"}` |
 | GET /api/status | ✅ PASS | Returns model & system info |
 | POST /api/chat | ✅ PASS | SSE streaming works |
 | GET /api/files | ✅ PASS | Lists indexed files |
 | POST /api/terminal/create | ✅ PASS | Creates PTY session |
-| POST /api/terminal/<id>/write | ✅ PASS | Writes to terminal |
-| GET /api/terminal/<id>/read | ✅ PASS | Reads terminal output |
+| POST /api/terminal//write | ✅ PASS | Writes to terminal |
+| GET /api/terminal//read | ✅ PASS | Reads terminal output |
 | GET /api/privacy | ✅ PASS | Returns privacy HTML |
 | GET /uplink/health | ✅ PASS | Uplink core healthy |
 | GET /uplink/agents | ✅ PASS | Lists agents |
@@ -46,7 +46,7 @@
 ## 📊 System Status
 
 | Metric | Value |
-|--------|-------|
+| --- | --- |
 | Frontend Components Tested | 13 |
 | API Endpoints Tested | 10 |
 | **Total Tests Passed** | **23/23** |

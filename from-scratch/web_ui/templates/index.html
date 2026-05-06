@@ -2539,6 +2539,9 @@ body.dark-mode .onboarding-close:hover {
 
 <!-- Bottom input bar -->
 <section class="chat-input-bar">
+  <div id="toolIndicator" style="display:none; position:absolute; top:-36px; left:20px; background:linear-gradient(135deg, #3b82f6, #8b5cf6); color:#fff; padding:6px 12px; border-radius:12px; font-size:12px; font-weight:600; box-shadow:0 4px 10px rgba(139,92,246,0.3); z-index:10;">
+    <span id="toolIcon">⚡</span> Tool: <span id="toolName"></span>
+  </div>
   <textarea id="chatInput" rows="1" placeholder="Type a message for NeuralAI..."></textarea>
   <button id="sendBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 4px 14px rgba(239,68,68,0.3);">Send</button>
 </section>
@@ -2575,8 +2578,42 @@ const uplinkToggle = document.getElementById('uplinkToggle');
 const queryInput = document.getElementById('queryInput');
 const searchBtn = document.getElementById('searchBtn');
 const welcomeScreen = document.getElementById('welcomeScreen');
+const toolIndicator = document.getElementById('toolIndicator');
+const toolNameEl = document.getElementById('toolName');
+const toolIconEl = document.getElementById('toolIcon');
 
 function escHtml(text) { return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Tool Detection Patterns
+const TOOL_PATTERNS = {
+    terminal: /^(shell|command|bash|terminal|run|execute)\s+/i,
+    code_gen: /write code|write a program|write a script|write a function|write python|write javascript|write js|create a program|create a script|create code|generate code|generate a program|generate a script|make a program|make a script|make code|build a program|build a script|build code|code for|program for|script for|you write|write your own|you do it|u do it|u write|you generate|write a|write some|write the|can you write|could you write|please write|i want you to write|help me write|create a|create some|make a|make some|generate a|generate some|build a|write me|write us|write something/i,
+    code_exec: /run this code|execute this code|run the code|run this python|execute this python|run python code|run python|execute python|run this javascript|execute this javascript|run js code|run js|execute js|execute javascript|execute the script|run the script|run code|execute code/i,
+    file_manager: /search (files|folder)|organize files|rename files|read file|write file|create file|delete file|list files|show files|find files|file operations|open file|edit file|list directory|show directory|what files|search for|find in files|files/i,
+    web_fetcher: /fetch (this |the )?url|get content from|scrape this page|scrape url|fetch page|get webpage|fetch website|extract from url|read website|download page|get page content|fetch/i,
+    database: /query (the )?database|connect to (postgres|sqlite|mysql)|sqlite query|run sql|execute sql|database operations|db query|show tables|get schema|database schema/i,
+    git: /git (status|commit|push|pull|branch|log|diff|add|stash)|create a pr|create pull request|git pr|create issue|git issue/i,
+};
+
+const TOOL_DISPLAY = {
+    terminal: { name: 'Terminal Execution', icon: '💻' },
+    code_gen: { name: 'Code Generator', icon: '✨' },
+    code_exec: { name: 'Code Sandbox', icon: '⚡' },
+    file_manager: { name: 'File Manager', icon: '📁' },
+    web_fetcher: { name: 'Web Fetcher', icon: '🌐' },
+    database: { name: 'Database Connector', icon: '🗄️' },
+    git: { name: 'Git Assistant', icon: '🐙' }
+};
+
+function detectTool(message) {
+    const lower = message.toLowerCase().trim();
+    for (const [tool, pattern] of Object.entries(TOOL_PATTERNS)) {
+        if (pattern.test(lower)) {
+            return tool;
+        }
+    }
+    return null;
+}
 
 // Strip ANSI escape codes and terminal control sequences from terminal output
 function stripAnsi(text) {
@@ -2830,7 +2867,22 @@ function updateUplinkUI(connected) {
 chatInput.addEventListener('input', () => {
   chatInput.style.height = 'auto';
   chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-  sendBtn.disabled = !chatInput.value.trim() || isStreaming;
+  const val = chatInput.value.trim();
+  sendBtn.disabled = !val || isStreaming;
+  
+  // Tool detection UI
+  if (val) {
+    const tool = detectTool(val);
+    if (tool && TOOL_DISPLAY[tool]) {
+      toolIndicator.style.display = 'block';
+      toolNameEl.textContent = TOOL_DISPLAY[tool].name;
+      toolIconEl.textContent = TOOL_DISPLAY[tool].icon;
+    } else {
+      toolIndicator.style.display = 'none';
+    }
+  } else {
+    toolIndicator.style.display = 'none';
+  }
 });
 
 chatInput.addEventListener('keydown', e => {
@@ -2870,6 +2922,7 @@ async function sendMsg() {
   chatInput.value = '';
   chatInput.style.height = 'auto';
   sendBtn.disabled = true;
+  toolIndicator.style.display = 'none';
 
   addMsg('user', msg);
   conversation.push({ role: 'user', content: msg });

@@ -39,7 +39,7 @@ This roadmap outlines the expansion of NeuralAI from a 360M parameter local mode
 ### 1.1 Why Tools First?
 
 | Impact | Training Data | Tools |
-|--------|---------------|-------|
+| --- | --- | --- |
 | User-visible value | Low (minor quality improvement) | **High (new capabilities)** |
 | Time to implement | 2 weeks | 1-2 weeks each |
 | Dependencies | None | None |
@@ -64,6 +64,7 @@ class CodeSandbox:
 ```
 
 **Features:**
+
 - Safe execution in sandboxed environment
 - Timeout protection
 - Output capture (stdout/stderr)
@@ -90,6 +91,7 @@ class FileManager:
 ```
 
 **Features:**
+
 - Search by content or filename
 - Read/write/create/delete files
 - Batch operations
@@ -116,6 +118,7 @@ class WebFetcher:
 ```
 
 **Features:**
+
 - Fetch and parse HTML
 - Extract text, links, images
 - Summarize content with local model
@@ -143,6 +146,7 @@ class DatabaseConnector:
 ```
 
 **Features:**
+
 - SQLite (built-in, no setup)
 - PostgreSQL support
 - Query execution with results
@@ -172,6 +176,7 @@ class GitAssistant:
 ```
 
 **Features:**
+
 - Git status, log, diff
 - Stage/commit/push
 - Branch management
@@ -202,13 +207,21 @@ function detectTool(message) {
 ### 1.4 Implementation Checklist
 
 - [ ] Create `tools/` directory
+
 - [ ] Implement CodeSandbox with timeout protection
+
 - [ ] Implement FileManager with search
+
 - [ ] Implement WebFetcher with parsing
+
 - [ ] Implement DatabaseConnector (SQLite first)
+
 - [ ] Implement GitAssistant using `subprocess`
-- [ ] Update `neuralai_router.py` with new tool routes
+
+- [ ] Update `file neuralai_router.py` with new tool routes
+
 - [ ] Add tool detection to chat UI
+
 - [ ] Test each tool independently
 
 ---
@@ -412,15 +425,15 @@ def train_dpo(model, train_dataset, output_dir):
 
 ### 4.3 Data Quality Checks
 
-- [ ] Validate JSONL format
+- [ ]  Validate JSONL format
 
-- [ ] Check for duplicate prompts
+- [ ]  Check for duplicate prompts
 
-- [ ] Verify response quality (manual review)
+- [ ]  Verify response quality (manual review)
 
-- [ ] Balance categories (avoid overfitting)
+- [ ]  Balance categories (avoid overfitting)
 
-- [ ] Add diverse system prompts
+- [ ]  Add diverse system prompts
 
 ---
 

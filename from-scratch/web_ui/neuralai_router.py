@@ -113,23 +113,8 @@ def neuralai_route(msg: str) -> Tuple[str, Optional[str]]:
             if pattern in lower:
                 return ("tool", tool)
     
-    # 2. Uplink ONLY for heavy tasks
-    uplink_keywords = [
-        "research", "analyze", "debug", "explain deeply",
-        "worldbuild", "simulate", "generate dataset",
-        "compare", "break down", "step by step",
-        "investigate", "architecture", "design a system",
-        "multi-step", "pipeline", "workflow"
-    ]
-    
-    if any(k in lower for k in uplink_keywords):
-        return ("uplink", None)
-    
-    # 3. Long messages → Uplink
-    if len(msg) > 200:
-        return ("uplink", None)
-    
-    # 4. EVERYTHING ELSE → MAIN MODEL (default)
+    # 2. EVERYTHING ELSE → MAIN MODEL (default)
+    # Removing automatic uplink routing based on keywords and length per user request
     return ("local", None)
 
 

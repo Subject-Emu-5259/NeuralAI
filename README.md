@@ -1,6 +1,18 @@
 # 🧠 NeuralAI
 
-![License](https://img.shields.io/badge/License-MIT-blue) ![Python](https://img.shields.io/badge/Python-3.10+-green) ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red) ![Status](https://img.shields.io/badge/Status-Production-green)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+ 
+
+![Python](https://img.shields.io/badge/Python-3.10+-green)
+
+ 
+
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red)
+
+ 
+
+![Status](https://img.shields.io/badge/Status-Production-green)
 
 **A production-ready AI assistant built from scratch using PyTorch and Hugging Face transformers.**
 
@@ -11,6 +23,7 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 ## 🚀 Roadmap v5.0
 
 **Coming Soon:** NeuralAI v5.0 with major expansions:
+
 - **Training Data:** 347 → 1000+ samples
 - **DPO Alignment:** Better response quality through preference optimization
 - **GPU Inference:** 10x faster responses with CUDA acceleration
@@ -24,8 +37,9 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 ## ✨ Features & Capabilities
 
 ### 🤖 AI Chat
+
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Local LLM** | SmolLM2-360M-Instruct, fine-tuned with QLoRA |
 | **Streaming** | Word-by-word SSE streaming responses |
 | **Memory** | Full conversation context per session |
@@ -33,8 +47,9 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 | **Markdown** | Bold, italic, lists, inline code |
 
 ### 📄 Document Intelligence (RAG)
+
 | Capability | Description |
-|---|---|
+| --- | --- |
 | **File Support** | PDF, DOCX, DOC, TXT, MD |
 | **Semantic Search** | ChromaDB vector storage, `all-MiniLM-L6-v2` embeddings |
 | **Chunking** | 500 chars per chunk, 80 char overlap |
@@ -42,8 +57,9 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 | **File Chips** | Attached files shown on messages |
 
 ### 💻 Integrated Terminal
+
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Persistent PTY** | Real bash shell via WebSocket/Flask |
 | **Session Persistence** | Terminal survives tab switches |
 | **Custom Commands** | `neural <msg>` — chat with AI from terminal |
@@ -51,22 +67,25 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 | **Actions** | Clear, Restart, Kill session |
 
 ### 🌐 Neural Uplink (Agent Network)
+
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Baltimore Node** | 4 AI agents: Dialog, Data, Ops, Worldbuilder |
 | **Hybrid Routing** | Complex tasks automatically routed to agents |
 | **Auto-detection** | Keywords like "research", "analyze", "debug" trigger uplink |
 | **Parallel Agents** | 4 agents handle specialized sub-tasks |
 
 ### 🧠 Reasoning & Analysis
+
 - **Concepts**: Machine learning, transformers, algorithms, data structures
 - **Math**: Arithmetic, algebra, calculus explanations
 - **Logic**: Problem solving, step-by-step reasoning
 - **Comparison**: Technology analysis, pros/cons, recommendations
 
 ### 🛠️ Coding & Development
+
 | Capability | Languages | Features |
-|---|---|---|
+| --- | --- | --- |
 | **Code Generation** | Python, JavaScript, SQL, Go, Rust, HTML/CSS | Functions, classes, scripts, APIs |
 | **Code Explanation** | Any language | Line-by-line breakdown, pattern identification |
 | **Debugging** | Python, JS, SQL | Error analysis, fix suggestions |
@@ -80,8 +99,9 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 NeuralAI v4.0 introduces full persistence with SQLite:
 
 ### 🗄️ Database Storage
+
 | Table | Purpose |
-|---|---|
+| --- | --- |
 | **conversations** | Chat history with titles and timestamps |
 | **messages** | Individual messages linked to conversations |
 | **user_settings** | Persistent user preferences |
@@ -89,8 +109,9 @@ NeuralAI v4.0 introduces full persistence with SQLite:
 | **custom_rules** | User-defined rules for AI behavior |
 
 ### 💬 Conversation Management
+
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **List Conversations** | View all past chats with titles |
 | **Create New** | Start fresh conversations |
 | **Rename** | Custom titles for each chat |
@@ -98,15 +119,17 @@ NeuralAI v4.0 introduces full persistence with SQLite:
 | **History** | Full message history per conversation |
 
 ### 🧠 Persistent Memory
+
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Memory Facts** | Store facts about user that persist across sessions |
 | **Categories** | Organize facts by category |
 | **Auto-injection** | Facts automatically included in system prompt |
 
 ### ⚙️ User Settings
+
 | Setting | Description |
-|---|---|
+| --- | --- |
 | **model_name** | Active model selection |
 | **model_temperature** | Response randomness (0-1) |
 | **model_max_tokens** | Max response length |
@@ -118,8 +141,9 @@ NeuralAI v4.0 introduces full persistence with SQLite:
 ## 🔄 New Endpoints (v4.0)
 
 ### Conversation Management
+
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/api/conversations` | GET | List all conversations |
 | `/api/conversations` | POST | Create new conversation |
 | `/api/conversations/<id>` | GET | Get conversation with messages |
@@ -128,8 +152,9 @@ NeuralAI v4.0 introduces full persistence with SQLite:
 | `/api/conversations/<id>/messages` | POST | Add message to conversation |
 
 ### Settings & Memory
+
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/api/settings` | GET | Get all user settings |
 | `/api/settings` | POST | Update user settings |
 | `/api/settings/<key>` | GET | Get specific setting |
@@ -145,7 +170,7 @@ NeuralAI v4.0 introduces full persistence with SQLite:
 
 ## 🏗️ Architecture
 
-```
+```markdown
 User Input
   │
   ├─ Chat Tab ──── SmolLM2-360M-Instruct (local CPU inference)
@@ -158,7 +183,7 @@ User Input
 ```
 
 | Component | Details |
-|---|---|
+| --- | --- |
 | **Base Model** | HuggingFaceTB/SmolLM2-360M-Instruct |
 | **Fine-tuning** | QLoRA (4-bit NF4, rank=16, alpha=32) |
 | **Embedding** | all-MiniLM-L6-v2 (384 dim) |
@@ -190,7 +215,7 @@ python app.py
 
 ## 📁 Project Structure
 
-```
+```markdown
 NeuralAI-from-scratch/
 ├── README.md              ← This file
 ├── SOCIAL.md              ← Social media preview & branding
@@ -223,7 +248,7 @@ NeuralAI-from-scratch/
 **Web UI:** https://neural-deandrewharris.zocomputer.io
 
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/` | GET | Full UI (Chat + Terminal tabs) |
 | `/api/chat` | POST | Stream chat response (SSE) |
 | `/api/upload` | POST | Upload PDF/DOCX/TXT/MD for RAG |
@@ -239,7 +264,7 @@ NeuralAI-from-scratch/
 ## 🔬 Training Details
 
 | Metric | Value |
-|---|---|
+| --- | --- |
 | **Base Model** | SmolLM2-360M-Instruct (360M params) |
 | **Method** | QLoRA — 4-bit NF4 quantization |
 | **LoRA Rank** | 16 |
@@ -260,6 +285,7 @@ NeuralAI-from-scratch/
 ## ⚙️ API Reference
 
 ### `POST /api/chat`
+
 ```json
 {
   "prompt": "Write fibonacci in Python",
@@ -269,14 +295,17 @@ NeuralAI-from-scratch/
   "file_ids": ["abc123"]
 }
 ```
+
 Response: Server-Sent Events (SSE) stream of `{"content": "word "}` chunks.
 
 ### `POST /api/upload`
+
 - `Content-Type: multipart/form-data`
 - Field: `file` (PDF/DOCX/DOC/TXT/MD, max 16MB)
 - Response: `{"success": true, "filename": "...", "file_id": "...", "chunks": N}`
 
 ### `GET /api/status`
+
 ```json
 {
   "model": "HuggingFaceTB/SmolLM2-360M-Instruct",
@@ -294,7 +323,7 @@ Response: Server-Sent Events (SSE) stream of `{"content": "word "}` chunks.
 ## 🛡️ Safety & Limitations
 
 - NeuralAI may produce inaccurate information — always verify critical outputs
-- RAG context is limited to top-4 retrieved chunks (max ~2000 chars)
+- RAG context is limited to top-4 retrieved chunks (max \~2000 chars)
 - Model is 360M params — less capable than large models on complex reasoning
 - CPU inference is slower than GPU — expect 10-20 sec for typical responses
 
@@ -306,15 +335,11 @@ MIT License — free to use, modify, and commercialize.
 
 ---
 
-<div align="center">
-
 **Built with ❤️ by [Subject-Emu-5259](https://github.com/Subject-Emu-5259)**
 
 **Project is owned, Made and Built by DeAndrew P Harris a College Student of Maestro College for AI Engineering**
 
 *Last Updated: April 30, 2026 | Version: 4.0 | Status: Production* 🟢
-
-</div>
 
 ---
 
@@ -323,13 +348,15 @@ MIT License — free to use, modify, and commercialize.
 NeuralAI now features an upgraded terminal with multi-shell support:
 
 ### 🖥️ Multi-Shell Support
+
 | Shell | Prompt | Use Case |
-|---|---|---|
+| --- | --- | --- |
 | **Bash** | `$` | System commands, file operations |
 | **Python** | `>>>` | Quick scripts, data analysis |
 | **Node.js** | `>` | JavaScript runtime, npm packages |
 
 ### ⌨️ Terminal Features
+
 - **Tab-based switching** between Bash, Python, and Node.js
 - **Command shortcuts**: `ls -la`, `git status`, `pip list`, `npm -v`
 - **Persistent sessions** across tab switches
@@ -337,8 +364,9 @@ NeuralAI now features an upgraded terminal with multi-shell support:
 - **Color-coded output**: Errors (red), Success (green), Info (blue)
 
 ### 🔧 Terminal API
+
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/api/terminal/create` | POST | Create PTY session |
 | `/api/terminal/<id>/write` | POST | Send input to PTY |
 | `/api/terminal/<id>/read` | GET | Read PTY output |
@@ -352,15 +380,17 @@ NeuralAI now features an upgraded terminal with multi-shell support:
 New unified routing engine for intelligent task distribution:
 
 ### 📊 Smart Routing
+
 | Trigger | Route | Description |
-|---|---|---|
+| --- | --- | --- |
 | Simple questions | Local Model | Fast, direct responses |
 | "research", "analyze", "debug" | Neural Uplink | Parallel agent processing |
 | "run ", "execute ", "shell " | Terminal Tool | Command execution |
-| Messages > 200 chars | Neural Uplink | Complex task handling |
+| Messages &gt; 200 chars | Neural Uplink | Complex task handling |
 
 ### 🔀 Routing Logic
-```
+
+```markdown
 User Message
     │
     ├─ Tool Check ──── "run/execute/shell" → Terminal Execution
@@ -371,6 +401,7 @@ User Message
 ```
 
 ### 🌐 Neural Uplink Integration
+
 - **4 Parallel Agents**: Dialog, Data, Ops, Worldbuilder
 - **Auto-registration** on startup
 - **Health monitoring** via `/api/status`
@@ -381,12 +412,14 @@ User Message
 ## 🎨 UI Upgrades v3.0
 
 ### 📁 File Management
+
 - **Files tab** with grid view
 - **Upload/delete** documents
 - **Index tracking** for RAG
 - **File chips** on messages
 
 ### ⚙️ Settings Panel
+
 - **Model info**: Name, type, device
 - **RAG status**: Active/Inactive
 - **Uplink status**: Connected/Offline
@@ -394,6 +427,7 @@ User Message
 - **Version** display
 
 ### 🎯 Quick Actions
+
 - **Prompt cards**: "Explain ML", "Write code", "Brainstorm", "Summarize"
 - **Mode tabs**: All, Chat, Files, System
 - **Keyboard shortcuts**: Enter to send
@@ -403,18 +437,21 @@ User Message
 ## 🔄 New Endpoints
 
 ### File Management
+
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/api/files` | GET | List all indexed files with IDs |
 | `/api/files/<id>` | DELETE | Delete file from index and disk |
 
 ### Status & Health
+
 | Endpoint | Method | Description |
-|---|---|---|
+| --- | --- | --- |
 | `/api/health` | GET | Quick health check |
 | `/api/status` | GET | Full system status |
 
 ### Enhanced Chat
+
 ```json
 {
   "prompt": "Research machine learning",
@@ -430,7 +467,7 @@ User Message
 
 ## 📦 New Files
 
-```
+```markdown
 web_ui/
 ├── neuralai_engine.py    ← Unified routing engine
 ├── neuralai_router.py    ← Task router logic
@@ -443,12 +480,8 @@ web_ui/
 
 ---
 
-<div align="center">
-
 **Built with ❤️ by [Subject-Emu-5259](https://github.com/Subject-Emu-5259)**
 
 **Project is owned, Made and Built by DeAndrew P Harris a College Student of Maestro College for AI Engineering**
 
 *Last Updated: April 30, 2026 | Version: 4.0 | Status: Production* 🟢
-
-</div>

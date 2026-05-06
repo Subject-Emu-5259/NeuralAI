@@ -33,7 +33,8 @@ async def handle_task(request):
             async with sess.post("http://localhost:5000/api/chat", json={
                 "prompt": goal,
                 "messages": context.get("conversation", []),
-                "max_tokens": 256
+                "max_tokens": 256,
+                "force_local": True
             }, timeout=aiohttp.ClientTimeout(total=60)) as resp:
                 if resp.status == 200:
                     # Read SSE stream

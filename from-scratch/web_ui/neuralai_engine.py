@@ -94,7 +94,50 @@ def load_local_model():
 
 class LocalModel:
     """Local model wrapper."""
-    
+
+    def generate_sync_stream(self, prompt: str, max_new_tokens: int = 256):
+        """Generate text from local model using true streaming via TextIteratorStreamer."""
+        load_local_model()
+        
+        if model is None or tokenizer is None:
+            text = f"[Local Model] I'm ready but the model isn't loaded. Your question: {prompt[:100]}..."
+            for ch in text:
+                yield ch
+            return
+            
+        try:
+            from transformers import TextIteratorStreamer
+            import threading
+            import torch
+            
+            if not prompt.startswith("<|im_start|>"):
+                full_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            else:
+                full_prompt = prompt
+            
+            inputs = tokenizer(full_prompt, return_tensors="pt")
+            
+            streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+            
+            generation_kwargs = dict(
+                **inputs,
+                streamer=streamer,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.95,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+            
+            thread = threading.Thread(target=model.generate, kwargs=generation_kwargs)
+            thread.start()
+            
+            for new_text in streamer:
+                yield new_text
+                
+        except Exception as e:
+            yield f"[Model Error] {str(e)}"
+
     async def generate(self, prompt: str, max_new_tokens: int = 256, stream: bool = True) -> AsyncGenerator[str, None]:
         """Generate text from local model."""
         load_local_model()

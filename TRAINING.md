@@ -7,12 +7,12 @@
 ## 📈 Training Results
 
 | Metric | Value |
-|---|---|
+| --- | --- |
 | **Final Loss** | 0.040 |
 | **Loss Reduction** | 98% from baseline |
 | **Training Samples** | 347 |
 | **Validation Split** | 20% (69 samples) |
-| **Training Time** | ~45 min (Colab T4 GPU) |
+| **Training Time** | \~45 min (Colab T4 GPU) |
 | **Perplexity** | Tracked per epoch |
 | **Hardware** | NVIDIA T4 (Google Colab) |
 
@@ -21,7 +21,7 @@
 ## 🧠 Dataset Breakdown (347 samples)
 
 | Category | Count | Topics |
-|---|---|---|
+| --- | --- | --- |
 | **Coding** | 80 | Python, JavaScript, SQL, REST APIs, debugging, code review |
 | **ML/AI** | 45 | Transformers, RAG, fine-tuning, NLP, neural networks |
 | **Data Science** | 40 | Pandas, NumPy, visualization, statistics, data cleaning |
@@ -70,7 +70,7 @@ train_validation_split = 0.2
 ## 📉 Loss Progression
 
 | Epoch | Train Loss | Val Loss | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | 2.10 | 0.85 | Warmup complete |
 | 2 | 0.65 | 0.18 | Rapid learning phase |
 | 3 | 0.12 | 0.04 | Convergence |
@@ -81,7 +81,7 @@ train_validation_split = 0.2
 
 ## 🔧 Training Pipeline
 
-```
+```markdown
 1. Data Preparation
    └── train.jsonl (347 JSON samples, ChatML format)
 
@@ -121,7 +121,7 @@ train_validation_split = 0.2
 ## 🚨 Colab Issues Fixed (For Reference)
 
 | Error | Fix |
-|---|---|
+| --- | --- |
 | `output.input_ids[..., -1]` shape mismatch | Used `attn_implementation="eager"` |
 | SDPA `torch.compile` compatibility | Added `torch.compile` fallback |
 | Unused column removal crash | Set `remove_unused_columns=False` |
@@ -132,7 +132,7 @@ train_validation_split = 0.2
 
 ## 📦 Dependencies
 
-```
+```markdown
 torch>=2.0
 transformers>=4.40
 peft>=0.10

@@ -644,12 +644,23 @@ def build_prompt(messages: list[dict], user_content: str, doc_context: str) -> s
     return "\n\n".join(prompt)
 
 
-def answer_with_model(messages: list[dict], user_content: str, doc_context: str, max_new_tokens: int, temperature: float) -> str:
-    # Skip model loading - use fallback response
-    base = "I'm online and ready to help! The local model is currently unavailable due to memory constraints."
-    if doc_context:
-        return base + f" I found some document context but can't process it right now. Your message: {user_content}"
-    return base + f" You said: {user_content}"
+def answer_with_model_stream(messages: list[dict], user_content: str, doc_context: str, max_new_tokens: int, temperature: float):
+    """
+    Yields tokens from the local model directly.
+    """
+    try:
+        from neuralai_engine import local_model
+        
+        full_formatted_prompt = build_prompt(messages, user_content, doc_context)
+        
+        for token in local_model.generate_sync_stream(
+            full_formatted_prompt, 
+            max_new_tokens=max_new_tokens
+        ):
+            yield token
+            
+    except Exception as e:
+        yield f"I'm online, but the local engine encountered an error: {e}. You said: {user_content}"
 
 
 def stream_words(text: str):
@@ -665,7 +676,7 @@ def stream_words(text: str):
                 time.sleep(0.005)
         # Add newline after each line except the last empty one
         if i < len(lines) - 1:
-            yield f"data: {json.dumps({'content': '\\n'})}\n\n"
+            yield 'data: {"content": "\\n"}\\n\\n'
 
 
 INDEXED_FILES = load_registry()
@@ -694,11 +705,23 @@ def status():
     # Check if Uplink Gateway (port 8000) is healthy
     uplink_status = "offline"
     try:
-        r = requests.get("http://localhost:8000/health", timeout=1)
-        if r.status_code == 200:
-            uplink_status = "connected"
+        # Check gateway first
+        gateway_resp = requests.get("http://localhost:8000/health", timeout=1)
+        if gateway_resp.status_code == 200:
+            # Check if it can reach the core
+            core_resp = requests.get("http://localhost:7000/health", timeout=1)
+            if core_resp.status_code == 200:
+                uplink_status = "connected"
+            else:
+                uplink_status = "gateway_only"
     except:
-        pass
+        # Try direct core check as fallback
+        try:
+            core_resp = requests.get("http://localhost:7000/health", timeout=1)
+            if core_resp.status_code == 200:
+                uplink_status = "uplink_only"
+        except:
+            pass
 
     return jsonify(
         {
@@ -778,6 +801,7 @@ def chat():
     messages = data.get("messages", []) or []
     prompt_only = data.get("prompt", "")
     conv_id = data.get("conversation_id")  # NEW: conversation ID for persistence
+    force_local = data.get("force_local", False)
     
     # Get settings from DB
     db = get_db()
@@ -821,17 +845,23 @@ def chat():
             db_inner.commit()
 
         # NEW ROUTING: Use clean router
-        route, tool = neuralai_route(user_content)
+        if force_local:
+            route, tool = "local", None
+        else:
+            route, tool = neuralai_route(user_content)
 
         if route == "tool" and tool == "terminal":
             cmd = strip_terminal_prefix(user_content)
-            yield f"data: {json.dumps({'content': f'[Terminal] Executing: {cmd}\\n'})}\n\n"
-            yield f"data: {json.dumps({'content': 'Use the Terminal tab for shell commands.\\n'})}\n\n"
+            msg_val = f'[Terminal] Executing: {cmd}\\n'
+            yield f"data: {json.dumps({'content': msg_val})}\\n\\n"
+            msg_val2 = 'Use the Terminal tab for shell commands.\\n'
+            yield f"data: {json.dumps({'content': msg_val2})}\\n\\n"
             yield "data: [DONE]\n\n"
             return
 
         if route == "uplink":
-            yield f"data: {json.dumps({'content': '[Neural Uplink] Routing to agent network...\\n'})}\n\n"
+            msg_val3 = '[Neural Uplink] Routing to agent network...\\n'
+            yield f"data: {json.dumps({'content': msg_val3})}\\n\\n"
             agent_response = query_uplink(user_content, messages)
             for chunk in stream_words(agent_response):
                 yield chunk
@@ -855,9 +885,21 @@ def chat():
 
         # DEFAULT: Local model
         doc_context = build_doc_context(user_content, file_ids)
-        answer = answer_with_model(messages, user_content, doc_context, max_new_tokens, temperature)
-        for chunk in stream_words(answer):
-            yield chunk
+        
+        full_response = ""
+        for chunk in answer_with_model_stream(messages, user_content, doc_context, max_new_tokens, temperature):
+            if chunk:
+                # Format for SSE - stream chunk by chunk directly
+                # Replace newlines so they don't break SSE format
+                if "\\n" in chunk:
+                    for i, part in enumerate(chunk.split("\\n")):
+                        if part:
+                            yield f"data: {json.dumps({'content': part})}\\n\\n"
+                        if i < len(chunk.split("\\n")) - 1:
+                            yield 'data: {"content": "\\n"}\\n\\n'
+                else:
+                    yield f"data: {json.dumps({'content': chunk})}\\n\\n"
+                full_response += chunk
         
         # Save assistant response
         if conv_id:
@@ -865,7 +907,7 @@ def chat():
             db_inner = get_db()
             db_inner.execute(
                 "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (conv_id, "assistant", answer, now)
+                (conv_id, "assistant", full_response, now)
             )
             db_inner.execute(
                 "UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",

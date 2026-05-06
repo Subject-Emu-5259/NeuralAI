@@ -17,14 +17,34 @@ from werkzeug.utils import secure_filename
 # NeuralAI Engine - Router + Local Model + Uplink + Tools
 try:
     from neuralai_router import neuralai_route
+    from neuralai_engine import neuralai_chat, local_model, neuralai_tool_call
     HAS_ROUTER = True
-except ImportError:
+except ImportError as e:
+    print(f"[NeuralAI] Import error: {e}")
     HAS_ROUTER = False
     def neuralai_route(msg):
         return ("local", None)
     neuralai_chat = None
     local_model = None
+    neuralai_tool_call = None
 
+
+
+
+def run_tool_sync(tool: str, msg: str):
+    """Run tool synchronously by collecting all chunks from async generator."""
+    import asyncio
+    if neuralai_tool_call is None:
+        return ["[Error] Tool handler not available"]
+    try:
+        async def collect_chunks():
+            chunks = []
+            async for chunk in neuralai_tool_call(tool, msg):
+                chunks.append(chunk)
+            return chunks
+        return asyncio.run(collect_chunks())
+    except Exception as e:
+        return [f"[Tool Error] {e}"]
 
 def strip_terminal_prefix(msg: str) -> str:
     """Remove terminal command prefixes."""
@@ -858,12 +878,35 @@ def chat():
         else:
             route, tool = neuralai_route(user_content)
 
-        if route == "tool" and tool == "terminal":
-            cmd = strip_terminal_prefix(user_content)
-            msg_val = f'[Terminal] Executing: {cmd}\\n'
-            yield f"data: {json.dumps({'content': msg_val})}\n\n"
-            msg_val2 = 'Use the Terminal tab for shell commands.\\n'
-            yield f"data: {json.dumps({'content': msg_val2})}\n\n"
+        if route == "tool":
+            # Execute tool using sync wrapper
+            full_response = ""
+            for chunk in run_tool_sync(tool, user_content):
+                full_response += chunk
+                if chunk:
+                    if "\n" in chunk:
+                        for i, part in enumerate(chunk.split("\n")):
+                            if part:
+                                yield f"data: {json.dumps({'content': part})}\n\n"
+                            if i < len(chunk.split("\n")) - 1:
+                                yield 'data: {"content": "\n"}\n\n'
+                    else:
+                        yield f"data: {json.dumps({'content': chunk})}\n\n"
+            
+            # Save assistant response
+            if conv_id:
+                now = datetime.utcnow().isoformat()
+                db_inner = get_db()
+                db_inner.execute(
+                    "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                    (conv_id, "assistant", full_response, now)
+                )
+                db_inner.execute(
+                    "UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
+                    (now, conv_id)
+                )
+                db_inner.commit()
+            
             yield "data: [DONE]\n\n"
             return
 

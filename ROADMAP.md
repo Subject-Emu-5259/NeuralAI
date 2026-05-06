@@ -15,10 +15,11 @@ This roadmap outlines the expansion of NeuralAI from a 360M parameter local mode
 | --- | --- |
 | Base Model | SmolLM2-360M-Instruct (fine-tuned with QLoRA) |
 | Training Samples | 347 |
-| Inference | CPU (float32) |
+| Inference | CPU (float32) — TextIteratorStreamer |
 | Alignment | None (supervised fine-tuning only) |
 | Evaluation | Manual testing |
-| Tools | Chat, RAG, Terminal, Neural Uplink |
+| Tools | Chat, RAG, Terminal, Neural Uplink, 5 Tool Ecosystem |
+| Engine | v2.0 CPU-optimized |
 
 ### Target State
 

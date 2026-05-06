@@ -1,76 +1,161 @@
-# 🚀 NeuralAI Expansion Roadmap
+# 🚀 NeuralAI Development Roadmap
 
-**Version: 4.1 (Tools Connected)**
+**Version Target: 5.0**
 **Last Updated: May 6, 2026**
 
 ---
 
-## ✅ Current State - FULLY FUNCTIONAL
+## ✅ Completed Milestones
+
+### Phase 0: Core System ✓
+- [x] SmolLM2-360M base model fine-tuned with QLoRA
+- [x] Chat streaming (SSE) working
+- [x] Web UI deployed at https://neuralai-webui-deandrewharris.zocomputer.io
+- [x] SQLite persistence for conversations
+- [x] RAG document indexing
+
+### Phase 1: Tool Ecosystem ✓
+- [x] Code Execution Sandbox - `run this code: ...`
+- [x] File Manager - `search files for ...`
+- [x] Web Fetcher - `fetch https://...`
+- [x] Database Connector - `show tables` / `query database`
+- [x] Git Assistant - `git status` / `git log`
+- [x] Tool detection and routing in chat
+- [x] Fixed SSE streaming (was sending escaped newlines)
+
+---
+
+## 🔄 Current State
 
 | Component | Status |
 | --- | --- |
-| Base Model | ✅ SmolLM2-360M-Instruct (fine-tuned with QLoRA) |
-| Training Samples | 347 |
-| Inference | ✅ CPU (float32) - Working |
-| SSE Streaming | ✅ Fixed |
-| Chat UI | ✅ Functional |
-| Tool Detection | ✅ Working |
-| Tool Execution | ✅ ALL TOOLS CONNECTED |
-| Code Sandbox | ✅ Working - tested with `print(2+2)` |
-| Git Assistant | ✅ Working - tested with `git status` |
-| Database Connector | ✅ Working - tested with `show tables` |
-| File Manager | ✅ Implemented |
-| Web Fetcher | ✅ Implemented |
-| Service | ✅ https://neuralai-webui-deandrewharris.zocomputer.io |
+| **Model** | SmolLM2-360M-Instruct + LoRA adapter (365M params) |
+| **Training Samples** | 404 (347 original + 57 new) |
+| **DPO Pairs** | 31 preference pairs |
+| **Inference** | CPU float32 (~2-3 sec first token, 5-10 tokens/sec) |
+| **Tools** | 5 tools connected and working |
+| **Chat** | ✓ Live streaming responses |
+| **Eval Suite** | Created, pending execution |
 
 ---
 
-## 🎯 NEXT PRIORITY: GPU Deployment
+## 🎯 Next Steps (Priority Order)
 
-### Goal: 10x faster inference
+### 1. GPU Deployment (Blocked - No GPU on current Zo)
+**Goal:** 10x faster inference
 
-| Metric | Current (CPU) | Target (GPU) |
+| Metric | CPU (Current) | GPU (Target) |
 | --- | --- | --- |
 | Time to first token | 2-3 sec | 0.1-0.3 sec |
 | Tokens/sec | 5-10 | 50-100 |
-| Response time | 10-20 sec | 1-2 sec |
+| Response (100 tokens) | 10-20 sec | 1-2 sec |
 
-### Implementation
+**Options:**
+- Request GPU from Zo support
+- Use Google Colab for training/inference
+- Deploy to cloud GPU (RunPod, Lambda Labs)
 
-1. Request GPU in Zo service
-2. Update model loading for CUDA
-3. Benchmark performance
+### 2. DPO Alignment Training
+**Status:** Scripts ready, data prepared
+
+**Files:**
+- `training/train_dpo.py` - DPO training script
+- `data/train_dpo_expanded.jsonl` - 31 preference pairs
+- Ready to run on Colab T4 GPU
+
+**Parameters:**
+```python
+beta = 0.1
+learning_rate = 5e-5
+batch_size = 4
+epochs = 1-2
+```
+
+### 3. Training Data Expansion
+**Status:** In progress (404 → target 1000+)
+
+**Categories to expand:**
+- Advanced coding: +100 samples
+- API design: +50 samples
+- DevOps commands: +50 samples
+- Multi-turn reasoning: +50 samples
+- Tool chaining: +50 samples
+
+### 4. Evaluation Suite
+**Status:** Created, pending execution
+
+**Benchmarks:**
+- Code correctness: Generated code runs
+- Response helpfulness: Quality scoring
+- Safety: Refuses harmful requests
+- Latency: Inference speed
 
 ---
 
-## 📋 Future Phases
+## 📊 Data Files
 
-### Phase 3: DPO Alignment (Weeks 3-4)
-- Generate preference pairs
-- Train with DPOTrainer
-- Evaluate quality improvement
+```
+data/
+├── train.jsonl              # 347 original samples
+├── train_v3.jsonl           # 404 samples (latest)
+├── train_dpo.jsonl          # 13 DPO pairs
+├── train_dpo_expanded.jsonl # 31 DPO pairs
+└── train_expanded.jsonl     # 363 samples
+```
 
-### Phase 4: Training Data Expansion (Weeks 5-6)
-- Expand 347 → 1000+ samples
-- Add categories: Advanced Coding, API Design, DevOps, Security
+## 📁 Project Structure
 
-### Phase 5: Evaluation Suite (Weeks 7-8)
-- Automated benchmarks
-- Perplexity, code correctness, safety metrics
+```
+NeuralAI/
+├── checkpoints/final_model/    # LoRA adapter
+├── data/                       # Training data
+├── eval/benchmarks.py          # Evaluation suite
+├── from-scratch/web_ui/        # Flask app + static files
+│   ├── app.py                  # Main Flask server
+│   ├── neuralai_engine.py      # Model + tools
+│   └── neuralai_router.py      # Routing logic
+├── tools/                      # Tool implementations
+│   ├── code_sandbox.py
+│   ├── file_manager.py
+│   ├── web_fetcher.py
+│   ├── db_connector.py
+│   └── git_assistant.py
+└── training/                   # Training scripts
+    ├── train_dpo.py
+    ├── generate_training_v3.py
+    └── NeuralAI_TPU_Training.ipynb
+```
 
 ---
 
-## 🎉 Completed Milestones
+## 🔗 Quick Links
 
-- ✅ SSE streaming fixed
-- ✅ Tool ecosystem implemented
-- ✅ Tool execution connected
-- ✅ Code Sandbox working
-- ✅ Git Assistant working
-- ✅ Database Connector working
-- ✅ Public service deployed
+- **Live Chat:** https://neuralai-webui-deandrewharris.zocomputer.io
+- **GitHub:** https://github.com/Subject-Emu-5259/NeuralAI
+- **Local Dev:** http://localhost:5000
 
 ---
 
-**NeuralAI v4.1 - Tools Connected**
-*Updated: May 6, 2026*
+## 📝 Commands
+
+```bash
+# Start the service
+cd /home/workspace/Projects/NeuralAI/from-scratch/web_ui
+python3 app.py
+
+# Generate training data
+python3 training/generate_training_v3.py
+
+# Run evaluation
+python3 eval/benchmarks.py
+
+# DPO training (requires GPU)
+python3 training/train_dpo.py
+```
+
+---
+
+**Next Session Goals:**
+1. Run evaluation benchmarks
+2. Expand training data to 1000+ samples
+3. Request GPU or prepare Colab notebook for DPO training

@@ -2340,15 +2340,12 @@ body.dark-mode .onboarding-close:hover {
       <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</button>
     </div>
     <div class="sidebar-section">
-      <h3>Neural Uplink</h3>
+      <h3>Model Status</h3>
       <div class="uplink-row">
         <span class="status-dot online" id="uplinkDot"></span>
-        <span class="status-label" id="uplinkLabel">Online</span>
+        <span class="status-label" id="uplinkLabel">Ready</span>
       </div>
-      <label class="switch">
-        <input type="checkbox" id="uplinkToggle" checked />
-        <span class="slider"></span>
-      </label>
+      <p class="muted">Fine-tuned SmolLM2-360M running locally</p>
     </div>
     <div class="sidebar-section">
       <h3>Model</h3>
@@ -3609,18 +3606,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Settings Panel
-async function checkUplink() {
+async function checkModelStatus() {
   try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    const connected = d.uplink === 'connected';
-    updateUplinkUI(connected);
-    uplinkToggle.checked = connected;
-    uplinkEnabled = connected;
-  } catch {
-    updateUplinkUI(false);
+    const res = await fetch('http://localhost:7001/health');
+    const data = await res.json();
+    
+    const uplinkDot = document.getElementById('uplinkDot');
+    const uplinkLabel = document.getElementById('uplinkLabel');
+    
+    if (uplinkDot && uplinkLabel) {
+      uplinkDot.className = 'status-dot ' + (data.status === 'ready' ? 'online' : 'offline');
+      uplinkLabel.textContent = data.status === 'ready' ? 'Ready' : 'Loading...';
+    }
+  } catch (e) {
+    const uplinkDot = document.getElementById('uplinkDot');
+    const uplinkLabel = document.getElementById('uplinkLabel');
+    if (uplinkDot) uplinkDot.className = 'status-dot offline';
+    if (uplinkLabel) uplinkLabel.textContent = 'Offline';
   }
 }
+
+// Check on load and every 30 seconds
+checkModelStatus();
+setInterval(checkModelStatus, 30000);
 
 // User Bio
 function saveUserBio() {
@@ -3740,7 +3748,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-checkUplink();
+checkModelStatus();
 </script>
 <script>
 // Terminal 2.0 Enhanced Functions

@@ -88,23 +88,16 @@ def health():
     """Check all services."""
     services = {}
     
-    # Check model service
+    # Check unified model+tools service
     try:
-        resp = requests.get(f"{MODEL_SERVICE}/health", timeout=2)
-        services["model"] = resp.json()
+        resp = requests.get("http://localhost:7001/health", timeout=2)
+        services["unified"] = resp.json()
     except:
-        services["model"] = {"status": "offline"}
-    
-    # Check tools service
-    try:
-        resp = requests.get(f"{TOOLS_SERVICE}/health", timeout=2)
-        services["tools"] = resp.json()
-    except:
-        services["tools"] = {"status": "offline"}
+        services["unified"] = {"status": "offline"}
     
     return jsonify({
         "status": "ok",
-        "version": "4.0-microservices",
+        "version": "4.0-consolidated",
         "services": services
     })
 

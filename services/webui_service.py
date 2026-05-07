@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 NeuralAI Web UI Service
-- Clean web interface
+- Clean web interface  
 - Calls model service for inference
 - Calls tools service for execution
-- No model loading - just API calls
+- Neural Uplink for multi-agent analysis
 """
 
 import os
@@ -20,6 +20,7 @@ from flask import Flask, Response, jsonify, render_template, request, stream_wit
 PORT = int(os.environ.get("PORT", "5000"))
 MODEL_SERVICE = os.environ.get("MODEL_SERVICE", "http://localhost:7001")
 TOOLS_SERVICE = os.environ.get("TOOLS_SERVICE", "http://localhost:7001")
+UPLINK_SERVICE = os.environ.get("UPLINK_SERVICE", "http://localhost:8000")
 DATABASE = Path("/home/workspace/Projects/NeuralAI/from-scratch/web_ui/neuralai.db")
 
 app = Flask(__name__, 
@@ -47,35 +48,19 @@ def close_db(error):
 
 
 def init_db():
-    """Initialize database if needed."""
     if not DATABASE.exists():
         DATABASE.parent.mkdir(parents=True, exist_ok=True)
         db = sqlite3.connect(str(DATABASE))
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                title TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                message_count INTEGER DEFAULT 0
-            )
-        """)
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                conversation_id TEXT,
-                role TEXT,
-                content TEXT,
-                created_at TEXT
-            )
-        """)
+        db.execute("""CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY, title TEXT, created_at TEXT, updated_at TEXT, message_count INTEGER DEFAULT 0)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY, conversation_id TEXT, role TEXT, content TEXT, created_at TEXT)""")
         db.commit()
         db.close()
-        print(f"[WebUI] Database initialized at {DATABASE}")
 
 
 # ====================
-# ROUTES
+# ROUTES  
 # ====================
 
 @app.route("/")
@@ -85,65 +70,47 @@ def index():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    """Check all services."""
     services = {}
-    
-    # Check unified model+tools service
     try:
         resp = requests.get("http://localhost:7001/health", timeout=2)
         services["unified"] = resp.json()
     except:
         services["unified"] = {"status": "offline"}
     
-    return jsonify({
-        "status": "ok",
-        "version": "4.0-consolidated",
-        "services": services
-    })
+    try:
+        resp = requests.get(f"{UPLINK_SERVICE}/health", timeout=2)
+        services["uplink"] = resp.json()
+    except:
+        services["uplink"] = {"status": "offline"}
+    
+    return jsonify({"status": "ok", "version": "4.0-uplink", "services": services})
 
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """Main chat endpoint - proxies to model service."""
     data = request.get_json()
-    
     message = data.get("message", data.get("prompt", "")).strip()
     conv_id = data.get("conversation_id")
-    messages = data.get("messages", [])
     
     if not message:
         return jsonify({"error": "No message provided"}), 400
     
-    # Check for tool triggers
     tool = detect_tool(message)
-    
     if tool:
-        # Route to tools service
         return handle_tool(tool, message, data)
     
-    # Save user message
     if conv_id:
         db = get_db()
-        now = datetime.utcnow().isoformat()
-        db.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-            (f"msg_{datetime.now().timestamp()}", conv_id, "user", message, now)
-        )
+        db.execute("INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+                   (f"msg_{datetime.now().timestamp()}", conv_id, "user", message, datetime.utcnow().isoformat()))
         db.commit()
     
-    # Stream from model service
     def generate():
         full_response = ""
-        
         try:
-            # Call model service with streaming
-            resp = requests.post(
-                f"{MODEL_SERVICE}/generate/stream",
-                json={"prompt": message, "max_tokens": 256, "temperature": 0.7},
-                stream=True,
-                timeout=60
-            )
-            
+            resp = requests.post(f"{MODEL_SERVICE}/generate/stream",
+                                json={"prompt": message, "max_tokens": 256, "temperature": 0.7},
+                                stream=True, timeout=60)
             for line in resp.iter_lines():
                 if line:
                     line = line.decode('utf-8')
@@ -152,58 +119,52 @@ def chat():
                         if data_str == "[DONE]":
                             break
                         try:
-                            data = json.loads(data_str)
-                            token = data.get("token", "")
+                            d = json.loads(data_str)
+                            token = d.get("token", "")
                             if token:
                                 full_response += token
                                 yield f"data: {json.dumps({'content': token})}\n\n"
                         except:
                             pass
             
-            # Save response
             if conv_id and full_response:
                 db = get_db()
                 now = datetime.utcnow().isoformat()
-                db.execute(
-                    "INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                    (f"msg_{datetime.now().timestamp()}", conv_id, "assistant", full_response, now)
-                )
-                db.execute(
-                    "UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
-                    (now, conv_id)
-                )
+                db.execute("INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+                          (f"msg_{datetime.now().timestamp()}", conv_id, "assistant", full_response, now))
                 db.commit()
-            
-            yield "data: [DONE]\n\n"
-            
-        except requests.exceptions.ConnectionError:
-            yield f"data: {json.dumps({'content': 'Model service offline. Please wait for model to load.'})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'content': f'Error: {str(e)}'})}\n\n"
             yield "data: [DONE]\n\n"
     
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-    )
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache"})
 
+
+# ====================
+# TOOL DETECTION
+# ====================
 
 def detect_tool(message: str) -> str:
-    """Detect if message should trigger a tool."""
     lower = message.lower()
     
-    # Terminal/shell commands
+    # Neural Uplink
+    if any(k in lower for k in ["uplink", "analyze this", "deep analysis", "multi-agent",
+                                 "all agents", "neural uplink", "comprehensive analysis",
+                                 "breakdown", "break this down", "all angles"]):
+        return "uplink"
+    
+    # Terminal
     for prefix in ["run ", "execute ", "shell ", "command ", "bash "]:
         if lower.startswith(prefix):
             return "terminal"
     
-    # Code execution
+    # Code
     if any(k in lower for k in ["run this code", "execute this", "run python", "run js"]):
         return "code"
     
-    # Image generation
+    # Image
     if any(k in lower for k in ["create an image", "generate an image", "make an image", "draw an image"]):
         return "image"
     
@@ -211,179 +172,120 @@ def detect_tool(message: str) -> str:
 
 
 def handle_tool(tool: str, message: str, data: dict):
-    """Handle tool requests."""
+    
+    if tool == "uplink":
+        def generate():
+            try:
+                resp = requests.post(f"{UPLINK_SERVICE}/uplink",
+                                    json={"prompt": message}, timeout=60)
+                result = resp.json()
+                if result.get("success"):
+                    yield f"data: {json.dumps({'content': result.get('fused', 'No response')})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'content': 'Uplink error'})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'content': f'Uplink offline: {str(e)}'})}\n\n"
+                yield "data: [DONE]\n\n"
+        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
     
     if tool == "terminal":
-        # Extract command
-        lower = message.lower()
         cmd = message
         for prefix in ["run ", "execute ", "shell ", "command ", "bash "]:
-            if lower.startswith(prefix):
+            if message.lower().startswith(prefix):
                 cmd = message[len(prefix):].strip()
                 break
-        
         def generate():
             try:
-                resp = requests.post(
-                    f"{TOOLS_SERVICE}/execute/shell",
-                    json={"command": cmd},
-                    timeout=30
-                )
+                resp = requests.post(f"{TOOLS_SERVICE}/execute/shell",
+                                    json={"command": cmd}, timeout=30)
                 result = resp.json()
-                
                 yield f"data: {json.dumps({'content': '```bash\\n'})}\n\n"
-                
                 if result.get("success"):
-                    output = result.get("output", "")
-                    for line in output.split("\n"):
-                        yield f"data: {json.dumps({'content': line + '\\n'})}\n\n"
+                    yield f"data: {json.dumps({'content': result.get('output', '')})}\n\n"
                 else:
-                    yield f"data: {json.dumps({'content': result.get('error', 'Unknown error')})}\n\n"
-                
+                    yield f"data: {json.dumps({'content': result.get('error', 'Error')})}\n\n"
                 yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
                 yield "data: [DONE]\n\n"
-                
             except Exception as e:
-                yield f"data: {json.dumps({'content': f'Tools service error: {str(e)}'})}\n\n"
+                yield f"data: {json.dumps({'content': str(e)})}\n\n"
                 yield "data: [DONE]\n\n"
-        
-        return Response(generate(), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache"})
+        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
     
     if tool == "code":
-        # Extract code
         code = message
-        for trigger in ["run this code:", "execute this code:", "run python:", "run python code:"]:
+        for trigger in ["run this code:", "execute this code:", "run python:"]:
             if trigger in message.lower():
-                idx = message.lower().find(trigger)
-                code = message[idx + len(trigger):].strip()
+                code = message[message.lower().find(trigger) + len(trigger):].strip()
                 break
-        
         def generate():
             try:
-                resp = requests.post(
-                    f"{TOOLS_SERVICE}/execute/code",
-                    json={"code": code, "language": "python"},
-                    timeout=30
-                )
+                resp = requests.post(f"{TOOLS_SERVICE}/execute/code",
+                                    json={"code": code, "language": "python"}, timeout=30)
                 result = resp.json()
-                
                 yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
-                
-                if result.get("success"):
-                    output = result.get("output", "(no output)")
-                    yield f"data: {json.dumps({'content': output})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'content': 'Error: ' + result.get('error', 'Unknown error')})}\n\n"
-                
-                yield f"data: {json.dumps({'content': '\\n```\\n'})}\n\n"
+                yield f"data: {json.dumps({'content': result.get('output', result.get('error', 'No output'))})}\n\n"
+                yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
                 yield "data: [DONE]\n\n"
-                
             except Exception as e:
-                yield f"data: {json.dumps({'content': f'Tools service error: {str(e)}'})}\n\n"
+                yield f"data: {json.dumps({'content': str(e)})}\n\n"
                 yield "data: [DONE]\n\n"
-        
-        return Response(generate(), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache"})
+        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
     
     if tool == "image":
-        # Extract prompt from message
         prompt = message
-        triggers = [
-            "create an image of ", "generate an image of ", "make an image of ",
-            "draw an image of ", "create an image", "generate an image",
-            "make an image", "draw an image", "image of ", "picture of "
-        ]
-        for trigger in triggers:
+        for trigger in ["create an image of ", "generate an image of ", "image of "]:
             if trigger in message.lower():
-                idx = message.lower().find(trigger)
-                prompt = message[idx + len(trigger):]
+                prompt = message[message.lower().find(trigger) + len(trigger):]
                 break
-        
         def generate():
             try:
-                resp = requests.post(
-                    f"{TOOLS_SERVICE}/generate/image",
-                    json={"prompt": prompt},
-                    timeout=120
-                )
+                resp = requests.post(f"{TOOLS_SERVICE}/generate/image",
+                                    json={"prompt": prompt}, timeout=120)
                 result = resp.json()
-                
                 if result.get("success"):
-                    image_url = result.get("image_url", "")
-                    img_path = result.get("image_path", "")
-                    content1 = "Image Generated!\n\n"
-                    content2 = "![Generated Image](" + image_url + ")\n\n"
-                    content3 = "Saved to: " + img_path + "\n"
-                    yield "data: " + json.dumps({"content": "🎨 **Image Generated!** (Placeholder)\n"}) + "\n\n"
-                    yield "data: " + json.dumps({"content": content2}) + "\n\n"
-                    yield "data: " + json.dumps({"content": "\n*For real AI images, ask me (Zo) directly!*\n"}) + "\n\n"
+                    yield f"data: {json.dumps({'content': '🎨 Image generated!\\n'})}\n\n"
+                    yield "data: " + json.dumps({"content": "![](" + result.get("image_url", "") + ")"}) + "\n\n"
                 else:
-                    err = result.get("error", "Unknown error")
-                    yield "data: " + json.dumps({"content": "Error: " + err + "\n"}) + "\n\n"
-                
+                    yield f"data: {json.dumps({'content': result.get('error', 'Error')})}\n\n"
                 yield "data: [DONE]\n\n"
-                
             except Exception as e:
-                yield "data: " + json.dumps({"content": "Error: " + str(e) + "\n"}) + "\n\n"
+                yield f"data: {json.dumps({'content': str(e)})}\n\n"
                 yield "data: [DONE]\n\n"
-        
-        return Response(generate(), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache"})
+        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
     
     return jsonify({"error": "Unknown tool"}), 400
 
 
 # ====================
-# CONVERSATIONS API
+# CONVERSATIONS
 # ====================
 
 @app.route("/api/conversations", methods=["GET"])
 def list_conversations():
-    """List all conversations."""
     db = get_db()
-    rows = db.execute(
-        "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50"
-    ).fetchall()
-    
-    return jsonify({
-        "conversations": [dict(r) for r in rows]
-    })
+    rows = db.execute("SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50").fetchall()
+    return jsonify({"conversations": [dict(r) for r in rows]})
 
 
-@app.route("/api/conversations/<conv_id>", methods=["GET"])
+@app.route("/api/conversations/<conv_id>", methods=["GET"])  
 def get_conversation(conv_id):
-    """Get a conversation with messages."""
     db = get_db()
-    
-    conv = db.execute(
-        "SELECT * FROM conversations WHERE id = ?", (conv_id,)
-    ).fetchone()
-    
+    conv = db.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
     if not conv:
         return jsonify({"error": "Not found"}), 404
-    
-    messages = db.execute(
-        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at",
-        (conv_id,)
-    ).fetchall()
-    
-    return jsonify({
-        "conversation": dict(conv),
-        "messages": [dict(m) for m in messages]
-    })
+    messages = db.execute("SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at", (conv_id,)).fetchall()
+    return jsonify({"conversation": dict(conv), "messages": [dict(m) for m in messages]})
 
 
 # ====================
 # STARTUP
 # ====================
 
-print(f"[WebUI] Starting on port {PORT}")
-print(f"[WebUI] Model service: {MODEL_SERVICE}")
-print(f"[WebUI] Tools service: {TOOLS_SERVICE}")
-
+print(f"[WebUI] Port: {PORT}")
+print(f"[WebUI] Model: {MODEL_SERVICE}")
+print(f"[WebUI] Uplink: {UPLINK_SERVICE}")
 init_db()
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

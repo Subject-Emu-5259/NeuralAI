@@ -279,6 +279,87 @@ def get_conversation(conv_id):
 
 
 # ====================
+# TERMINAL API
+# ====================
+
+# Terminal sessions storage
+terminal_sessions = {}
+
+@app.route("/api/terminal/create", methods=["POST"])
+def terminal_create():
+    """Create a new terminal session."""
+    import uuid
+    session_id = str(uuid.uuid4())[:8]
+    terminal_sessions[session_id] = {
+        "created": datetime.utcnow().isoformat(),
+        "output": "",
+        "running": False
+    }
+    return jsonify({"session_id": session_id, "status": "created"})
+
+@app.route("/api/terminal/<session_id>/read", methods=["GET"])
+def terminal_read(session_id):
+    """Read terminal output."""
+    session = terminal_sessions.get(session_id, {})
+    return jsonify({
+        "output": session.get("output", ""),
+        "running": session.get("running", False)
+    })
+
+@app.route("/api/terminal/<session_id>/write", methods=["POST"])
+def terminal_write(session_id):
+    """Write command to terminal."""
+    data = request.get_json()
+    command = data.get("command", "")
+    
+    if session_id not in terminal_sessions:
+        terminal_sessions[session_id] = {"output": "", "running": False}
+    
+    # Execute command via tools service
+    try:
+        resp = requests.post(f"{TOOLS_SERVICE}/execute/shell",
+                            json={"command": command}, timeout=30)
+        result = resp.json()
+        
+        output = result.get("output", "") or result.get("error", "")
+        terminal_sessions[session_id]["output"] += f"$ {command}\n{output}\n"
+        
+        return jsonify({
+            "output": terminal_sessions[session_id]["output"],
+            "running": False,
+            "success": result.get("success", False)
+        })
+    except Exception as e:
+        return jsonify({"output": str(e), "running": False, "success": False})
+
+@app.route("/api/terminal/<session_id>/stop", methods=["POST"])
+def terminal_stop(session_id):
+    """Stop terminal session."""
+    if session_id in terminal_sessions:
+        terminal_sessions[session_id]["running"] = False
+    return jsonify({"status": "stopped"})
+
+@app.route("/api/terminal/snippets", methods=["GET"])
+def terminal_snippets():
+    """Get code snippets."""
+    return jsonify({
+        "snippets": [
+            {"lang": "python", "name": "hello", "code": "print('Hello, World!')"},
+            {"lang": "bash", "name": "info", "code": "uname -a"}
+        ]
+    })
+
+@app.route("/api/terminal/snippets/<lang>/<name>", methods=["GET"])
+def terminal_snippet(lang, name):
+    """Get specific snippet."""
+    snippets = {
+        ("python", "hello"): "print('Hello, World!')",
+        ("bash", "info"): "uname -a"
+    }
+    return jsonify({"code": snippets.get((lang, name), "# Not found")})
+
+
+# ====================
 # STARTUP
 # ====================
 

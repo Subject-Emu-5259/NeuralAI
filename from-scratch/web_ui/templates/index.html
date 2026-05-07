@@ -3196,6 +3196,8 @@ document.getElementById('uploadBtn').addEventListener('click', () => {
 });
 
 // Terminal
+let terminalPollInterval = null;
+
 async function initTerm() {
   try {
     const r = await fetch('/api/terminal/create', { 
@@ -3212,8 +3214,6 @@ async function initTerm() {
     termOut('Terminal init failed: ' + e.message, 'error');
   }
 }
-
-let terminalPollInterval = null;
 
 function startTerminalPolling() {
   if (terminalPollInterval) clearInterval(terminalPollInterval);

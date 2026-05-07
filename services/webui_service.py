@@ -19,7 +19,7 @@ from flask import Flask, Response, jsonify, render_template, request, stream_wit
 # Configuration
 PORT = int(os.environ.get("PORT", "5000"))
 MODEL_SERVICE = os.environ.get("MODEL_SERVICE", "http://localhost:7001")
-TOOLS_SERVICE = os.environ.get("TOOLS_SERVICE", "http://localhost:7002")
+TOOLS_SERVICE = os.environ.get("TOOLS_SERVICE", "http://localhost:7001")
 DATABASE = Path("/home/workspace/Projects/NeuralAI/from-scratch/web_ui/neuralai.db")
 
 app = Flask(__name__, 

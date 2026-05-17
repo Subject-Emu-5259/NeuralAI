@@ -54,6 +54,8 @@ def init_db():
             id TEXT PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE,
+            first_name TEXT,
+            last_name TEXT,
             is_founder INTEGER DEFAULT 0,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
@@ -270,7 +272,7 @@ def login():
         token = jwt.encode({
             "user_id": user["id"],
             "is_founder": user["is_founder"],
-            "exp": datetime.utcnow() + timedelta(days=7)
+            "exp": datetime.utcnow() + timedelta(days=30)
         }, app.config["SECRET_KEY"], algorithm="HS256")
         return jsonify({"success": True, "token": token, "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
     
@@ -618,6 +620,46 @@ def delete_file(file_id):
         target.unlink()
         return jsonify({"success": True})
     return jsonify({"error": "File not found"}), 404
+
+@app.route("/api/user/update", methods=["POST"])
+@login_required
+def user_update():
+    data = request.get_json() or {}
+    username = data.get("username")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    email = data.get("email")
+    
+    db = get_db()
+    try:
+        db.execute("""
+            UPDATE users 
+            SET username = COALESCE(?, username), 
+                first_name = COALESCE(?, first_name), 
+                last_name = COALESCE(?, last_name), 
+                email = COALESCE(?, email)
+            WHERE id = ?
+        """, (username, first_name, last_name, email, request.user_id))
+        db.commit()
+        return jsonify({"success": True, "message": "Profile updated"})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Username or email already taken"}), 400
+    finally:
+        db.close()
+
+@app.route("/api/user/me", methods=["GET"])
+@login_required
+def user_me():
+    db = get_db()
+    user = db.execute("SELECT id, username, email, first_name, last_name, is_founder FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    db.close()
+    if user:
+        return jsonify({"user": dict(user)})
+    return jsonify({"error": "User not found"}), 404
+
+@app.route("/terms")
+def terms():
+    return send_from_directory(TEMPLATE_PATH, "terms.html")
 
 # ====================
 # WEB UI

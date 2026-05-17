@@ -1,43 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy & Data — NeuralAI</title>
-<style>
-body{font-family:'Google Sans',Roboto,sans-serif;background:#f8f9fa;color:#202124;margin:0;padding:40px 20px;max-width:720px;margin:0 auto;line-height:1.7}
-h1{font-size:28px;font-weight:500;margin-bottom:24px;color:#1a73e8}
-h2{font-size:20px;font-weight:500;margin-top:32px;color:#202124}
-p{color:#5f6368}
-a{color:#1a73e8;text-decoration:none}
-a:hover{text-decoration:underline}
-.back{display:inline-flex;align-items:center;gap:8px;margin-bottom:24px;color:#5f6368}
-.back:hover{color:#1a73e8}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | NeuralAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #09090b;
+            --card: #111117;
+            --text: #e4e4e7;
+            --muted: #8a8a9a;
+            --accent: #a78bfa;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Google Sans', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 40px;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        h1 { color: var(--accent); margin-bottom: 32px; }
+        h2 { margin-top: 32px; font-size: 20px; }
+        p { color: var(--muted); margin-bottom: 16px; }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 24px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-<a href="/" class="back">← Back to NeuralAI</a>
-<h1>Data & Privacy</h1>
-<p>NeuralAI is designed with privacy in mind. Here's how your data is handled:</p>
-
-<h2>Chat Conversations</h2>
-<p>Your conversations are stored locally in your browser (localStorage) for session persistence. This data never leaves your device unless you explicitly share it.</p>
-
-<h2>Uploaded Files</h2>
-<p>Files you upload for RAG (PDF, DOCX, TXT, MD) are processed on the server and stored temporarily. You can delete them at any time from the Files tab. File contents are used only to answer your questions.</p>
-
-<h2>Neural Uplink</h2>
-<p>When complex tasks are routed to the agent network, only the relevant prompt and context are sent to the uplink servers. No personal data or files are shared.</p>
-
-<h2>Model</h2>
-<p>NeuralAI runs a local model (SmolLM2-360M) on the server. Inference happens on CPU, and no data is sent to external AI providers during normal chat.</p>
-
-<h2>Your Control</h2>
-<p>You can clear your conversation history at any time by clicking "New chat" or clearing your browser data. Uploaded files can be deleted individually from the Files tab.</p>
-
-<h2>Contact</h2>
-<p>Questions about privacy? Reach out at <a href="mailto:deandrewharris@zo.computer">deandrewharris@zo.computer</a></p>
-
-<p style="margin-top:40px;color:#9aa0a6;font-size:13px;">Last updated: April 2026</p>
+    <div class="container">
+        <a href="/" class="back-link">← Back to App</a>
+        <h1>Privacy Policy</h1>
+        <p>Last updated: May 17, 2026</p>
+        
+        <h2>1. Data Collection</h2>
+        <p>NeuralAI collects only the necessary information to provide our services, including your username, email, and files you explicitly upload to your private cloud storage.</p>
+        
+        <h2>2. Data Security</h2>
+        <p>Your data is stored in isolated, per-user environments. We implement industry-standard encryption for data at rest and in transit.</p>
+        
+        <h2>3. AI Training</h2>
+        <p>We do not use your private conversations or uploaded files to train our base models without your explicit consent.</p>
+        
+        <h2>4. Your Rights</h2>
+        <p>You have the right to access, export, or delete your data at any time through your account settings.</p>
+    </div>
 </body>
 </html>

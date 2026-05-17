@@ -283,9 +283,9 @@ def train_dpo(config: DPOTrainingConfig):
     
     # Load preference dataset
     print("Loading preference dataset...")
-    dataset_path = Path("data/train_dpo_v3.jsonl")
+    dataset_path = Path("data/train_dpo_v4.jsonl")
     if not dataset_path.exists():
-        dataset_path = Path("data/train_dpo_expanded.jsonl")
+        dataset_path = Path("data/train_dpo_v3.jsonl")
     if not dataset_path.exists():
         dataset_path = Path("data/train_dpo.jsonl")
         

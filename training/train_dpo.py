@@ -267,7 +267,7 @@ def train_dpo(config: DPOTrainingConfig):
     # Load base model with memory optimization
     model = AutoModelForCausalLM.from_pretrained(
         config.base_model,
-        torch_dtype=torch.float32,  # Use float32 for CPU
+        dtype=torch.float32,  # Use float32 for CPU
         device_map=None,             # Manual device placement
     ).to(config.device)
     
@@ -283,7 +283,9 @@ def train_dpo(config: DPOTrainingConfig):
     
     # Load preference dataset
     print("Loading preference dataset...")
-    dataset_path = Path("data/train_dpo_expanded.jsonl")
+    dataset_path = Path("data/train_dpo_v3.jsonl")
+    if not dataset_path.exists():
+        dataset_path = Path("data/train_dpo_expanded.jsonl")
     if not dataset_path.exists():
         dataset_path = Path("data/train_dpo.jsonl")
         
@@ -308,8 +310,9 @@ def train_dpo(config: DPOTrainingConfig):
         learning_rate=config.learning_rate,
         per_device_train_batch_size=1,  # Smallest batch size for RAM
         gradient_accumulation_steps=config.gradient_accumulation_steps,
+        use_cpu=True,
         max_length=config.max_length,
-        max_prompt_length=config.max_prompt_length,
+        
         num_train_epochs=config.epochs,
         warmup_ratio=config.warmup_ratio,
         weight_decay=config.weight_decay,
@@ -324,7 +327,7 @@ def train_dpo(config: DPOTrainingConfig):
         ref_model=model_ref,
         args=dpo_config,
         train_dataset=dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
     
     # Train

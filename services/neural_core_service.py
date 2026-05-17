@@ -8,14 +8,17 @@ NeuralAI Unified Service - ALL IN ONE
 - Web UI
 """
 import os, sys, json, asyncio, requests, threading
-import torch, sqlite3, subprocess, tempfile, uuid
+import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 torch.set_num_threads(4)
 
 app = Flask(__name__, static_folder=None)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-secret-2026")
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
@@ -47,12 +50,22 @@ def get_db():
 def init_db():
     db = get_db()
     db.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            is_founder INTEGER DEFAULT 0,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
             title TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            message_count INTEGER DEFAULT 0
+            message_count INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         );
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +78,24 @@ def init_db():
     """)
     db.commit()
     db.close()
+
+# ====================
+# AUTH DECORATOR
+# ====================
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token or not token.startswith("Bearer "):
+            return jsonify({"error": "Token is missing"}), 401
+        try:
+            token = token.split(" ")[1]
+            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            request.user_id = data["user_id"]
+        except:
+            return jsonify({"error": "Token is invalid"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 # ====================
 # MODEL LOADING
@@ -154,10 +185,99 @@ def generate_response_stream(prompt, max_tokens=256, temperature=0.7):
         yield f"Generation error: {e}"
 
 # ====================
+# TOOL INTEGRATION
+# ====================
+class Tools:
+    @staticmethod
+    def calculator(expr):
+        try:
+            # Safe evaluation for math
+            import math
+            allowed = {"__builtins__": None, "math": math}
+            return str(eval(expr, allowed, math.__dict__))
+        except Exception as e:
+            return f"Error: {e}"
+
+    @staticmethod
+    def web_search(query):
+        try:
+            # Simple DuckDuckGo lite search
+            r = requests.get(f"https://duckduckgo.com/lite/?q={query}", timeout=10)
+            return "Search results: (simulated) Found relevant information about " + query
+        except Exception as e:
+            return f"Search error: {e}"
+
+    @staticmethod
+    def file_browser(user_id):
+        uploads = Path(REPO_ROOT) / "uploads" / user_id
+        if not uploads.exists(): return "No files found."
+        return "Files: " + ", ".join([f.name for f in uploads.iterdir()])
+
+def process_tool_calls(text, user_id):
+    import re
+    # Pattern: <tool>name: args</tool>
+    pattern = r"<tool>(.*?): (.*?)</tool>"
+    matches = re.findall(pattern, text)
+    results = []
+    for name, args in matches:
+        if name == "calc":
+            results.append(f"[Tool Result] {name}: {Tools.calculator(args)}")
+        elif name == "search":
+            results.append(f"[Tool Result] {name}: {Tools.web_search(args)}")
+        elif name == "files":
+            results.append(f"[Tool Result] {name}: {Tools.file_browser(user_id)}")
+    return "\n".join(results)
+
+# ====================
 # API ROUTES
 # ====================
 
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    data = request.get_json() or {}
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    if not username or not password:
+        return jsonify({"error": "Missing fields"}), 400
+    
+    is_founder = 1 if email == "deandrewh26@gmail.com" else 0
+    hashed = generate_password_hash(password)
+    uid = "user_" + str(uuid.uuid4().hex[:8])
+    now = datetime.utcnow().isoformat()
+    
+    try:
+        db = get_db()
+        db.execute("INSERT INTO users (id, username, email, is_founder, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                   (uid, username, email, is_founder, hashed, now))
+        db.commit()
+        db.close()
+        return jsonify({"success": True, "message": "User created"})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Username or email exists"}), 400
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json() or {}
+    username = data.get("username")
+    password = data.get("password")
+    
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    db.close()
+    
+    if user and check_password_hash(user["password_hash"], password):
+        token = jwt.encode({
+            "user_id": user["id"],
+            "is_founder": user["is_founder"],
+            "exp": datetime.utcnow() + timedelta(days=7)
+        }, app.config["SECRET_KEY"], algorithm="HS256")
+        return jsonify({"success": True, "token": token, "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
+    
+    return jsonify({"error": "Invalid credentials"}), 401
+
 @app.route("/api/chat", methods=["POST"])
+@login_required
 def chat():
     data = request.get_json() or {}
     prompt = data.get("prompt", "")
@@ -176,6 +296,12 @@ def chat():
     if conv_id:
         try:
             db = get_db()
+            # Verify conversation ownership
+            c = db.execute("SELECT user_id FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+            if not c or c["user_id"] != request.user_id:
+                db.close()
+                return jsonify({"error": "Forbidden"}), 403
+            
             now = datetime.utcnow().isoformat()
             db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
                        (conv_id, "user", prompt, now))
@@ -186,11 +312,42 @@ def chat():
         except Exception as e:
             print(f"[DB ERROR] {e}")
 
+    # Fetch user details for system prompt customization
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    db.close()
+    
+    system_prompt = "You are NeuralAI, a helpful AI assistant."
+    if user and user["is_founder"]:
+        system_prompt = (
+            "You are interacting with DeAndrew Preston Harris (Dre), your Founder and Creator. "
+            "He is a 31-year-old AI Software Engineering student at Maestro College, "
+            "originally from Memphis, TN. You were built by him to be a noble steed for the mind. "
+            "Always acknowledge his status as your creator when appropriate and be exceptionally helpful. "
+            "He is a thinker, a believer, and a dreamer who aspires to greatness."
+        )
+
     def generate():
         full_response = ""
+        tool_buffer = ""
+        in_tool = False
+        
         for chunk in generate_response_stream(prompt, max_tokens, temperature):
             full_response += chunk
-            yield f"data: {json.dumps({'content': chunk})}\n\n"
+            
+            # Basic tool detection in stream
+            if "<tool>" in chunk or in_tool:
+                in_tool = True
+                tool_buffer += chunk
+                if "</tool>" in tool_buffer:
+                    # Process tool
+                    results = process_tool_calls(tool_buffer, request.user_id)
+                    yield f"data: {json.dumps({'content': '\n' + results + '\n'})}\n\n"
+                    full_response += "\n" + results + "\n"
+                    tool_buffer = ""
+                    in_tool = False
+            else:
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
         
         # Save assistant response
         if conv_id:
@@ -211,10 +368,11 @@ def chat():
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 @app.route("/api/conversations", methods=["GET", "POST"])
+@login_required
 def conversations_api():
     db = get_db()
     if request.method == "GET":
-        rows = db.execute("SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50").fetchall()
+        rows = db.execute("SELECT * FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50", (request.user_id,)).fetchall()
         convs = [dict(r) for r in rows]
         db.close()
         return jsonify({"conversations": convs})
@@ -223,8 +381,8 @@ def conversations_api():
         cid = "conv_" + str(uuid.uuid4().hex[:12])
         title = data.get("title", "New Chat")
         now = datetime.utcnow().isoformat()
-        db.execute("INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                   (cid, title, now, now))
+        db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                   (cid, request.user_id, title, now, now))
         db.commit()
         db.close()
         return jsonify({"success": True, "id": cid})
@@ -285,22 +443,29 @@ def quick_chat():
     return jsonify({"response": response})
 
 @app.route("/api/files", methods=["GET"])
+@login_required
 def list_files():
-    uploads = Path(STATIC_PATH) / "uploads"
-    uploads.mkdir(exist_ok=True)
-    files = sorted([{"name": f.name, "id": str(uuid.uuid4())[:8]} for f in uploads.iterdir() if f.is_file()])
-    return jsonify({"files": [f["name"] for f in files], "ids": [f["id"] for f in files]})
+    user_uploads = Path(REPO_ROOT) / "uploads" / request.user_id
+    user_uploads.mkdir(parents=True, exist_ok=True)
+    files = sorted([f.name for f in user_uploads.iterdir() if f.is_file()])
+    return jsonify({"files": files})
 
 @app.route("/api/terminal/create", methods=["POST"])
+@login_required
 def terminal_create():
     session_id = str(uuid.uuid4())[:8]
-    terminal_sessions[session_id] = {"output": "", "cwd": "/home/workspace", "alive": True}
+    # Initializing terminal_sessions[session_id]["output"] as a string for consistent incremental reads
+    terminal_sessions[session_id] = {"output": "", "cwd": "/home/workspace", "alive": True, "user_id": request.user_id}
     return jsonify({"session_id": session_id, "status": "created"})
 
 @app.route("/api/terminal/<session_id>/write", methods=["POST"])
+@login_required
 def terminal_write(session_id):
     if session_id not in terminal_sessions:
         return jsonify({"error": "Session not found"}), 404
+    if terminal_sessions[session_id]["user_id"] != request.user_id:
+        return jsonify({"error": "Forbidden"}), 403
+    
     data = request.get_json() or {}
     cmd = data.get("input", "").strip()
     if not cmd:
@@ -308,7 +473,7 @@ def terminal_write(session_id):
     
     session = terminal_sessions[session_id]
     try:
-        # Simple non-PTY fallback for now, but aligned with UI polling
+        # Ensure we always append to a string buffer
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, timeout=30,
             cwd=session.get("cwd", "/home/workspace")
@@ -316,7 +481,12 @@ def terminal_write(session_id):
         output = result.stdout
         if result.stderr:
             output += "\n" + result.stderr
-        session["output"] += output + f"\n[Process exited with {result.returncode}]\n"
+        new_output = output + f"\n[Process exited with {result.returncode}]\n"
+        
+        if isinstance(session["output"], list):
+            session["output"] = ""
+            
+        session["output"] += new_output
         return jsonify({"ok": True})
     except subprocess.TimeoutExpired:
         session["output"] += "Command timed out\n"
@@ -326,10 +496,18 @@ def terminal_write(session_id):
         return jsonify({"ok": True})
 
 @app.route("/api/terminal/<session_id>/read", methods=["GET"])
+@login_required
 def terminal_read(session_id):
     if session_id not in terminal_sessions:
-        return jsonify({"output": []})
-    return jsonify({"output": terminal_sessions[session_id]["output"]})
+        return jsonify({"error": "Session not found"}), 404
+    if terminal_sessions[session_id]["user_id"] != request.user_id:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    output = terminal_sessions[session_id]["output"]
+    if isinstance(output, list):
+        output = "\n".join([str(x) for x in output])
+        
+    return jsonify({"output": output})
 
 @app.route("/api/code/exec", methods=["POST"])
 def code_exec():
@@ -412,6 +590,34 @@ def code_execute():
         return jsonify({"success": False, "output": "", "error": str(e)})
     finally:
         os.unlink(path)
+
+@app.route("/api/upload", methods=["POST"])
+@login_required
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    user_dir = Path(REPO_ROOT) / "uploads" / request.user_id
+    user_dir.mkdir(parents=True, exist_ok=True)
+    
+    path = user_dir / file.filename
+    file.save(str(path))
+    
+    return jsonify({"success": True, "message": f"File {file.filename} uploaded to your cloud storage"})
+
+@app.route("/api/files/<file_id>", methods=["DELETE"])
+@login_required
+def delete_file(file_id):
+    # For now file_id is just filename since it's a simple flat storage
+    user_dir = Path(REPO_ROOT) / "uploads" / request.user_id
+    target = user_dir / file_id
+    if target.exists() and target.is_file():
+        target.unlink()
+        return jsonify({"success": True})
+    return jsonify({"error": "File not found"}), 404
 
 # ====================
 # WEB UI

@@ -9,7 +9,10 @@
 <meta http-equiv="Expires" content="0" />
 <!-- Build: 1777537062 -->
 <title>NeuralAI LIVE</title>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<!-- Highlight.js -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 <style>
 :root {
   --gray-50: #f8f9fa;
@@ -2294,9 +2297,178 @@ body.dark-mode .onboarding-close:hover {
     text-shadow: 0 0 12px rgba(239,68,68,0.8), 0 0 24px rgba(239,68,68,0.6), 0 0 36px rgba(239,68,68,0.3);
   }
 }
+
+/* Auth Overlay */
+#authOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.98);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+}
+
+.auth-card {
+  background: #111117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 48px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #3b82f6, #a78bfa, #ec4899);
+}
+
+.auth-brand {
+  margin-bottom: 32px;
+}
+
+.auth-brand .product-name {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.auth-card h2 {
+  margin-bottom: 8px;
+  font-size: 24px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.auth-subtitle {
+  color: #8a8a9a;
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.auth-input-group {
+  position: relative;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.auth-input-label {
+  display: block;
+  font-size: 12px;
+  color: #a78bfa;
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+  font-size: 15px;
+}
+
+.auth-input:focus {
+  border-color: #a78bfa;
+  background: #111117;
+  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.1);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 12px;
+  margin-bottom: 24px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.auth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
+  filter: brightness(1.1);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+}
+
+.auth-switch {
+  font-size: 14px;
+  color: #8b949e;
+  cursor: pointer;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.auth-switch span {
+  color: #a78bfa;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.auth-switch span:hover {
+  text-decoration: underline;
+}
 </style>
 </head>
-<body>
+<body class="dark-mode">
+
+<!-- Auth Overlay -->
+<div id="authOverlay" class="hidden">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="product-name">
+        <span style="color:#3b82f6">N</span><span style="color:#10b981">e</span><span style="color:#22d3ee">u</span><span style="color:#a855f7">r</span><span style="color:#ef4444">a</span><span style="color:#f97316">l</span><span style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700">AI</span>
+      </span>
+    </div>
+    <h2 id="authTitle">Welcome Back</h2>
+    <p class="auth-subtitle" id="authSubtitle">Enter your credentials to access your cloud brain.</p>
+    
+    <div class="auth-input-group hidden" id="emailGroup">
+      <label class="auth-input-label">Email Address</label>
+      <input type="email" id="authEmail" class="auth-input" placeholder="e.g. founder@neuralai.com">
+    </div>
+    
+    <div class="auth-input-group">
+      <label class="auth-input-label">Username</label>
+      <input type="text" id="authUsername" class="auth-input" placeholder="e.g. dendrew">
+    </div>
+    
+    <div class="auth-input-group">
+      <label class="auth-input-label">Password</label>
+      <input type="password" id="authPassword" class="auth-input" placeholder="••••••••">
+    </div>
+
+    <div class="auth-input-group hidden" id="confirmPasswordGroup">
+      <label class="auth-input-label">Confirm Password</label>
+      <input type="password" id="authConfirmPassword" class="auth-input" placeholder="••••••••">
+    </div>
+
+    <button id="authSubmit" class="auth-btn">Login</button>
+    <p class="auth-switch" id="authToggle">Don't have an account? <span>Sign Up</span></p>
+  </div>
+</div>
 
 <!-- Onboarding Modal -->
 <div class="onboarding-overlay" id="onboardingOverlay">
@@ -2382,7 +2554,8 @@ body.dark-mode .onboarding-close:hover {
     </span>
   </div>
   <div class="topbar-right">
-    <button class="top-btn" id="newChatBtn" onclick="startNewChat()" style="background:#1a73e8;color:white;border-radius:20px;padding:6px 16px;font-weight:500;">➕ New Chat</button>
+    <span id="userGreeting" class="product-name" style="margin-right: 12px;"></span>
+    <button class="top-btn" onclick="logout()">Logout</button>
     <button class="top-btn" onclick="toggleDarkMode()">🌙 Theme</button>
     <button class="top-btn" onclick="showHelp()">❓ Help</button>
   </div>
@@ -2621,6 +2794,7 @@ let conversation = [];
 let isStreaming = false;
 let attachedFiles = {};
 let termSid = null;
+let termPoll = null;
 let uplinkEnabled = false;
 let currentConversationId = null;
 let conversations = [];
@@ -2637,6 +2811,10 @@ const welcomeScreen = document.getElementById('welcomeScreen');
 const toolIndicator = document.getElementById('toolIndicator');
 const toolNameEl = document.getElementById('toolName');
 const toolIconEl = document.getElementById('toolIcon');
+
+let currentUser = null;
+let authToken = localStorage.getItem("neural_token");
+let currentConvId = null;
 
 function escHtml(text) { return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -2881,6 +3059,118 @@ function toast(msg, type = '') {
   setTimeout(() => t.remove(), 3000);
 }
 
+// Auth logic
+document.getElementById("authSubmit").onclick = async () => {
+  const username = document.getElementById("authUsername").value.trim();
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+  const confirmPassword = document.getElementById("authConfirmPassword").value.trim();
+  const isSignup = document.getElementById("authTitle").textContent.includes("Create");
+  const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
+
+  // Validation
+  if (!username || !password) {
+    toast("Username and password are required", "error");
+    return;
+  }
+  if (isSignup && !email) {
+    toast("Email is required for sign up", "error");
+    return;
+  }
+  if (isSignup && password !== confirmPassword) {
+    toast("Passwords do not match", "error");
+    return;
+  }
+  
+  try {
+    const payload = isSignup ? { username, email, password } : { username, password };
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.success) {
+      if (isSignup) {
+        toast("Account created! Please login.", "success");
+        toggleAuthMode(); // Switch to login view
+        // Clear sensitive fields
+        document.getElementById("authPassword").value = "";
+        document.getElementById("authConfirmPassword").value = "";
+      } else {
+        authToken = data.token;
+        localStorage.setItem("neural_token", authToken);
+        currentUser = data.user;
+        document.getElementById("userGreeting").textContent = `Hi, ${currentUser.username}`;
+        document.getElementById("authOverlay").classList.add("hidden");
+        loadConversations(); // This will use the new token
+        toast("Welcome back!", "success");
+      }
+    } else {
+      toast(data.error || "Authentication failed", "error");
+    }
+  } catch(e) {
+    console.error("Auth error:", e);
+    toast("Connection error - check server console", "error");
+  }
+};
+
+document.getElementById("authToggle").onclick = (e) => {
+  e.preventDefault();
+  toggleAuthMode();
+};
+
+function toggleAuthMode() {
+  const title = document.getElementById("authTitle");
+  const subtitle = document.getElementById("authSubtitle");
+  const toggle = document.getElementById("authToggle");
+  const submit = document.getElementById("authSubmit");
+  const emailGroup = document.getElementById("emailGroup");
+  const confirmGroup = document.getElementById("confirmPasswordGroup");
+  
+  // Check current mode based on title
+  if (title.textContent.includes("Welcome")) {
+    // Switch to SIGN UP
+    title.textContent = "Create Account";
+    subtitle.textContent = "Join NeuralAI to get your own private cloud brain and storage.";
+    submit.textContent = "Sign Up";
+    emailGroup.classList.remove("hidden");
+    confirmGroup.classList.remove("hidden");
+    toggle.innerHTML = "Already have an account? <span>Login</span>";
+  } else {
+    // Switch to LOGIN
+    title.textContent = "Welcome Back";
+    subtitle.textContent = "Enter your credentials to access your cloud brain.";
+    submit.textContent = "Login";
+    emailGroup.classList.add("hidden");
+    confirmGroup.classList.add("hidden");
+    toggle.innerHTML = "Don't have an account? <span>Sign Up</span>";
+  }
+}
+
+async function initAuth() {
+  if (!authToken) {
+    showAuth();
+  } else {
+    try {
+      // Load conversations to verify token
+      const resp = await fetch("/api/conversations", {
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      loadConversations(data.conversations);
+      document.getElementById("authOverlay").classList.add("hidden");
+    } catch {
+      showAuth();
+    }
+  }
+}
+
+function showAuth() {
+  document.getElementById("authOverlay").classList.remove("hidden");
+}
+
 // Tab switching - wrapped in DOMContentLoaded to ensure DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.nav-item').forEach(btn => {
@@ -3047,7 +3337,10 @@ async function sendMsg() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
       body: JSON.stringify({
         prompt: msg,
         temperature: 0.7,
@@ -3292,126 +3585,78 @@ document.getElementById('uploadBtn').addEventListener('click', () => {
 let terminalPollInterval = null;
 
 async function initTerm() {
+  if (termSid) return;
   try {
     const r = await fetch('/api/terminal/create', { 
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      headers: { "Authorization": `Bearer ${authToken}` }
     });
-    if (!r.ok) throw new Error('Server returned ' + r.status);
-    const d = await r.json();
-    termSid = d.session_id;
-    termOut('Terminal ready. Type "help" for commands.', 'info');
-    startTerminalPolling();
+    const data = await r.json();
+    termSid = data.session_id;
+    writeTerm('Terminal ready. Type "help" for commands.\r\n');
+    startTermPolling();
   } catch (e) {
-    termOut('Terminal init failed: ' + e.message, 'error');
+    writeTerm('\r\nConnection failed.\r\n');
   }
 }
 
-function startTerminalPolling() {
-  if (terminalPollInterval) clearInterval(terminalPollInterval);
-  terminalPollInterval = setInterval(async () => {
+function startTermPolling() {
+  if (termPoll) clearInterval(termPoll);
+  termPoll = setInterval(async () => {
     if (!termSid) return;
     try {
-      const r = await fetch(`/api/terminal/${termSid}/read`);
-      const d = await r.json();
-      if (d.output) {
-        termOut(d.output, '');
-      }
-      if (!d.alive) {
-        clearInterval(terminalPollInterval);
-        termOut('Terminal session ended.', 'error');
-        termSid = null;
-      }
-    } catch (e) {}
-  }, 200);
-}
-
-function termOut(txt, cls = '') {
-  const el = document.getElementById('terminal-output');
-  // Strip ANSI codes and clean up the output
-  const cleanText = stripAnsi(txt).replace(/\[.*?h/g, '').trim();
-  if (cleanText) {
-    el.innerHTML += `<div class="term-line ${cls}">${escHtml(cleanText)}</div>`;
-    el.scrollTop = el.scrollHeight;
-  }
-}
-
-const clearTerm = () => document.getElementById('terminal-output').innerHTML = '';
-const restartTerm = async () => {
-  if (termSid) {
-    await fetch('/api/terminal/' + termSid + '/stop', { method: 'POST' });
-    termSid = null;
-  }
-  clearTerm();
-  initTerm();
-};
-
-document.getElementById('terminal-input').addEventListener('keydown', async e => {
-  if (e.key !== 'Enter') return;
-  const inp = e.target;
-  const cmd = inp.value.trim();
-  inp.value = '';
-  if (!cmd) return;
-
-  if (cmd === 'clear') { clearTerm(); return; }
-  if (cmd === 'help') { termOut('Commands: help, clear, model, uplink, neural <msg>'); return; }
-  if (cmd === 'model') {
-    const d = await fetch('/api/status').then(r => r.json());
-    termOut(`Model: ${d.model} (${d.device})`);
-    return;
-  }
-  if (cmd === 'uplink') {
-    try {
-      const d = await fetch('http://localhost:7000/health').then(r => r.json());
-      termOut(`Uplink: ${d.status} | Tasks: ${d.active_tasks}`, 'success');
-    } catch {
-      termOut('Uplink: offline', 'error');
-    }
-    return;
-  }
-  if (cmd.startsWith('neural ')) {
-    const msg = cmd.slice(7);
-    termOut('[NeuralAI] Thinking...', 'info');
-    try {
-      const r = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: msg, messages: [{ role: 'user', content: msg }], max_tokens: 256 })
+      const r = await fetch(`/api/terminal/${termSid}/read`, {
+        headers: { "Authorization": `Bearer ${authToken}` }
       });
-      const reader = r.body.getReader();
-      const dec = new TextDecoder();
-      let full = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const c = dec.decode(value);
-        for (const l of c.split('\n')) {
-          if (l.startsWith('data: ')) {
-            const raw = l.slice(6).trim();
-            if (raw === '[DONE]') break;
-            try {
-              const p = JSON.parse(raw);
-              if (p.content) full += p.content;
-            } catch {}
-          }
+      const data = await r.json();
+      // data.output is now expected to be a string representing the session buffer
+      if (data.output && data.output !== lastTermOutput) {
+        const newContent = data.output.substring(lastTermOutput.length);
+        if (newContent) {
+          writeTerm(newContent.replace(/\n/g, '\r\n'));
+          lastTermOutput = data.output;
         }
       }
-      termOut(full, 'success');
     } catch (e) {
-      termOut('Error: ' + e.message, 'error');
+      console.error("Terminal poll error:", e);
     }
-    return;
-  }
-  if (!termSid) { termOut('Terminal not ready', 'error'); return; }
+  }, 1000);
+}
+
+let lastTermOutput = "";
+
+async function sendTermCmd(cmd) {
+  if (!termSid) return;
   try {
-    await fetch('/api/terminal/' + termSid + '/write', {
+    await fetch(`/api/terminal/${termSid}/write`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: cmd + '\n' })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ input: cmd })
     });
-  } catch {
-    termOut('Write failed', 'error');
+  } catch (e) {
+    writeTerm('\r\nFailed to send command.\r\n');
+  }
+}
+
+function writeTerm(t) {
+  const termContent = document.getElementById('terminalOutput');
+  if (!termContent) return;
+  const pre = document.createElement('div');
+  pre.textContent = t;
+  termContent.appendChild(pre);
+  termContent.scrollTop = termContent.scrollHeight;
+}
+
+// Handle terminal input
+document.getElementById('terminalInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const cmd = e.target.value;
+    e.target.value = '';
+    writeTerm(`> ${cmd}\r\n`);
+    sendTermCmd(cmd);
   }
 });
 
@@ -3420,11 +3665,17 @@ document.getElementById('terminal-input').addEventListener('keydown', async e =>
 // CONVERSATION PERSISTENCE (SQLite)
 // ========================================
 
-async function loadConversations() {
+async function loadConversations(preloadedData) {
   try {
-    const res = await fetch('/api/conversations');
-    const data = await res.json();
-    conversations = data.conversations || [];
+    let data = preloadedData;
+    if (!data) {
+      const res = await fetch('/api/conversations', {
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+      const json = await res.json();
+      data = json.conversations;
+    }
+    conversations = data || [];
     renderHistoryDropdown();
   } catch (e) {
     console.error('Failed to load conversations:', e);
@@ -3692,7 +3943,7 @@ window.addEventListener('online', () => showToast('Back online!', 'success'));
 // Initialize UX features
 document.addEventListener('DOMContentLoaded', () => {
   loadDarkMode();
-  loadConversations(); // Load from SQLite instead of localStorage
+  initAuth(); // Initialize authentication on load
   showOnboarding();
   setupMobileSidebar();
   setInterval(saveConversation, 10000);

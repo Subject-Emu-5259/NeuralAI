@@ -7,11 +7,11 @@ NeuralAI Unified Service - ALL IN ONE
 - Tools (code, terminal)
 - Web UI
 """
-import os, sys, json, asyncio, requests
+import os, sys, json, asyncio, requests, threading
 import torch, sqlite3, subprocess, tempfile, uuid
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 torch.set_num_threads(4)
 
@@ -19,11 +19,13 @@ app = Flask(__name__, static_folder=None)
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
-MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
+REPO_ROOT = "/home/workspace/Projects/NeuralAI"
+MODEL_PATH = os.environ.get("MODEL_PATH", f"{REPO_ROOT}/checkpoints/v2_model")
 BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
-STATIC_PATH = "/home/workspace/Projects/NeuralAI/from-scratch/web_ui"
+STATIC_PATH = f"{REPO_ROOT}/from-scratch/web_ui"
 TEMPLATE_PATH = os.path.join(STATIC_PATH, "templates")
-DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/dpo_model")
+DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model")
+DATABASE = os.path.join(STATIC_PATH, "neuralai.db")
 
 # Model globals
 model = None
@@ -33,6 +35,36 @@ inference_count = 0
 
 # Terminal sessions
 terminal_sessions = {}
+
+# ====================
+# DATABASE LAYER
+# ====================
+def get_db():
+    db = sqlite3.connect(DATABASE)
+    db.row_factory = sqlite3.Row
+    return db
+
+def init_db():
+    db = get_db()
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            message_count INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+        );
+    """)
+    db.commit()
+    db.close()
 
 # ====================
 # MODEL LOADING
@@ -92,6 +124,35 @@ def generate_response(prompt, max_tokens=256, temperature=0.7):
     except Exception as e:
         return f"Generation error: {e}"
 
+def generate_response_stream(prompt, max_tokens=256, temperature=0.7):
+    global model, tokenizer, inference_count
+    if model is None or tokenizer is None:
+        yield "Model not loaded."
+        return
+    try:
+        from transformers import TextIteratorStreamer
+        if tokenizer.chat_template:
+            messages = [{"role": "user", "content": prompt}]
+            full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        else:
+            full = f"user\n{prompt}"
+        
+        inputs = tokenizer(full, return_tensors="pt").to(model.device)
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        
+        thread = threading.Thread(target=model.generate, kwargs={
+            **inputs, "streamer": streamer, "max_new_tokens": max_tokens,
+            "do_sample": temperature > 0, "temperature": temperature,
+            "pad_token_id": tokenizer.eos_token_id,
+        })
+        thread.start()
+        
+        for text in streamer:
+            yield text
+        inference_count += 1
+    except Exception as e:
+        yield f"Generation error: {e}"
+
 # ====================
 # API ROUTES
 # ====================
@@ -101,18 +162,90 @@ def chat():
     data = request.get_json() or {}
     prompt = data.get("prompt", "")
     messages = data.get("messages", [])
-    temperature = data.get("temperature", 0.7)
-    max_tokens = data.get("max_tokens", 256)
-    use_uplink = data.get("use_uplink", False)
+    temperature = float(data.get("temperature", 0.7))
+    max_tokens = int(data.get("max_tokens", 512))
+    conv_id = data.get("conversation_id")
     
-    if messages:
-        prompt = messages[-1].get("content", "") if messages else prompt
+    if messages and not prompt:
+        prompt = messages[-1].get("content", "")
     
     if not prompt:
-        return jsonify({"response": "No prompt provided.", "status": "error"}), 400
-    
-    response = generate_response(prompt, max_tokens=max_tokens, temperature=temperature)
-    return jsonify({"response": response, "status": "ok", "inference_count": inference_count})
+        return jsonify({"error": "No prompt provided."}), 400
+
+    # Save user message
+    if conv_id:
+        try:
+            db = get_db()
+            now = datetime.utcnow().isoformat()
+            db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                       (conv_id, "user", prompt, now))
+            db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
+                       (now, conv_id))
+            db.commit()
+            db.close()
+        except Exception as e:
+            print(f"[DB ERROR] {e}")
+
+    def generate():
+        full_response = ""
+        for chunk in generate_response_stream(prompt, max_tokens, temperature):
+            full_response += chunk
+            yield f"data: {json.dumps({'content': chunk})}\n\n"
+        
+        # Save assistant response
+        if conv_id:
+            try:
+                db = get_db()
+                now = datetime.utcnow().isoformat()
+                db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                           (conv_id, "assistant", full_response, now))
+                db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
+                           (now, conv_id))
+                db.commit()
+                db.close()
+            except Exception as e:
+                print(f"[DB ERROR] {e}")
+                
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+@app.route("/api/conversations", methods=["GET", "POST"])
+def conversations_api():
+    db = get_db()
+    if request.method == "GET":
+        rows = db.execute("SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50").fetchall()
+        convs = [dict(r) for r in rows]
+        db.close()
+        return jsonify({"conversations": convs})
+    else:
+        data = request.get_json() or {}
+        cid = "conv_" + str(uuid.uuid4().hex[:12])
+        title = data.get("title", "New Chat")
+        now = datetime.utcnow().isoformat()
+        db.execute("INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                   (cid, title, now, now))
+        db.commit()
+        db.close()
+        return jsonify({"success": True, "id": cid})
+
+@app.route("/api/conversations/<conv_id>", methods=["GET", "DELETE"])
+def conversation_detail(conv_id):
+    db = get_db()
+    if request.method == "GET":
+        conv = db.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        if not conv:
+            db.close()
+            return jsonify({"error": "Not found"}), 404
+        msgs = db.execute("SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC", (conv_id,)).fetchall()
+        db.close()
+        return jsonify({"conversation": dict(conv), "messages": [dict(m) for m in msgs]})
+    else:
+        db.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
+        db.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+        db.commit()
+        db.close()
+        return jsonify({"success": True})
 
 @app.route("/health")
 def health():
@@ -161,8 +294,58 @@ def list_files():
 @app.route("/api/terminal/create", methods=["POST"])
 def terminal_create():
     session_id = str(uuid.uuid4())[:8]
-    terminal_sessions[session_id] = {"output": [], "cwd": "/home/workspace"}
+    terminal_sessions[session_id] = {"output": "", "cwd": "/home/workspace", "alive": True}
     return jsonify({"session_id": session_id, "status": "created"})
+
+@app.route("/api/terminal/<session_id>/write", methods=["POST"])
+def terminal_write(session_id):
+    if session_id not in terminal_sessions:
+        return jsonify({"error": "Session not found"}), 404
+    data = request.get_json() or {}
+    cmd = data.get("input", "").strip()
+    if not cmd:
+        return jsonify({"error": "No input"}), 400
+    
+    session = terminal_sessions[session_id]
+    try:
+        # Simple non-PTY fallback for now, but aligned with UI polling
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=30,
+            cwd=session.get("cwd", "/home/workspace")
+        )
+        output = result.stdout
+        if result.stderr:
+            output += "\n" + result.stderr
+        session["output"] += output + f"\n[Process exited with {result.returncode}]\n"
+        return jsonify({"ok": True})
+    except subprocess.TimeoutExpired:
+        session["output"] += "Command timed out\n"
+        return jsonify({"ok": True})
+    except Exception as e:
+        session["output"] += str(e) + "\n"
+        return jsonify({"ok": True})
+
+@app.route("/api/terminal/<session_id>/read", methods=["GET"])
+def terminal_read(session_id):
+    if session_id not in terminal_sessions:
+        return jsonify({"output": "", "alive": False}), 404
+    session = terminal_sessions[session_id]
+    output = session["output"]
+    session["output"] = "" # Clear after read as UI polls
+    return jsonify({"output": output, "alive": session["alive"]})
+
+@app.route("/api/terminal/<session_id>/stop", methods=["POST"])
+def terminal_stop(session_id):
+    if session_id in terminal_sessions:
+        terminal_sessions[session_id]["alive"] = False
+        del terminal_sessions[session_id]
+    return jsonify({"ok": True})
+
+@app.route("/api/terminal/<session_id>/output", methods=["GET"])
+def terminal_output(session_id):
+    if session_id not in terminal_sessions:
+        return jsonify({"output": []})
+    return jsonify({"output": terminal_sessions[session_id]["output"]})
 
 @app.route("/api/terminal/<session_id>/send", methods=["POST"])
 def terminal_send(session_id):
@@ -190,18 +373,6 @@ def terminal_send(session_id):
     except Exception as e:
         session["output"].append({"command": cmd, "output": str(e), "exit_code": -1})
         return jsonify({"output": str(e), "exit_code": -1})
-
-@app.route("/api/terminal/<session_id>/output", methods=["GET"])
-def terminal_output(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"output": []})
-    return jsonify({"output": terminal_sessions[session_id]["output"]})
-
-@app.route("/api/terminal/<session_id>/read", methods=["GET"])
-def terminal_read(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"output": []})
-    return jsonify({"output": terminal_sessions[session_id]["output"]})
 
 @app.route("/api/code/execute", methods=["POST"])
 def code_execute():
@@ -240,5 +411,6 @@ def static_files(filename):
 # ====================
 if __name__ == "__main__":
     print(f"NeuralAI Unified Service starting on port {PORT}...")
+    init_db()
     load_model()
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

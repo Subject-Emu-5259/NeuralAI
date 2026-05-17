@@ -1,7 +1,7 @@
 # 🚀 NeuralAI Development Roadmap
 
 **Version Target: 5.0**
-**Last Updated: May 6, 2026**
+**Last Updated: May 17, 2026**
 
 ---
 
@@ -13,6 +13,9 @@
 - [x] Web UI deployed at https://neuralai-deandrewharris.zocomputer.io
 - [x] SQLite persistence for conversations
 - [x] RAG document indexing
+- [x] Unified Service Migration: Consolidated Model + UI + Terminal into `neural_core_service.py` (May 17, 2026)
+- [x] Fixed Terminal consistency: Aligned `/write` and `/read` endpoints with frontend JS polling
+- [x] Fixed Chat streaming: Re-implemented SSE logic in unified service to support live UI updates
 
 ### Phase 1: Tool Ecosystem ✓
 - [x] Code Execution Sandbox - `run this code: ...`
@@ -40,8 +43,9 @@
 | **DPO Pairs** | 31 preference pairs |
 | **Inference** | CPU float32 (~2-3 sec first token, 5-10 tokens/sec) |
 | **Tools** | 5 tools connected and working |
-| **Chat** | ✓ Live streaming responses |
+| **Chat** | ✅ Live streaming responses |
 | **Eval Suite** | Created, pending execution |
+| **Maintenance** | ✅ Unified service stable (May 17) |
 
 ---
 

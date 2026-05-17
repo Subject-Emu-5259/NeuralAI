@@ -25,3 +25,7 @@ Thumbs.db
 # Node (if any)
 node_modules/
 npm-debug.log.indexed_files.json
+
+# DPO model (large files)
+checkpoints/dpo_model/
+checkpoints/v2_model/checkpoint-23/

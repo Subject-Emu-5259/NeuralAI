@@ -1,372 +1,313 @@
 #!/usr/bin/env python3
 """
-NeuralAI Web UI Service
-- Clean web interface  
-- Calls model service for inference
-- Calls tools service for execution
-- Neural Uplink for multi-agent analysis
+NeuralAI Unified Service - ALL IN ONE
+===================================
+- Model inference (SmolLM2-360M)
+- Neural Uplink (4 parallel agents) 
+- Tools (code, terminal)
+- Web UI
 """
-
-import os
-import sys
-import json
-import requests
-import sqlite3
+import os, sys, json, asyncio, requests
+import torch, sqlite3, subprocess, tempfile, uuid
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context, g
+from flask import Flask, Response, jsonify, request, send_from_directory
 
-# Configuration
+torch.set_num_threads(4)
+
+app = Flask(__name__, static_folder=None)
+
+# Config
 PORT = int(os.environ.get("PORT", "5000"))
-MODEL_SERVICE = os.environ.get("MODEL_SERVICE", "http://localhost:7001")
-TOOLS_SERVICE = os.environ.get("TOOLS_SERVICE", "http://localhost:7001")
-UPLINK_SERVICE = os.environ.get("UPLINK_SERVICE", "http://localhost:8000")
-DATABASE = Path("/home/workspace/Projects/NeuralAI/from-scratch/web_ui/neuralai.db")
+MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
+BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
+STATIC_PATH = "/home/workspace/Projects/NeuralAI/from-scratch/web_ui"
 
-app = Flask(__name__, 
-            template_folder="/home/workspace/Projects/NeuralAI/from-scratch/web_ui/templates",
-            static_folder="/home/workspace/Projects/NeuralAI/from-scratch/web_ui/static")
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+# Model globals
+model = None
+tokenizer = None
+model_status = "loading"
+inference_count = 0
 
+# Terminal sessions
+terminal_sessions = {}
+# Conversations storage (Simple JSON file)
+CONV_FILE = Path("/home/workspace/Projects/NeuralAI/conversations.json")
+# Files storage
+FILES_DIR = Path("/home/workspace/Projects/NeuralAI/uploads")
+FILES_DIR.mkdir(parents=True, exist_ok=True)
 
-# ====================
-# DATABASE
-# ====================
+def load_convs():
+    if CONV_FILE.exists():
+        try:
+            with open(CONV_FILE) as f: return json.load(f)
+        except: return {}
+    return {}
 
-def get_db():
-    if 'db' not in g:
-        g.db = sqlite3.connect(str(DATABASE))
-        g.db.row_factory = sqlite3.Row
-    return g.db
+def save_convs(data):
+    with open(CONV_FILE, 'w') as f: json.dump(data, f)
 
-
-@app.teardown_appcontext
-def close_db(error):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-
-def init_db():
-    if not DATABASE.exists():
-        DATABASE.parent.mkdir(parents=True, exist_ok=True)
-        db = sqlite3.connect(str(DATABASE))
-        db.execute("""CREATE TABLE IF NOT EXISTS conversations (
-            id TEXT PRIMARY KEY, title TEXT, created_at TEXT, updated_at TEXT, message_count INTEGER DEFAULT 0)""")
-        db.execute("""CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY, conversation_id TEXT, role TEXT, content TEXT, created_at TEXT)""")
-        db.commit()
-        db.close()
-
+# Neural Uplink Agents
+UPLINK_AGENTS = {
+    "dialog": {"name": "DIALOG", "role": "Conversation", "color": "🔵", "system": "You are DIALOG, a concise AI assistant."},
+    "data": {"name": "DATA", "role": "Data Analysis", "color": "🟢", "system": "You are DATA, specialized in data analysis."},
+    "ops": {"name": "OPS", "role": "Operations", "color": "🟡", "system": "You are OPS, specialized in execution."},
+    "world": {"name": "WORLD", "role": "Creativity", "color": "🟣", "system": "You are WORLD, specialized in creative tasks."},
+}
 
 # ====================
-# ROUTES  
+# MODEL LOADING
 # ====================
+def load_model():
+    global model, tokenizer, model_status
+    try:
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from peft import PeftModel
+        tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+        tokenizer.pad_token = tokenizer.eos_token
+        adapter = Path(MODEL_PATH)
+        has_adapter = any((adapter / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
+        if adapter.exists() and has_adapter:
+            base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
+            model = PeftModel.from_pretrained(base, str(adapter))
+        else:
+            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
+        model.eval()
+        model_status = "ready"
+        print(f"[OK] Model loaded. Params: {sum(p.numel() for p in model.parameters()):,}")
+    except Exception as e:
+        model_status = f"error: {e}"
+        print(f"[ERROR] Model: {e}")
 
+def generate_response(prompt, max_tokens=256, temperature=0.7):
+    global model, tokenizer, inference_count
+    if model is None or tokenizer is None:
+        return "Model not loaded."
+    try:
+        full = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+        inputs = tokenizer(full, return_tensors="pt")
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature, top_p=0.95, pad_token_id=tokenizer.eos_token_id)
+        new_tokens = out[0][inputs["input_ids"].shape[-1]:]
+        inference_count += 1
+        return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+    except Exception as e:
+        return f"Error: {e}"
+
+# ====================
+# ROUTES - STATIC
+# ====================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    p = f"{STATIC_PATH}/templates/index.html"
+    if os.path.exists(p):
+        with open(p) as f:
+            return f.read(), 200, {"Content-Type": "text/html"}
+    return "index.html not found", 404
 
+@app.route("/<path:path>")
+def static_files(path):
+    for base in [f"{STATIC_PATH}/static", STATIC_PATH]:
+        p = os.path.join(base, path)
+        if os.path.exists(p) and os.path.isfile(p):
+            ext = path.split('.')[-1]
+            ct = {"js": "application/javascript", "css": "text/css", "png": "image/png", "jpg": "image/jpeg", "ico": "image/x-icon"}
+            return send_from_directory(os.path.dirname(p), os.path.basename(p), mimetype=ct.get(ext, "text/plain"))
+    return "Not found", 404
 
-@app.route("/api/health", methods=["GET"])
+# ====================
+# ROUTES - HEALTH
+# ====================
+@app.route("/health")
 def health():
-    services = {}
-    try:
-        resp = requests.get("http://localhost:7001/health", timeout=2)
-        services["unified"] = resp.json()
-    except:
-        services["unified"] = {"status": "offline"}
-    
-    try:
-        resp = requests.get(f"{UPLINK_SERVICE}/health", timeout=2)
-        services["uplink"] = resp.json()
-    except:
-        services["uplink"] = {"status": "offline"}
-    
-    return jsonify({"status": "ok", "version": "4.0-uplink", "services": services})
+    return jsonify({"status": model_status, "model": BASE_MODEL, "inference_count": inference_count, "uplink": "integrated"})
 
+# ====================
+# ROUTES - MODEL
+# ====================
+@app.route("/generate", methods=["POST"])
+def generate():
+    data = request.get_json() or {}
+    return jsonify({"response": generate_response(data.get("prompt", "")), "inference_count": inference_count})
 
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
-    message = data.get("message", data.get("prompt", "")).strip()
-    conv_id = data.get("conversation_id")
-    
-    if not message:
-        return jsonify({"error": "No message provided"}), 400
-    
-    tool = detect_tool(message)
-    if tool:
-        return handle_tool(tool, message, data)
-    
-    if conv_id:
-        db = get_db()
-        db.execute("INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                   (f"msg_{datetime.now().timestamp()}", conv_id, "user", message, datetime.utcnow().isoformat()))
-        db.commit()
+@app.route("/generate/stream", methods=["POST"])
+def generate_stream():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", "")
     
     def generate():
-        full_response = ""
-        try:
-            resp = requests.post(f"{MODEL_SERVICE}/generate/stream",
-                                json={"prompt": message, "max_tokens": 256, "temperature": 0.7},
-                                stream=True, timeout=60)
-            for line in resp.iter_lines():
-                if line:
-                    line = line.decode('utf-8')
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            d = json.loads(data_str)
-                            token = d.get("token", "")
-                            if token:
-                                full_response += token
-                                yield f"data: {json.dumps({'content': token})}\n\n"
-                        except:
-                            pass
-            
-            if conv_id and full_response:
-                db = get_db()
-                now = datetime.utcnow().isoformat()
-                db.execute("INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                          (f"msg_{datetime.now().timestamp()}", conv_id, "assistant", full_response, now))
-                db.commit()
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'content': f'Error: {str(e)}'})}\n\n"
-            yield "data: [DONE]\n\n"
+        response = generate_response(prompt)
+        for word in response.split():
+            yield f"data: {json.dumps({'token': word+' '})}\n\n"
+        yield "data: [DONE]\n\n"
     
-    return Response(stream_with_context(generate()), mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache"})
+    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+# Unified AI API for Frontend
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", "")
+    use_uplink = data.get("use_uplink", False)
+    
+    def generate_unified():
+        if use_uplink:
+            for agent_name, agent in UPLINK_AGENTS.items():
+                try:
+                    resp = generate_response(f"[{agent['system']}]\n{prompt}", max_tokens=120)
+                    if resp:
+                        chunk = f"{agent['color']} **{agent['name']}**: {resp.strip()}\n\n"
+                        yield f"data: {json.dumps({'content': chunk})}\n\n"
+                except: pass
+        else:
+            response = generate_response(prompt)
+            for word in response.split():
+                yield f"data: {json.dumps({'content': word + ' '})}\n\n"
+        
+        yield "data: [DONE]\n\n"
+
+    return Response(generate_unified(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 # ====================
-# TOOL DETECTION
+# ROUTES - CONVERSATIONS
 # ====================
+@app.route("/api/conversations", methods=["GET", "POST"])
+def manage_convs():
+    convs = load_convs()
+    if request.method == "POST":
+        data = request.get_json() or {}
+        cid = str(uuid.uuid4())[:8]
+        convs[cid] = {"title": data.get("title", "New Chat"), "messages": []}
+        save_convs(convs)
+        return jsonify({"success": True, "id": cid})
+    
+    return jsonify([{"id": k, "title": v["title"]} for k, v in convs.items()])
 
-def detect_tool(message: str) -> str:
-    lower = message.lower()
-    
-    # Neural Uplink
-    if any(k in lower for k in ["uplink", "analyze this", "deep analysis", "multi-agent",
-                                 "all agents", "neural uplink", "comprehensive analysis",
-                                 "breakdown", "break this down", "all angles"]):
-        return "uplink"
-    
-    # Terminal
-    for prefix in ["run ", "execute ", "shell ", "command ", "bash "]:
-        if lower.startswith(prefix):
-            return "terminal"
-    
-    # Code
-    if any(k in lower for k in ["run this code", "execute this", "run python", "run js"]):
-        return "code"
-    
-    # Image
-    if any(k in lower for k in ["create an image", "generate an image", "make an image", "draw an image"]):
-        return "image"
-    
-    return None
+@app.route("/api/conversations/<cid>", methods=["GET", "DELETE"])
+def conv_detail(cid):
+    convs = load_convs()
+    if cid not in convs: return jsonify({"error": "Not found"}), 404
+    if request.method == "DELETE":
+        del convs[cid]
+        save_convs(convs)
+        return jsonify({"success": True})
+    return jsonify(convs[cid])
 
-
-def handle_tool(tool: str, message: str, data: dict):
+# ====================
+# ROUTES - FILES
+# ====================
+@app.route("/api/files", methods=["GET", "POST"])
+def manage_files():
+    if request.method == "POST":
+        if 'file' not in request.files: return jsonify({"error": "No file"}), 400
+        file = request.files['file']
+        path = FILES_DIR / file.filename
+        file.save(str(path))
+        return jsonify({"success": True, "filename": file.filename})
     
-    if tool == "uplink":
-        def generate():
+    files = []
+    for f in FILES_DIR.iterdir():
+        files.append({"name": f.name, "size": f.stat().st_size, "path": str(f)})
+    return jsonify(files)
+
+@app.route("/api/files/<filename>", methods=["DELETE"])
+def delete_file(filename):
+    path = FILES_DIR / filename
+    if path.exists():
+        path.unlink()
+        return jsonify({"success": True})
+    return jsonify({"error": "Not found"}), 404
+
+# ====================
+# ROUTES - NEURAL UPLINK (INTEGRATED)
+# ====================
+@app.route("/uplink/stream", methods=["POST"])
+def uplink_stream():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", data.get("message", ""))
+    
+    def generate():
+        results = []
+        for agent_name, agent in UPLINK_AGENTS.items():
             try:
-                resp = requests.post(f"{UPLINK_SERVICE}/uplink",
-                                    json={"prompt": message}, timeout=60)
-                result = resp.json()
-                if result.get("success"):
-                    yield f"data: {json.dumps({'content': result.get('fused', 'No response')})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'content': 'Uplink error'})}\n\n"
-                yield "data: [DONE]\n\n"
+                resp = generate_response(f"[{agent['system']}]\n{prompt}", max_tokens=80)
+                if resp and len(resp) > 5:
+                    chunk = f"{agent['color']} **{agent['name']}**: {resp.strip()}\n\n"
+                    results.append(chunk)
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({'content': f'Uplink offline: {str(e)}'})}\n\n"
-                yield "data: [DONE]\n\n"
-        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
+                pass
+        if not results:
+            yield f"data: {json.dumps({'content': 'Neural Uplink: No responses. Try again.'})}\n\n"
+        yield "data: [DONE]\n\n"
     
-    if tool == "terminal":
-        cmd = message
-        for prefix in ["run ", "execute ", "shell ", "command ", "bash "]:
-            if message.lower().startswith(prefix):
-                cmd = message[len(prefix):].strip()
-                break
-        def generate():
-            try:
-                resp = requests.post(f"{TOOLS_SERVICE}/execute/shell",
-                                    json={"command": cmd}, timeout=30)
-                result = resp.json()
-                yield f"data: {json.dumps({'content': '```bash\\n'})}\n\n"
-                if result.get("success"):
-                    yield f"data: {json.dumps({'content': result.get('output', '')})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'content': result.get('error', 'Error')})}\n\n"
-                yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
-                yield "data: [DONE]\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'content': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-    
-    if tool == "code":
-        code = message
-        for trigger in ["run this code:", "execute this code:", "run python:"]:
-            if trigger in message.lower():
-                code = message[message.lower().find(trigger) + len(trigger):].strip()
-                break
-        def generate():
-            try:
-                resp = requests.post(f"{TOOLS_SERVICE}/execute/code",
-                                    json={"code": code, "language": "python"}, timeout=30)
-                result = resp.json()
-                yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
-                yield f"data: {json.dumps({'content': result.get('output', result.get('error', 'No output'))})}\n\n"
-                yield f"data: {json.dumps({'content': '```\\n'})}\n\n"
-                yield "data: [DONE]\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'content': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-    
-    if tool == "image":
-        prompt = message
-        for trigger in ["create an image of ", "generate an image of ", "image of "]:
-            if trigger in message.lower():
-                prompt = message[message.lower().find(trigger) + len(trigger):]
-                break
-        def generate():
-            try:
-                resp = requests.post(f"{TOOLS_SERVICE}/generate/image",
-                                    json={"prompt": prompt}, timeout=120)
-                result = resp.json()
-                if result.get("success"):
-                    yield f"data: {json.dumps({'content': '🎨 Image generated!\\n'})}\n\n"
-                    yield "data: " + json.dumps({"content": "![](" + result.get("image_url", "") + ")"}) + "\n\n"
-                else:
-                    yield f"data: {json.dumps({'content': result.get('error', 'Error')})}\n\n"
-                yield "data: [DONE]\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'content': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-        return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-    
-    return jsonify({"error": "Unknown tool"}), 400
+    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
 
+@app.route("/uplink", methods=["POST"])
+def uplink():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", data.get("message", ""))
+    responses = []
+    for agent_name, agent in UPLINK_AGENTS.items():
+        resp = generate_response(f"[{agent['system']}]\n{prompt}", max_tokens=80)
+        if resp and len(resp) > 5:
+            responses.append({"agent": agent["name"], "color": agent["color"], "response": resp})
+    return jsonify({"success": True, "responses": responses, "fused": "\n".join([f"{r['color']} **{r['agent']}**: {r['response']}" for r in responses])})
 
 # ====================
-# CONVERSATIONS
+# ROUTES - TERMINAL
 # ====================
-
-@app.route("/api/conversations", methods=["GET"])
-def list_conversations():
-    db = get_db()
-    rows = db.execute("SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50").fetchall()
-    return jsonify({"conversations": [dict(r) for r in rows]})
-
-
-@app.route("/api/conversations/<conv_id>", methods=["GET"])  
-def get_conversation(conv_id):
-    db = get_db()
-    conv = db.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
-    if not conv:
-        return jsonify({"error": "Not found"}), 404
-    messages = db.execute("SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at", (conv_id,)).fetchall()
-    return jsonify({"conversation": dict(conv), "messages": [dict(m) for m in messages]})
-
-
-# ====================
-# TERMINAL API
-# ====================
-
-# Terminal sessions storage
-terminal_sessions = {}
-
 @app.route("/api/terminal/create", methods=["POST"])
 def terminal_create():
-    """Create a new terminal session."""
-    import uuid
     session_id = str(uuid.uuid4())[:8]
-    terminal_sessions[session_id] = {
-        "created": datetime.utcnow().isoformat(),
-        "output": "",
-        "running": False
-    }
+    terminal_sessions[session_id] = {"id": session_id, "output": [], "running": True}
     return jsonify({"session_id": session_id, "status": "created"})
 
-@app.route("/api/terminal/<session_id>/read", methods=["GET"])
-def terminal_read(session_id):
-    """Read terminal output."""
-    session = terminal_sessions.get(session_id, {})
-    return jsonify({
-        "output": session.get("output", ""),
-        "running": session.get("running", False)
-    })
-
-@app.route("/api/terminal/<session_id>/write", methods=["POST"])
-def terminal_write(session_id):
-    """Write command to terminal."""
-    data = request.get_json()
-    command = data.get("command", "")
-    
+@app.route("/api/terminal/<session_id>/send", methods=["POST"])
+def terminal_send(session_id):
     if session_id not in terminal_sessions:
-        terminal_sessions[session_id] = {"output": "", "running": False}
-    
-    # Execute command via tools service
+        return jsonify({"error": "Session not found"}), 404
+    data = request.get_json() or {}
+    cmd = data.get("command", "")
     try:
-        resp = requests.post(f"{TOOLS_SERVICE}/execute/shell",
-                            json={"command": command}, timeout=30)
-        result = resp.json()
-        
-        output = result.get("output", "") or result.get("error", "")
-        terminal_sessions[session_id]["output"] += f"$ {command}\n{output}\n"
-        
-        return jsonify({
-            "output": terminal_sessions[session_id]["output"],
-            "running": False,
-            "success": result.get("success", False)
-        })
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        output = result.stdout or result.stderr or ""
+        terminal_sessions[session_id]["output"].append({"cmd": cmd, "output": output})
+        return jsonify({"output": output, "exit_code": result.returncode})
     except Exception as e:
-        return jsonify({"output": str(e), "running": False, "success": False})
+        return jsonify({"output": f"Error: {e}", "exit_code": 1})
 
-@app.route("/api/terminal/<session_id>/stop", methods=["POST"])
-def terminal_stop(session_id):
-    """Stop terminal session."""
-    if session_id in terminal_sessions:
-        terminal_sessions[session_id]["running"] = False
-    return jsonify({"status": "stopped"})
+@app.route("/api/terminal/<session_id>/output", methods=["GET"])
+def terminal_output(session_id):
+    if session_id not in terminal_sessions:
+        return jsonify({"output": []})
+    return jsonify({"output": terminal_sessions[session_id]["output"]})
 
-@app.route("/api/terminal/snippets", methods=["GET"])
-def terminal_snippets():
-    """Get code snippets."""
-    return jsonify({
-        "snippets": [
-            {"lang": "python", "name": "hello", "code": "print('Hello, World!')"},
-            {"lang": "bash", "name": "info", "code": "uname -a"}
-        ]
-    })
-
-@app.route("/api/terminal/snippets/<lang>/<name>", methods=["GET"])
-def terminal_snippet(lang, name):
-    """Get specific snippet."""
-    snippets = {
-        ("python", "hello"): "print('Hello, World!')",
-        ("bash", "info"): "uname -a"
-    }
-    return jsonify({"code": snippets.get((lang, name), "# Not found")})
-
+# ====================
+# ROUTES - CODE EXECUTION
+# ====================
+@app.route("/api/execute/code", methods=["POST"])
+def execute_code():
+    data = request.get_json() or {}
+    code = data.get("code", "")
+    language = data.get("language", "python")
+    suffix = ".py" if language == "python" else ".js"
+    with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as f:
+        f.write(code)
+        path = f.name
+    try:
+        cmd = ["python3", path] if language == "python" else ["node", path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return jsonify({"success": result.returncode == 0, "output": result.stdout, "error": result.stderr})
+    except Exception as e:
+        return jsonify({"success": False, "output": "", "error": str(e)})
+    finally:
+        os.unlink(path)
 
 # ====================
 # STARTUP
 # ====================
-
-print(f"[WebUI] Port: {PORT}")
-print(f"[WebUI] Model: {MODEL_SERVICE}")
-print(f"[WebUI] Uplink: {UPLINK_SERVICE}")
-init_db()
-
 if __name__ == "__main__":
+    print(f"NeuralAI Unified Service starting on port {PORT}...")
+    load_model()
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

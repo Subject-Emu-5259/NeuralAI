@@ -59,7 +59,7 @@ AGENTS = {
 }
 
 
-async def query_agent(agent_name: str, prompt: str, timeout: int = 30) -> dict:
+async def query_agent(agent_name: str, prompt: str, timeout: int = 90) -> dict:
     """Query a single agent via the model service."""
     agent = AGENTS.get(agent_name)
     if not agent:
@@ -72,7 +72,7 @@ async def query_agent(agent_name: str, prompt: str, timeout: int = 30) -> dict:
             
             async with session.post(
                 f"{MODEL_SERVICE}/generate",
-                json={"prompt": prompt, "max_tokens": 128, "temperature": 0.7},
+                json={"prompt": full_prompt, "max_tokens": 128, "temperature": 0.7},
                 timeout=aiohttp.ClientTimeout(total=timeout)
             ) as resp:
                 if resp.status == 200:
@@ -126,7 +126,7 @@ def fuse_responses(responses: list) -> str:
         role = resp.get("role", "")
         response = resp.get("response", "")
         
-        if response and len(response) > 10:
+        if response and len(response) > 5:
             lines.append(f"\n{color} **{name}** ({role}):")
             lines.append(f"> {response.strip()}")
     
@@ -192,10 +192,13 @@ def uplink_stream():
         
         for agent_name, agent in AGENTS.items():
             try:
+                # Build prompt with agent's system message
+                full_prompt = f"<|im_start|>system\n{agent['system']}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+                
                 resp = sync_requests.post(
                     f"{MODEL_SERVICE}/generate",
-                    json={"prompt": prompt, "max_tokens": 100, "temperature": 0.7},
-                    timeout=30
+                    json={"prompt": full_prompt, "max_tokens": 100, "temperature": 0.7},
+                    timeout=60
                 )
                 
                 if resp.status_code == 200:

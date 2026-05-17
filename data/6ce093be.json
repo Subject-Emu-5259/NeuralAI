@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "Hello"
+  },
+  {
+    "role": "assistant",
+    "content": "I'm NeuralAI. I can help with programming, data analysis, AI concepts, and more. Please ask your questions or share code snippets. I'll provide clear explanations and potential solutions."
+  }
+]

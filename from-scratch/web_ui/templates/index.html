@@ -2835,29 +2835,31 @@ if (exportBtn) {
 }
 
 // Uplink toggle
-uplinkToggle.addEventListener('change', async () => {
-  uplinkEnabled = uplinkToggle.checked;
-  if (uplinkEnabled) {
-    try {
-      const r = await fetch('http://localhost:7000/health');
-      const d = await r.json();
-      updateUplinkUI(true);
-      toast('Neural Uplink connected', 'success');
-    } catch {
-      uplinkToggle.checked = false;
-      uplinkEnabled = false;
+if (uplinkToggle) {
+  uplinkToggle.addEventListener('change', async () => {
+    uplinkEnabled = uplinkToggle.checked;
+    if (uplinkEnabled) {
+      try {
+        const r = await fetch('http://localhost:7000/health');
+        const d = await r.json();
+        updateUplinkUI(true);
+        toast('Neural Uplink connected', 'success');
+      } catch {
+        uplinkToggle.checked = false;
+        uplinkEnabled = false;
+        updateUplinkUI(false);
+        toast('Uplink not available', 'error');
+      }
+    } else {
       updateUplinkUI(false);
-      toast('Uplink not available', 'error');
+      toast('Uplink disabled', 'success');
     }
-  } else {
-    updateUplinkUI(false);
-    toast('Uplink disabled', 'success');
-  }
-});
+  });
+}
 
 function updateUplinkUI(connected) {
-  uplinkDot.className = 'status-dot ' + (connected ? 'online' : 'offline');
-  uplinkLabel.textContent = connected ? 'Connected' : 'Offline';
+  if (uplinkDot) uplinkDot.className = 'status-dot ' + (connected ? 'online' : 'offline');
+  if (uplinkLabel) uplinkLabel.textContent = connected ? 'Connected' : 'Offline';
 }
 
 // Input
@@ -3608,7 +3610,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Settings Panel
 async function checkModelStatus() {
   try {
-    const res = await fetch('http://localhost:7001/health');
+    const res = await fetch(`${window.location.origin}/health`);
     const data = await res.json();
     
     const uplinkDot = document.getElementById('uplinkDot');

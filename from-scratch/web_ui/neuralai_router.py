@@ -149,7 +149,12 @@ def neuralai_route(msg: str) -> Tuple[str, Optional[str]]:
             if pattern in lower:
                 return ("tool", tool)
     
-    # 5. EVERYTHING ELSE → MAIN MODEL (default)
+    # 5. Check for Research/Analysis -> UPLINK
+    for pattern in TOOL_PATTERNS["research"]:
+        if pattern in lower:
+            return ("uplink", None)
+            
+    # 6. EVERYTHING ELSE → MAIN MODEL (default)
     return ("local", None)
 
 

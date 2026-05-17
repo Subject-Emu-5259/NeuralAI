@@ -10,7 +10,7 @@
 ### Phase 0: Core System ✓
 - [x] SmolLM2-360M base model fine-tuned with QLoRA
 - [x] Chat streaming (SSE) working
-- [x] Web UI deployed at https://neuralai-webui-deandrewharris.zocomputer.io
+- [x] Web UI deployed at https://neuralai-deandrewharris.zocomputer.io
 - [x] SQLite persistence for conversations
 - [x] RAG document indexing
 
@@ -23,13 +23,19 @@
 - [x] Tool detection and routing in chat
 - [x] Fixed SSE streaming (was sending escaped newlines)
 
+### Phase 2: DPO Alignment ✓
+- [x] DPO training pipeline implemented
+- [x] Preference dataset expanded to 31 pairs
+- [x] Successful DPO training run completed (May 17, 2026)
+- [x] Model aligned for better response quality and instruction following
+
 ---
 
 ## 🔄 Current State
 
 | Component | Status |
 | --- | --- |
-| **Model** | SmolLM2-360M-Instruct + LoRA adapter (365M params) |
+| **Model** | SmolLM2-360M-Instruct + LoRA + DPO (365M params) |
 | **Training Samples** | 404 (347 original + 57 new) |
 | **DPO Pairs** | 31 preference pairs |
 | **Inference** | CPU float32 (~2-3 sec first token, 5-10 tokens/sec) |
@@ -55,23 +61,7 @@
 - Use Google Colab for training/inference
 - Deploy to cloud GPU (RunPod, Lambda Labs)
 
-### 2. DPO Alignment Training
-**Status:** Scripts ready, data prepared
-
-**Files:**
-- `training/train_dpo.py` - DPO training script
-- `data/train_dpo_expanded.jsonl` - 31 preference pairs
-- Ready to run on Colab T4 GPU
-
-**Parameters:**
-```python
-beta = 0.1
-learning_rate = 5e-5
-batch_size = 4
-epochs = 1-2
-```
-
-### 3. Training Data Expansion
+### 2. Training Data Expansion
 **Status:** In progress (404 → target 1000+)
 
 **Categories to expand:**
@@ -81,7 +71,7 @@ epochs = 1-2
 - Multi-turn reasoning: +50 samples
 - Tool chaining: +50 samples
 
-### 4. Evaluation Suite
+### 3. Evaluation Suite
 **Status:** Created, pending execution
 
 **Benchmarks:**
@@ -130,7 +120,7 @@ NeuralAI/
 
 ## 🔗 Quick Links
 
-- **Live Chat:** https://neuralai-webui-deandrewharris.zocomputer.io
+- **Live Chat:** https://neuralai-deandrewharris.zocomputer.io
 - **GitHub:** https://github.com/Subject-Emu-5259/NeuralAI
 - **Local Dev:** http://localhost:5000
 

@@ -22,6 +22,8 @@ PORT = int(os.environ.get("PORT", "5000"))
 MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
 BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
 STATIC_PATH = "/home/workspace/Projects/NeuralAI/from-scratch/web_ui"
+TEMPLATE_PATH = os.path.join(STATIC_PATH, "templates")
+DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/dpo_model")
 
 # Model globals
 model = None
@@ -40,15 +42,25 @@ def load_model():
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
-        tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-        tokenizer.pad_token = tokenizer.eos_token
-        adapter = Path(MODEL_PATH)
-        has_adapter = any((adapter / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
-        if adapter.exists() and has_adapter:
-            base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
-            model = PeftModel.from_pretrained(base, str(adapter))
+
+        # Check for full DPO model first
+        dpo = Path(DPO_MODEL_PATH)
+        if dpo.exists() and (dpo / "model.safetensors").exists():
+            tokenizer = AutoTokenizer.from_pretrained(str(dpo))
+            tokenizer.pad_token = tokenizer.eos_token
+            model = AutoModelForCausalLM.from_pretrained(str(dpo), dtype=torch.float32, device_map=None)
+            print(f"[OK] DPO model loaded from {DPO_MODEL_PATH}")
         else:
-            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
+            tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+            tokenizer.pad_token = tokenizer.eos_token
+            adapter = Path(MODEL_PATH)
+            has_adapter = any((adapter / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
+            if adapter.exists() and has_adapter:
+                base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
+                model = PeftModel.from_pretrained(base, str(adapter))
+            else:
+                model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
+
         model.eval()
         model_status = "ready"
         print(f"[OK] Model loaded. Params: {sum(p.numel() for p in model.parameters()):,}")
@@ -61,7 +73,11 @@ def generate_response(prompt, max_tokens=256, temperature=0.7):
     if model is None or tokenizer is None:
         return "Model not loaded."
     try:
-        full = f"user\n{prompt}"
+        if tokenizer.chat_template:
+            messages = [{"role": "user", "content": prompt}]
+            full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        else:
+            full = f"user\n{prompt}"
         inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048)
         outputs = model.generate(
             **inputs,
@@ -121,6 +137,10 @@ def api_status():
 @app.route("/favicon.ico")
 def favicon():
     return send_from_directory(f"{STATIC_PATH}/static", "favicon.png")
+
+@app.route("/privacy")
+def privacy():
+    return send_from_directory(TEMPLATE_PATH, "privacy.html")
 
 @app.route("/api/quick_chat", methods=["POST"])
 def quick_chat():
@@ -206,14 +226,14 @@ def code_execute():
 # ====================
 @app.route("/")
 def index():
-    return send_from_directory(STATIC_PATH, "index.html")
+    return send_from_directory(TEMPLATE_PATH, "index.html")
 
 @app.route("/<path:filename>")
 def static_files(filename):
     file_path = Path(STATIC_PATH) / filename
     if file_path.exists() and file_path.is_file():
         return send_from_directory(STATIC_PATH, filename)
-    return send_from_directory(STATIC_PATH, "index.html")
+    return send_from_directory(TEMPLATE_PATH, "index.html")
 
 # ====================
 # STARTUP

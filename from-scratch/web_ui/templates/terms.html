@@ -12,55 +12,87 @@
             --text: #e4e4e7;
             --muted: #8a8a9a;
             --accent: #a78bfa;
+            --primary: #3b82f6;
         }
         body {
             background-color: var(--bg);
             color: var(--text);
             font-family: 'Google Sans', sans-serif;
-            line-height: 1.6;
+            line-height: 1.8;
             margin: 0;
-            padding: 40px 20px;
+            padding: 60px 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: var(--card);
-            padding: 40px;
-            border-radius: 24px;
+            padding: 60px;
+            border-radius: 32px;
             border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
-        h1 { color: var(--accent); margin-bottom: 32px; }
-        h2 { margin-top: 32px; font-size: 20px; }
-        p { color: var(--muted); margin-bottom: 16px; }
+        .header {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+        h1 { color: var(--accent); margin: 0; font-size: 32px; font-weight: 700; }
+        h2 { margin-top: 40px; font-size: 22px; color: var(--primary); font-weight: 600; }
+        h3 { margin-top: 24px; font-size: 18px; color: var(--text); }
+        p, li { color: var(--muted); margin-bottom: 16px; font-size: 15px; }
+        ul { padding-left: 20px; }
         .back-link {
-            display: inline-block;
-            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 32px;
             color: var(--accent);
             text-decoration: none;
             font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
         }
+        .back-link:hover { opacity: 0.8; }
+        .last-updated { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/" class="back-link">← Back to App</a>
-        <h1>Terms of Service</h1>
-        <p>Last updated: May 17, 2026</p>
+        <a href="/" class="back-link">← Back to NeuralAI Node</a>
+        <div class="header">
+            <div class="last-updated">VERSION 5.1 • EFFECTIVE MAY 17, 2026</div>
+            <h1>Terms of Service</h1>
+        </div>
         
-        <h2>1. Acceptance of Terms</h2>
-        <p>By accessing or using NeuralAI, you agree to be bound by these Terms of Service.</p>
+        <h2>1. Agreement to Terms</h2>
+        <p>By accessing the NeuralAI platform, services, or local intelligence nodes, you enter into a legally binding agreement between you and NeuralAI ("we," "us," or "our"). If you do not agree with all of these legal terms, you are prohibited from using the platform and must discontinue use immediately.</p>
         
-        <h2>2. User Responsibility</h2>
-        <p>You are responsible for maintaining the confidentiality of your account and for all activities that occur under your account.</p>
+        <h2>2. Intellectual Property Rights</h2>
+        <p>Unless otherwise indicated, the Site and Services are our proprietary property and all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics on the Site (collectively, the "Content") and the trademarks, service marks, and logos contained therein (the "Marks") are owned or controlled by us or licensed to us.</p>
+        <p><strong>Your Content:</strong> You retain full ownership and intellectual property rights over the data, prompts, and code you generate or upload to your private storage vault. NeuralAI does not claim ownership of user-generated output.</p>
         
-        <h2>3. Content Ownership</h2>
-        <p>You retain all rights to the data and content you upload. NeuralAI does not claim ownership of your data.</p>
+        <h2>3. User Representations</h2>
+        <p>By using the Services, you represent and warrant that:</p>
+        <ul>
+            <li>All registration information you submit will be true, accurate, current, and complete.</li>
+            <li>You will maintain the accuracy of such information and promptly update such registration information as necessary.</li>
+            <li>You have the legal capacity and you agree to comply with these Terms of Service.</li>
+            <li>You will not access the Services through automated or non-human means, whether through a bot, script or otherwise.</li>
+        </ul>
         
-        <h2>4. Acceptable Use</h2>
-        <p>You agree not to use the service for any illegal or unauthorized purposes.</p>
+        <h2>4. Prohibited Activities</h2>
+        <p>You may not access or use the Services for any purpose other than that for which we make the Services available. Prohibited activity includes, but is not limited to:</p>
+        <ul>
+            <li>Systematically retrieving data or other content from the Services to create or compile, directly or indirectly, a collection, compilation, database, or directory without written permission from us.</li>
+            <li>Trick, defraud, or mislead us and other users, especially in any attempt to learn sensitive account information such as user passwords.</li>
+            <li>Use the Services to advertise or offer to sell goods and services.</li>
+            <li>Attempt to bypass any measures of the Services designed to prevent or restrict access to the Services.</li>
+        </ul>
+
+        <h2>5. AI Ethics & Model Usage</h2>
+        <p>NeuralAI provides local model inference and DPO-aligned intelligence. You agree to use these models responsibly and not for the generation of harmful, illegal, or malicious content. While our models are designed for high-accuracy reasoning, we do not guarantee the absolute correctness of AI-generated output for critical safety or financial decisions.</p>
         
-        <h2>5. Limitation of Liability</h2>
-        <p>NeuralAI is provided "as is" without any warranties. We shall not be liable for any indirect or consequential damages.</p>
+        <h2>6. Limitation of Liability</h2>
+        <p>IN NO EVENT WILL WE OR OUR DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE TO YOU OR ANY THIRD PARTY FOR ANY DIRECT, INDIRECT, CONSEQUENTIAL, EXEMPLARY, INCIDENTAL, SPECIAL, OR PUNITIVE DAMAGES, INCLUDING LOST PROFIT, LOST REVENUE, LOSS OF DATA, OR OTHER DAMAGES ARISING FROM YOUR USE OF THE SERVICES, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</p>
     </div>
 </body>
 </html>

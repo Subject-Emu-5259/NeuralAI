@@ -2538,8 +2538,8 @@ body.dark-mode .onboarding-close:hover {
     </div>
     <div class="sidebar-footer">
       <div class="sidebar-footer-links">
-        <a href="/privacy" target="_blank" class="sidebar-link">🔒 Privacy & Data</a>
-        <a href="/terms" target="_blank" class="sidebar-link">⚖️ Terms of Service</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" class="sidebar-link">🔒 Privacy & Data Policy</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer" class="sidebar-link">⚖️ Terms of Service</a>
       </div>
     </div>
   </aside>
@@ -2754,7 +2754,6 @@ body.dark-mode .onboarding-close:hover {
         </div>
       </section>
     </div>
-    </div>
   </main>
 </div>
 
@@ -2824,6 +2823,9 @@ function logout() {
 
 // 2. Navigation
 function switchTab(tab) {
+  // If user clicks a link with a real href, don't prevent it
+  if (typeof tab !== 'string') return;
+
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   ['chat', 'files', 'terminal', 'settings'].forEach(id => {
     const el = document.getElementById("tab-" + id);
@@ -2882,7 +2884,20 @@ async function loadUserProfile() {
   } catch {}
 }
 
-// 4. Init
+// Handle sidebar links
+document.querySelectorAll('.sidebar-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    // Ensure clicks on real external links don't trigger switchTab
+    if (link.getAttribute('target') === '_blank') {
+      return; // Let the browser handle the new tab naturally
+    }
+    e.preventDefault();
+    const tab = link.dataset.tab;
+    if (tab) switchTab(tab);
+  });
+});
+
+// Init
 document.addEventListener("DOMContentLoaded", () => {
   initAuth();
 });

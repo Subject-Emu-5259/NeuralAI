@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy | NeuralAI</title>
+    <title>Privacy & Data Policy | NeuralAI</title>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -12,52 +12,90 @@
             --text: #e4e4e7;
             --muted: #8a8a9a;
             --accent: #a78bfa;
+            --safe: #10b981;
         }
         body {
             background-color: var(--bg);
             color: var(--text);
             font-family: 'Google Sans', sans-serif;
-            line-height: 1.6;
+            line-height: 1.8;
             margin: 0;
-            padding: 40px 20px;
+            padding: 60px 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: var(--card);
-            padding: 40px;
-            border-radius: 24px;
+            padding: 60px;
+            border-radius: 32px;
             border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
-        h1 { color: var(--accent); margin-bottom: 32px; }
-        h2 { margin-top: 32px; font-size: 20px; }
-        p { color: var(--muted); margin-bottom: 16px; }
+        .header {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+        h1 { color: var(--accent); margin: 0; font-size: 32px; font-weight: 700; }
+        h2 { margin-top: 40px; font-size: 22px; color: var(--safe); font-weight: 600; }
+        p, li { color: var(--muted); margin-bottom: 16px; font-size: 15px; }
+        ul { padding-left: 20px; }
         .back-link {
-            display: inline-block;
-            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 32px;
             color: var(--accent);
             text-decoration: none;
             font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
         }
+        .back-link:hover { opacity: 0.8; }
+        .last-updated { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/" class="back-link">← Back to App</a>
-        <h1>Privacy Policy</h1>
-        <p>Last updated: May 17, 2026</p>
+        <a href="/" class="back-link">← Back to NeuralAI Node</a>
+        <div class="header">
+            <div class="last-updated">VERSION 5.1 • EFFECTIVE MAY 17, 2026</div>
+            <h1>Privacy & Data Policy</h1>
+        </div>
         
-        <h2>1. Data Collection</h2>
-        <p>NeuralAI collects only the necessary information to provide our services, including your username, email, and files you explicitly upload to your private cloud storage.</p>
+        <h2>1. Our Data Philosophy</h2>
+        <p>NeuralAI is built on the principle of <strong>User Data Sovereignty</strong>. We believe that your thoughts, prompts, and files belong to you. Our architecture is designed to keep your information isolated and protected within your private cloud vault.</p>
         
-        <h2>2. Data Security</h2>
-        <p>Your data is stored in isolated, per-user environments. We implement industry-standard encryption for data at rest and in transit.</p>
+        <h2>2. Information We Collect</h2>
+        <p>We collect minimal data required to maintain your account and provide intelligence services:</p>
+        <ul>
+            <li><strong>Account Information:</strong> Username, first/last name, and email address provided during registration.</li>
+            <li><strong>User Content:</strong> Conversations, documents, and code uploaded to your private storage node.</li>
+            <li><strong>Technical Data:</strong> Login timestamps and IP addresses used solely for security and session management.</li>
+        </ul>
         
-        <h2>3. AI Training</h2>
-        <p>We do not use your private conversations or uploaded files to train our base models without your explicit consent.</p>
+        <h2>3. How We Use Your Data</h2>
+        <p>Your data is used exclusively to power your personalized AI experience. Specifically:</p>
+        <ul>
+            <li>To verify your identity and manage your cloud storage node.</li>
+            <li>To provide personalized responses based on your stored "Memory Cloud" and bio.</li>
+            <li>To facilitate terminal execution and tool-calling within your private environment.</li>
+        </ul>
+        <p><strong>IMPORTANT:</strong> We do NOT sell your data to third parties, and we do NOT use your private conversations or files to train our base models without your explicit, separate opt-in consent.</p>
         
-        <h2>4. Your Rights</h2>
-        <p>You have the right to access, export, or delete your data at any time through your account settings.</p>
+        <h2>4. Data Isolation & Security</h2>
+        <p>NeuralAI implements strict multi-user isolation. Your cloud vault is mapped to a unique user ID, and your JWT (JSON Web Token) acts as the cryptographic key to access your data. We use industry-standard encryption for data transit (SSL/TLS) and at-rest storage.</p>
+        
+        <h2>5. Your Control & Rights</h2>
+        <p>You have full control over your data. Through your Settings, you can:</p>
+        <ul>
+            <li>Modify your profile and biography.</li>
+            <li>View and delete specific items from your Memory Cloud.</li>
+            <li>Delete your entire conversation history or specific files from storage.</li>
+            <li>Request a complete data export or account deletion.</li>
+        </ul>
+        
+        <h2>6. Legal Compliance</h2>
+        <p>We will only disclose your information where required to do so by law or subpoena if we believe that such action is necessary to comply with the law and the reasonable requests of law enforcement.</p>
     </div>
 </body>
 </html>

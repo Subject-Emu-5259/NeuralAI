@@ -328,11 +328,32 @@ def terminal_write(session_id):
 @app.route("/api/terminal/<session_id>/read", methods=["GET"])
 def terminal_read(session_id):
     if session_id not in terminal_sessions:
-        return jsonify({"output": "", "alive": False}), 404
-    session = terminal_sessions[session_id]
-    output = session["output"]
-    session["output"] = "" # Clear after read as UI polls
-    return jsonify({"output": output, "alive": session["alive"]})
+        return jsonify({"output": []})
+    return jsonify({"output": terminal_sessions[session_id]["output"]})
+
+@app.route("/api/code/exec", methods=["POST"])
+def code_exec():
+    data = request.get_json() or {}
+    code = data.get("code", "")
+    language = data.get("language", "python")
+    try:
+        if language in ("python", "py"):
+            result = subprocess.run(["python3", "-c", code], capture_output=True, text=True, timeout=15)
+        elif language in ("javascript", "js"):
+            result = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=15)
+        elif language in ("bash", "sh", "shell"):
+            result = subprocess.run(["bash", "-c", code], capture_output=True, text=True, timeout=15)
+        else:
+            return jsonify({"success": False, "error": f"Unsupported language: {language}"})
+        return jsonify({
+            "success": result.returncode == 0,
+            "output": result.stdout[:5000],
+            "error": result.stderr[:2000] if result.stderr else None
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "Code execution timed out (15s limit)"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route("/api/terminal/<session_id>/stop", methods=["POST"])
 def terminal_stop(session_id):

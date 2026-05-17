@@ -684,6 +684,65 @@ body:not(.dark-mode) .msg.ai .msg-bubble {
   color: #e6edf3;
 }
 
+.code-run-btn {
+  background: linear-gradient(135deg, #238636, #2ea043);
+  border: 1px solid #3fb950;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 6px;
+}
+
+.code-run-btn:hover {
+  background: linear-gradient(135deg, #2ea043, #3fb950);
+  box-shadow: 0 0 8px rgba(63, 185, 80, 0.3);
+}
+
+.code-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.code-output {
+  margin-top: 0;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #e6edf3;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.code-output pre {
+  background: transparent !important;
+  border: none !important;
+  margin: 8px 0 !important;
+  padding: 0 !important;
+}
+
+.code-output-success {
+  color: #3fb950;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.code-output-error {
+  color: #f85149;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.code-output-loading {
+  color: #58a6ff;
+  font-style: italic;
+}
+
 /* Inline Code */
 .msg code {
   background: rgba(139, 92, 246, 0.15);
@@ -2698,9 +2757,13 @@ function createCodeBlock(code, lang) {
     <div class="code-block-wrapper">
       <div class="code-header">
         <span class="code-lang">${displayLang}</span>
-        <button class="code-copy-btn" onclick="copyCodeBlock('${codeId}')">Copy</button>
+        <div class="code-actions">
+          <button class="code-run-btn" onclick="runCodeBlock('${codeId}', '${language}')">▶ Run</button>
+          <button class="code-copy-btn" onclick="copyCodeBlock('${codeId}')">Copy</button>
+        </div>
       </div>
       <pre><code id="${codeId}">${highlightCode(code, lang)}</code></pre>
+      <div class="code-output" id="${codeId}-output" style="display:none"></div>
     </div>
   `;
 }
@@ -2719,6 +2782,34 @@ window.copyCodeBlock = function(codeId) {
         btn.classList.remove('copied');
       }, 2000);
     }
+  }
+};
+
+// Run code block in terminal
+window.runCodeBlock = async function(codeId, lang) {
+  const codeEl = document.getElementById(codeId);
+  const outputEl = document.getElementById(codeId + '-output');
+  if (!codeEl || !outputEl) return;
+  
+  const code = codeEl.textContent;
+  outputEl.style.display = 'block';
+  outputEl.innerHTML = '<div class="code-output-loading">⏳ Executing ' + lang + '...</div>';
+  
+  try {
+    const r = await fetch('/api/code/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, language: lang })
+    });
+    const data = await r.json();
+    
+    if (data.success) {
+      outputEl.innerHTML = '<div class="code-output-success">✅ Ran ' + lang + ' code:</div><pre>' + escHtml(data.output || '(no output)') + '</pre>';
+    } else {
+      outputEl.innerHTML = '<div class="code-output-error">❌ Error:</div><pre>' + escHtml(data.error || 'Unknown error') + '</pre>';
+    }
+  } catch(e) {
+    outputEl.innerHTML = '<div class="code-output-error">❌ Failed to execute</div>';
   }
 };
 

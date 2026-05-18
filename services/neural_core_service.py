@@ -10,7 +10,7 @@ NeuralAI Unified Service - ALL IN ONE
 import os, sys, json, asyncio, requests, threading
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
@@ -18,7 +18,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, stream
 torch.set_num_threads(4)
 
 app = Flask(__name__, static_folder=None)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-secret-2026")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
@@ -251,7 +251,7 @@ def signup():
     is_founder = 1 if email == "deandrewh26@gmail.com" else 0
     hashed = generate_password_hash(password)
     uid = "user_" + str(uuid.uuid4().hex[:8])
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     
     try:
         db = get_db()
@@ -277,7 +277,7 @@ def login():
         token = jwt.encode({
             "user_id": user["id"],
             "is_founder": user["is_founder"],
-            "exp": datetime.utcnow() + timedelta(days=30)
+            "exp": datetime.now(timezone.utc) + timedelta(days=30)
         }, app.config["SECRET_KEY"], algorithm="HS256")
         return jsonify({"success": True, "token": token, "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
     
@@ -309,7 +309,7 @@ def chat():
                 db.close()
                 return jsonify({"error": "Forbidden"}), 403
             
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
                        (conv_id, "user", prompt, now))
             db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
@@ -360,7 +360,7 @@ def chat():
         if conv_id:
             try:
                 db = get_db()
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
                            (conv_id, "assistant", full_response, now))
                 db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
@@ -387,7 +387,7 @@ def conversations_api():
         data = request.get_json() or {}
         cid = "conv_" + str(uuid.uuid4().hex[:12])
         title = data.get("title", "New Chat")
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                    (cid, request.user_id, title, now, now))
         db.commit()

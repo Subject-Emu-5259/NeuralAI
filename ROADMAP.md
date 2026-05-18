@@ -1,7 +1,7 @@
 # 🚀 NeuralAI Development Roadmap
 
-**Version Target: 5.0**
-**Last Updated: May 17, 2026**
+**Version Target: 5.1**
+**Last Updated: May 18, 2026**
 
 ---
 
@@ -16,6 +16,7 @@
 - [x] Unified Service Migration: Consolidated Model + UI + Terminal into `neural_core_service.py` (May 17, 2026)
 - [x] Fixed Terminal consistency: Aligned `/write` and `/read` endpoints with frontend JS polling
 - [x] Fixed Chat streaming: Re-implemented SSE logic in unified service to support live UI updates
+- [x] v5.1 Maintenance: Resolved `DeprecationWarning` for `datetime.utcnow()`, hardened `SECRET_KEY`, and optimized startup sequence. (May 18, 2026)
 
 ### Phase 1: Tool Ecosystem ✓
 - [x] Code Execution Sandbox - `run this code: ...`
@@ -38,14 +39,14 @@
 
 | Component | Status |
 | --- | --- |
-| **Model** | SmolLM2-360M-Instruct + LoRA + DPO (365M params) |
-| **Training Samples** | 404 (347 original + 57 new) |
-| **DPO Pairs** | 31 preference pairs |
-| **Inference** | CPU float32 (~2-3 sec first token, 5-10 tokens/sec) |
+| **Model** | SmolLM2-360M-Instruct + LoRA + DPO (361M params) |
+| **Training Samples** | 506 (347 SFT + 159 DPO pairs) |
+| **DPO Pairs** | 159 preference pairs (train_dpo_v3.jsonl) |
+| **Inference** | CPU float32 (~1-2 sec first token, 10-15 tokens/sec) |
 | **Tools** | 5 tools connected and working |
 | **Chat** | ✅ Live streaming responses |
 | **Eval Suite** | Created, pending execution |
-| **Maintenance** | ✅ Unified service stable (May 17) |
+| **Maintenance** | ✅ Unified service stable (v5.1 Patch applied May 18) |
 
 ---
 

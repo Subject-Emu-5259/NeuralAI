@@ -1,6 +1,6 @@
 # NeuralAI — Training Metrics & Documentation
 
-**Last Updated: April 25, 2026**
+**Last Updated: May 18, 2026**
 
 ---
 
@@ -10,8 +10,8 @@
 | --- | --- |
 | **Final Loss** | 0.040 |
 | **Loss Reduction** | 98% from baseline |
-| **Training Samples** | 347 |
-| **Validation Split** | 20% (69 samples) |
+| **Training Samples** | 347 (SFT) + 159 (DPO) |
+| **Validation Split** | 20% |
 | **Training Time** | \~45 min (Colab T4 GPU) |
 | **Perplexity** | Tracked per epoch |
 | **Hardware** | NVIDIA T4 (Google Colab) |

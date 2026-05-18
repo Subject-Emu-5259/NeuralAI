@@ -157,18 +157,23 @@ def generate_response(prompt, max_tokens=256, temperature=0.7):
     except Exception as e:
         return f"Generation error: {e}"
 
-def generate_response_stream(prompt, max_tokens=256, temperature=0.7):
+def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_prompt=None):
     global model, tokenizer, inference_count
     if model is None or tokenizer is None:
         yield "Model not loaded."
         return
     try:
         from transformers import TextIteratorStreamer
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        messages.append({"role": "user", "content": prompt})
+        
         if tokenizer.chat_template:
-            messages = [{"role": "user", "content": prompt}]
             full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         else:
-            full = f"user\n{prompt}"
+            full = f"system\n{system_prompt}\nuser\n{prompt}" if system_prompt else f"user\n{prompt}"
         
         inputs = tokenizer(full, return_tensors="pt").to(model.device)
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
@@ -334,7 +339,7 @@ def chat():
         tool_buffer = ""
         in_tool = False
         
-        for chunk in generate_response_stream(prompt, max_tokens, temperature):
+        for chunk in generate_response_stream(prompt, max_tokens, temperature, system_prompt=system_prompt):
             full_response += chunk
             
             # Basic tool detection in stream

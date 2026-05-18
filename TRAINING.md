@@ -33,6 +33,32 @@
 
 ---
 
+## 📈 DPO Alignment Results (v5.0)
+
+| Metric | Value | Notes |
+| --- | --- | --- |
+| **DPO Phase 1** | COMPLETE | 159 preference pairs |
+| **Loss (DPO)** | 0.69 → 0.29 | Significant convergence |
+| **Margin** | +1.10 | Model clearly distinguishes "chosen" vs "rejected" |
+| **Accuracy** | 100% | Final batch accuracy on training set |
+| **Categories** | 8 | Code, Logic, Reasoning, etc. |
+
+---
+
+## 🏗️ Proposed DPO Categories for Expansion
+
+To improve model alignment and personality, the following categories are proposed for the next DPO phase:
+
+1. **Memphis Culture** - Knowledge about Memphis, TN, history, music (blues/soul), and the Founder's background.
+2. **AI Ethics & Safety** - Refusing harmful requests, maintaining helpful yet bounded behavior.
+3. **Code Optimization** - Preferring performant, idiomatic code over naive implementations.
+4. **System Architecture** - Designing scalable systems and proper abstractions.
+5. **Multi-step Reasoning** - Better handling of complex, multi-part instructions.
+6. **Creative Writing & Roleplay** - More engaging and personality-driven responses.
+7. **Advanced Debugging** - Identifying subtle bugs and suggesting fixes with rationale.
+
+---
+
 ## 🏗️ Training Configuration
 
 ```python
@@ -148,8 +174,8 @@ flask>=3.0
 
 ## 🎯 Next Steps
 
-1. **DPO Alignment** — Train with Direct Preference Optimization for better responses
-2. **More Training Data** — Expand to 1000+ samples per category
-3. **Quantization** — Re-enable 4-bit QLoRA on GPU-enabled deployment
-4. **GPU Hosting** — Move inference to GPU for faster responses
-5. **Eval Benchmark** — Build automated test suite with expected outputs
+1. **DPO Expansion** — Add more preference pairs in the proposed categories (Target: 500+ pairs).
+2. **Streaming Optimization** — Refine the streaming UI for faster perceived latency.
+3. **Tool Use Alignment** — Train specifically on `<tool>` tag usage and results.
+4. **Automated Evaluation** — Implement a "Model vs Model" evaluation pipeline.
+5. **GPU Serving** — Migrate to a persistent GPU-enabled environment.

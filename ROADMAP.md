@@ -29,8 +29,9 @@
 
 ### Phase 2: DPO Alignment ✓
 - [x] DPO training pipeline implemented
-- [x] Preference dataset expanded to 31 pairs
-- [x] Successful DPO training run completed (May 17, 2026)
+- [x] Preference dataset expanded to 195 pairs (v5.0)
+- [x] Successful DPO training run completed (v3.0, May 17, 2026)
+- [x] v5.0 DPO training initiated: Memphis Culture, Founder Context, Code Optimization, System Architecture (May 18, 2026)
 - [x] Model aligned for better response quality and instruction following
 
 ---
@@ -40,13 +41,14 @@
 | Component | Status |
 | --- | --- |
 | **Model** | SmolLM2-360M-Instruct + LoRA + DPO (361M params) |
-| **Training Samples** | 506 (347 SFT + 159 DPO pairs) |
-| **DPO Pairs** | 159 preference pairs (train_dpo_v3.jsonl) |
+| **Training Samples** | 542 (347 SFT + 195 DPO pairs) |
+| **DPO Pairs** | 195 preference pairs (train_dpo_v5.jsonl) |
 | **Inference** | CPU float32 (~1-2 sec first token, 10-15 tokens/sec) |
 | **Tools** | 5 tools connected and working |
 | **Chat** | ✅ Live streaming responses |
 | **Eval Suite** | Created, pending execution |
 | **Maintenance** | ✅ Unified service stable (v5.1 Patch applied May 18) |
+| **v5.0 Training** | 🔄 In progress (CPU) |
 
 ---
 
@@ -138,13 +140,10 @@ NeuralAI/
 cd /home/workspace/Projects/NeuralAI/from-scratch/web_ui
 python3 app.py
 
-# Generate training data
-python3 training/generate_training_v3.py
+# Generate v5 DPO data
+python3 training/generate_dpo_v5.py
 
-# Run evaluation
-python3 eval/benchmarks.py
-
-# DPO training (requires GPU)
+# DPO training (currently running in background)
 python3 training/train_dpo.py
 ```
 

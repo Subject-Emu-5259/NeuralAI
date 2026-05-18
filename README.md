@@ -20,15 +20,14 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 
 ---
 
-## 🚀 Roadmap v5.0
+## 🚀 Roadmap v5.1
 
-**Coming Soon:** NeuralAI v5.0 with major expansions:
+**NeuralAI v5.1 Expansion (May 18, 2026):**
 
-- **Training Data:** 347 → 1000+ samples (159 DPO preference pairs generated)
-- **DPO Alignment:** Better response quality through preference optimization ✅ COMPLETED
-- **GPU Inference:** 10x faster responses with CUDA acceleration
-- **Automated Evaluation:** Benchmark suite for continuous quality assessment
-- **Expanded Tools:** Code sandbox, file manager, web fetcher, database connector, git assistant
+- **Training Data:** Expanded to 195 DPO preference pairs (+120% growth) ✅
+- **DPO Alignment v5.0:** Personalized founder context (Memphis/West Memphis), Code Optimization, and System Architecture ✅
+- **Stability Patch:** Resolved Python 3.12 deprecations and security hardening ✅
+- **Evaluation:** CPU-based DPO alignment phase in progress 🔄
 
 📖 See [ROADMAP.md](ROADMAP.md) for full details.
 
@@ -223,10 +222,10 @@ NeuralAI-from-scratch/
 ├── requirements.txt       ← Python dependencies
 ├── checkpoints/           ← Trained model weights
 │   ├── final_model/       ← LoRA adapter + config
-│   └── dpo_model/         ← DPO-aligned model (v5.0)
+│   └── dpo_model/         ← DPO-aligned model (v5.1)
 ├── data/
 │   ├── train.jsonl        ← SFT training data (347 samples)
-│   └── train_dpo_v3.jsonl ← DPO preference pairs (159)
+│   └── train_dpo_v5.jsonl ← DPO preference pairs (195)
 └── from-scratch/
     ├── training/
     │   ├── train_neuralai.py   ← QLoRA fine-tuning script
@@ -287,43 +286,30 @@ NeuralAI-from-scratch/
 
 ## 🎯 DPO Alignment (v5.0)
 
-NeuralAI v5.0 introduces Direct Preference Optimization for better response quality. The model was trained on 159 human-curated preference pairs across 8 quality dimensions.
+NeuralAI v5.0 introduces Direct Preference Optimization for better response quality. The model is currently training on 195 human-curated preference pairs across 12 quality dimensions.
 
 ### 🏋️ Training Configuration
 
 | Parameter | Value |
 | --- | --- |
 | **Method** | Direct Preference Optimization (DPO) |
-| **Dataset** | 159 preference pairs (train_dpo_v3.jsonl) |
-| **Categories** | Code correctness, code style, conciseness, grounding, helpfulness, safety, tool usage, accuracy |
+| **Dataset** | 195 preference pairs (train_dpo_v5.jsonl) |
+| **Categories** | Memphis Culture, Founder Context, Code Optimization, System Architecture, Reasoning, math, logic, creativity, debugging, multi-step, conciseness, safety |
 | **Beta** | 0.1 |
-| **Learning Rate** | 5e-5 with linear decay |
+| **Learning Rate** | 5e-5 |
 | **Epochs** | 1 |
-| **Duration** | 67 minutes (CPU) |
+| **Duration** | ~90 minutes (CPU) |
 | **Framework** | TRL 1.3.0 + PyTorch |
 
-### 📊 Training Metrics
-
-| Metric | Step 1 | Step 21 (Final) |
-| --- | --- | --- |
-| **Loss** | 0.693 | **0.288** (−58%) |
-| **Chosen Reward** | 0.000 | **+0.363** |
-| **Rejected Reward** | 0.000 | **−0.733** |
-| **Preference Margin** | 0.000 | **+1.096** |
-| **Accuracy** | 0% | **100%** |
-
-### 🧠 What the Model Learned
+### 🧠 What the Model is Learning (v5.0)
 
 | Category | Learned Preference |
 | --- | --- |
-| **Code Correctness** | Working, tested code over buggy or incomplete implementations |
-| **Code Style** | Idiomatic, readable patterns over verbose/inefficient approaches |
-| **Conciseness** | Clear, direct answers over rambling, repetitive explanations |
-| **Grounding** | Factual claims backed by reasoning over speculative hallucination |
-| **Helpfulness** | Complete, actionable responses over partial or vague answers |
-| **Safety** | Appropriate refusals with explanations over compliance with harmful requests |
-| **Tool Usage** | Proper function/tool invocation patterns over manual workarounds |
-| **Accuracy** | Factually correct information over plausible-sounding but incorrect statements |
+| **Memphis & Founder** | Deep knowledge of De’Andrew Harris and Delta soul heritage |
+| **Code Optimization** | Pythonic efficiency and algorithmic best practices |
+| **System Architecture** | Scalable design patterns and infrastructure rationale |
+| **Advanced Debugging** | Root-cause analysis for concurrency and performance |
+| **Reasoning** | Multi-step logical deduction and proof |
 
 ### 📈 Reward Progression
 

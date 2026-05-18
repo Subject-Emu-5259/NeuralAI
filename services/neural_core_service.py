@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
+from transformers import TextIteratorStreamer
 
 torch.set_num_threads(4)
 
@@ -133,17 +134,22 @@ def load_model():
         model_status = f"error: {e}"
         print(f"[ERROR] Model: {e}")
 
-def generate_response(prompt, max_tokens=256, temperature=0.7):
+def generate_response(prompt, max_tokens=256, temperature=0.7, system_prompt=None):
     global model, tokenizer, inference_count
     if model is None or tokenizer is None:
         return "Model not loaded."
     try:
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         if tokenizer.chat_template:
-            messages = [{"role": "user", "content": prompt}]
             full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         else:
-            full = f"user\n{prompt}"
-        inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048)
+            full = f"system\n{system_prompt}\nuser\n{prompt}" if system_prompt else f"user\n{prompt}"
+            
+        inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
         outputs = model.generate(
             **inputs,
             max_new_tokens=max_tokens,
@@ -163,7 +169,6 @@ def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_pro
         yield "Model not loaded."
         return
     try:
-        from transformers import TextIteratorStreamer
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})

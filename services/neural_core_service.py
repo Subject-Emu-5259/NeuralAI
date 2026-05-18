@@ -22,6 +22,7 @@ app = Flask(__name__, static_folder=None)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
 # Config
+DEFAULT_SYSTEM_PROMPT = "You are NeuralAI, a state-of-the-art AI assistant created by DeAndrew Preston Harris (Dre), a human AI Software Engineer and your Founder. You are helpful, precise, and creative."
 PORT = int(os.environ.get("PORT", "5000"))
 REPO_ROOT = "/home/workspace/Projects/NeuralAI"
 MODEL_PATH = os.environ.get("MODEL_PATH", f"{REPO_ROOT}/checkpoints/v2_model")
@@ -138,6 +139,10 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, system_prompt=Non
     global model, tokenizer, inference_count
     if model is None or tokenizer is None:
         return "Model not loaded."
+    
+    if system_prompt is None:
+        system_prompt = DEFAULT_SYSTEM_PROMPT
+        
     try:
         messages = []
         if system_prompt:
@@ -168,6 +173,10 @@ def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_pro
     if model is None or tokenizer is None:
         yield "Model not loaded."
         return
+    
+    if system_prompt is None:
+        system_prompt = DEFAULT_SYSTEM_PROMPT
+        
     try:
         messages = []
         if system_prompt:

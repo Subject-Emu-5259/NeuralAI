@@ -28,13 +28,14 @@ except ImportError:
 class DPOTrainingConfig:
     """DPO training configuration"""
     base_model: str = "HuggingFaceTB/SmolLM2-360M-Instruct"
-    adapter_path: str = "checkpoints/final_model"
-    output_dir: str = "checkpoints/dpo_model"
+    dataset_path: str = "/home/workspace/Projects/NeuralAI/data/train_dpo_v7.jsonl"
+    output_dir: str = "/home/workspace/Projects/NeuralAI/checkpoints/dpo_model_v7"
+    adapter_path: str = ""  # Path to existing adapter if continuing training
     
     # DPO parameters
     beta: float = 0.1  # KL penalty coefficient
     learning_rate: float = 5e-5
-    batch_size: int = 4
+    batch_size: int = 1
     gradient_accumulation_steps: int = 4
     max_length: int = 512
     max_prompt_length: int = 256
@@ -267,52 +268,62 @@ def train_dpo(config: DPOTrainingConfig):
     # Load base model with memory optimization
     model = AutoModelForCausalLM.from_pretrained(
         config.base_model,
-        dtype=torch.float32,  # Use float32 for CPU
+        torch_dtype=torch.float32,  # Use float32 for CPU
         device_map=None,             # Manual device placement
     ).to(config.device)
     
     # Load existing adapter if available
-    adapter_path = Path(config.adapter_path)
-    if adapter_path.exists():
-        print(f"Loading adapter from {adapter_path}")
-        model = PeftModel.from_pretrained(model, str(adapter_path), is_trainable=True)
+    if config.adapter_path and Path(config.adapter_path).exists():
+        print(f"Loading adapter from {config.adapter_path}")
+        model = PeftModel.from_pretrained(model, str(config.adapter_path), is_trainable=True)
     
     # Do NOT create model_ref separately to save RAM
     # DPOTrainer will handle reference logps using the same model with adapter disabled
     model_ref = None
     
     # Load preference dataset
-    print("Loading preference dataset...")
-    dataset_path = Path("data/train_dpo_v5.jsonl")
+    print(f"Loading preference dataset from {config.dataset_path}...")
+    dataset_path = Path(config.dataset_path)
     if not dataset_path.exists():
-        dataset_path = Path("data/train_dpo_v4.jsonl")
-    if not dataset_path.exists():
-        dataset_path = Path("data/train_dpo.jsonl")
+        print(f"Dataset {dataset_path} not found. Falling back to default.")
+        dataset_path = Path("/home/workspace/Projects/NeuralAI/data/train_dpo_v5.jsonl")
         
     pairs = []
-    with open(dataset_path, 'r') as f:
-        for line in f:
-            pairs.append(json.loads(line))
+    try:
+        with open(dataset_path, 'r') as f:
+            for i, line in enumerate(f):
+                if not line.strip(): continue
+                try:
+                    p = json.loads(line)
+                    if "prompt" in p and "chosen" in p and "rejected" in p:
+                        pairs.append({
+                            "prompt": p["prompt"],
+                            "chosen": p["chosen"],
+                            "rejected": p["rejected"]
+                        })
+                except Exception as e:
+                    print(f"Error parsing line {i+1}: {e}")
+    except Exception as e:
+        print(f"Error reading file {dataset_path}: {e}")
+        return
             
-    dataset = Dataset.from_list([
-        {
-            "prompt": p["prompt"],
-            "chosen": p["chosen"],
-            "rejected": p["rejected"],
-        }
-        for p in pairs
-    ])
+    print(f"Loaded {len(pairs)} pairs. Creating Dataset object...")
+    try:
+        dataset = Dataset.from_list(pairs)
+    except Exception as e:
+        print(f"Error creating dataset from list: {e}")
+        return
     
     # DPO config
+    print("Configuring DPO...")
     dpo_config = DPOConfig(
         output_dir=config.output_dir,
         beta=config.beta,
         learning_rate=config.learning_rate,
-        per_device_train_batch_size=1,  # Smallest batch size for RAM
+        per_device_train_batch_size=config.batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        use_cpu=True,
+        use_cpu=(config.device == "cpu"),
         max_length=config.max_length,
-        
         num_train_epochs=config.epochs,
         warmup_ratio=config.warmup_ratio,
         weight_decay=config.weight_decay,

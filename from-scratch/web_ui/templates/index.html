@@ -98,6 +98,35 @@ body.dark-mode .search-box button:hover {
   background: #6d28d9;
 }
 
+/* Auth Overlay Theme Support */
+body.dark-mode #authOverlay {
+  background: rgba(9, 9, 11, 0.98);
+}
+
+body.dark-mode .auth-card {
+  background: #111117;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+body.dark-mode .auth-card h2 {
+  color: #fff;
+}
+
+body.dark-mode .auth-input {
+  background: #09090b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+body.dark-mode .auth-subtitle {
+  color: #8a8a9a;
+}
+
+body.dark-mode .auth-toggle {
+  color: #8a8a9a;
+}
+
 body.dark-mode .nav-item:hover {
   background: rgba(124,58,237,0.15);
 }
@@ -177,7 +206,8 @@ body.dark-mode #historyDropdown {
   background: #fff;
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 10001; /* Above Auth Overlay */
+  position: relative;
 }
 
 .topbar-left {
@@ -2302,25 +2332,27 @@ body.dark-mode .onboarding-close:hover {
 #authOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(9, 9, 11, 0.98);
+  background: rgba(255, 255, 255, 0.95);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(12px);
+  transition: background 0.3s ease;
 }
 
 .auth-card {
-  background: #111117;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #e8eaed;
   border-radius: 28px;
   padding: 48px;
   width: 100%;
   max-width: 440px;
-  box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+  box-shadow: 0 32px 64px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
   text-align: center;
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 .auth-card::before {
@@ -2343,12 +2375,12 @@ body.dark-mode .onboarding-close:hover {
 .auth-card h2 {
   margin-bottom: 8px;
   font-size: 24px;
-  color: #fff;
+  color: #202124;
   font-weight: 600;
 }
 
 .auth-subtitle {
-  color: #8a8a9a;
+  color: #5f6368;
   font-size: 14px;
   margin-bottom: 32px;
 }
@@ -2372,19 +2404,19 @@ body.dark-mode .onboarding-close:hover {
 .auth-input {
   width: 100%;
   padding: 14px 18px;
-  background: #09090b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f8f9fa;
+  border: 1px solid #dadce0;
   border-radius: 14px;
-  color: #fff;
+  color: #202124;
   outline: none;
   transition: all 0.2s ease;
   font-size: 15px;
 }
 
 .auth-input:focus {
-  border-color: #a78bfa;
-  background: #111117;
-  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.1);
+  border-color: #ef4444;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
 }
 
 .auth-btn {
@@ -2432,7 +2464,7 @@ body.dark-mode .onboarding-close:hover {
 }
 </style>
 </head>
-<body class="dark-mode">
+<body class="">
 
 <!-- Auth Overlay -->
 <div id="authOverlay" class="hidden">
@@ -2795,6 +2827,19 @@ let attachedFiles = {};
 let uplinkEnabled = true;
 let termSid = null;
 let termPoll = null;
+let authMode = "login";
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+  const isDark = document.body.classList.contains("dark-mode");
+  localStorage.setItem("neural_theme", isDark ? "dark" : "light");
+  
+  // Robustly find all theme buttons and update them
+  const btns = document.querySelectorAll('button[onclick="toggleDarkMode()"]');
+  btns.forEach(btn => {
+    btn.textContent = isDark ? "☀️ Theme" : "🌙 Theme";
+  });
+}
 
 // 1. Unified Authentication
 async function initAuth() {
@@ -2806,7 +2851,8 @@ async function initAuth() {
     if (!r.ok) throw new Error();
     const data = await r.json();
     currentUser = data.user;
-    document.getElementById("userGreeting").textContent = `Hi, ${currentUser.username}`;
+    const greeting = document.getElementById("userGreeting");
+    if (greeting) greeting.textContent = `Hi, ${currentUser.username}`;
     document.getElementById("authOverlay").classList.add("hidden");
     loadConversations();
   } catch { logout(); }
@@ -2819,6 +2865,85 @@ function showAuth() {
 function logout() {
   localStorage.removeItem("neural_token");
   location.reload();
+}
+
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "signup" : "login";
+  const title = document.getElementById("authTitle");
+  const subtitle = document.getElementById("authSubtitle");
+  const submit = document.getElementById("authSubmit");
+  const toggle = document.getElementById("authToggle");
+  const emailGroup = document.getElementById("emailGroup");
+  const confirmGroup = document.getElementById("confirmPasswordGroup");
+
+  if (authMode === "signup") {
+    title.textContent = "Create Account";
+    subtitle.textContent = "Join the NeuralAI network and start building.";
+    submit.textContent = "Sign Up";
+    toggle.innerHTML = "Already have an account? <span>Login</span>";
+    emailGroup.classList.remove("hidden");
+    confirmGroup.classList.remove("hidden");
+  } else {
+    title.textContent = "Welcome Back";
+    subtitle.textContent = "Enter your credentials to access your cloud brain.";
+    submit.textContent = "Login";
+    toggle.innerHTML = "Don't have an account? <span>Sign Up</span>";
+    emailGroup.classList.add("hidden");
+    confirmGroup.classList.add("hidden");
+  }
+}
+
+async function handleAuth() {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+  const email = document.getElementById("authEmail").value.trim();
+  const confirm = document.getElementById("authConfirmPassword").value.trim();
+
+  if (!username || !password) return toast("Username and password required", "error");
+  if (authMode === "signup" && password !== confirm) return toast("Passwords do not match", "error");
+
+  const url = authMode === "signup" ? "/api/auth/signup" : "/api/auth/login";
+  const body = authMode === "signup" ? { username, password, email } : { username, password };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json" 
+      },
+      body: JSON.stringify(body)
+    });
+    
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Authentication failed");
+
+    if (authMode === "signup") {
+      toast("Account created! Please login.", "success");
+      toggleAuthMode();
+    } else {
+      localStorage.setItem("neural_token", data.token);
+      authToken = data.token;
+      toast("Access granted", "success");
+      
+      // Clear the overlay immediately for better UX
+      document.getElementById("authOverlay").classList.add("hidden");
+      
+      // Initialize the app state
+      if (data.user) {
+        currentUser = data.user;
+        const greeting = document.getElementById("userGreeting");
+        if (greeting) greeting.textContent = `Hi, ${currentUser.username}`;
+      }
+      
+      // Load app data
+      loadConversations();
+      if (document.getElementById("tab-files").classList.contains("hidden") === false) loadFiles();
+    }
+  } catch (err) {
+    toast(err.message, "error");
+  }
 }
 
 // 2. Navigation
@@ -2897,9 +3022,217 @@ document.querySelectorAll('.sidebar-link').forEach(link => {
   });
 });
 
+function toast(msg, type = "info") {
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function escHtml(text) {
+  const p = document.createElement("p");
+  p.textContent = text;
+  return p.innerHTML;
+}
+
+function fmt(text) {
+  let out = escHtml(text);
+  out = out.replace(/\n/g, "<br>");
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  out = out.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => `<pre><code class="lang-${l}">${c.trim()}</code></pre>`);
+  return out;
+}
+
+function scrollBottom() {
+  const thread = document.getElementById("messages");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text || isStreaming) return;
+
+  document.getElementById("welcomeScreen").style.display = "none";
+  input.value = "";
+  input.style.height = "auto";
+  
+  addMsg("user", text);
+  conversation.push({ role: "user", content: text });
+  
+  isStreaming = true;
+  const assistantEl = addMsg("assistant", "");
+  const bubble = assistantEl.querySelector(".msg-bubble");
+  bubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+  
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+      body: JSON.stringify({ prompt: text, messages: conversation })
+    });
+    
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = "";
+    bubble.innerHTML = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const raw = line.slice(6).trim();
+          if (raw === "[DONE]") break;
+          try {
+            const data = JSON.parse(raw);
+            if (data.content) {
+              full += data.content;
+              bubble.innerHTML = fmt(full);
+              scrollBottom();
+            }
+          } catch {}
+        }
+      }
+    }
+    conversation.push({ role: "assistant", content: full });
+  } catch (err) {
+    bubble.innerHTML = `<span class="error">Error: ${err.message}</span>`;
+  } finally {
+    isStreaming = false;
+  }
+}
+
+function addMsg(role, content) {
+  const container = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = `msg ${role === 'assistant' ? 'ai' : 'user'}`;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  div.innerHTML = `
+    <div class="msg-meta">
+      <span>${role === 'assistant' ? 'NeuralAI' : 'You'}</span>
+      <span class="msg-timestamp">${time}</span>
+    </div>
+    <div class="msg-bubble">${content ? fmt(content) : ''}</div>
+  `;
+  
+  container.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+async function loadConversation(id) {
+  currentConversationId = id;
+  try {
+    const r = await fetch(`/api/conversations/${id}`, {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    const data = await r.json();
+    document.getElementById("messages").innerHTML = "";
+    document.getElementById("welcomeScreen").style.display = "none";
+    conversation = data.messages || [];
+    conversation.forEach(m => addMsg(m.role, m.content));
+    loadConversations();
+  } catch {}
+}
+
+async function deleteConversation(id) {
+  if (!confirm("Delete this conversation?")) return;
+  try {
+    await fetch(`/api/conversations/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    if (currentConversationId === id) {
+      currentConversationId = null;
+      document.getElementById("messages").innerHTML = "";
+      document.getElementById("welcomeScreen").style.display = "flex";
+      conversation = [];
+    }
+    loadConversations();
+  } catch {}
+}
+
+async function executeTerminalCmd() {
+  const input = document.getElementById("terminalInput");
+  const cmd = input.value.trim();
+  if (!cmd || !termSid) return;
+  
+  const out = document.getElementById("terminalOutput");
+  out.innerHTML += `<div class="term-line input">root@Neural:~# ${cmd}</div>`;
+  input.value = "";
+  
+  try {
+    const res = await fetch(`/api/terminal/${termSid}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+      body: JSON.stringify({ command: cmd })
+    });
+    const data = await res.json();
+    out.innerHTML += `<div class="term-line">${data.output}</div>`;
+    out.scrollTop = out.scrollHeight;
+  } catch (err) {
+    out.innerHTML += `<div class="term-line error">Error: ${err.message}</div>`;
+  }
+}
+
+function clearTerm() {
+  document.getElementById("terminalOutput").innerHTML = "";
+}
+
+function restartTerm() {
+  termSid = null;
+  clearTerm();
+  initTerm();
+}
+
+async function deleteFile(name) {
+  if (!confirm(`Delete ${name}?`)) return;
+  try {
+    await fetch(`/api/files/${name}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    loadFiles();
+    toast("File deleted", "success");
+  } catch {}
+}
+
 // Init
 document.addEventListener("DOMContentLoaded", () => {
+  // Restore theme
+  const savedTheme = localStorage.getItem("neural_theme");
+  if (savedTheme === "dark") {
+    document.body.classList.add("dark-mode");
+    const btn = document.querySelector('button[onclick="toggleDarkMode()"]');
+    if (btn) btn.textContent = "☀️ Theme";
+  }
+
   initAuth();
+  
+  // Auth Listeners
+  document.getElementById("authSubmit")?.addEventListener("click", handleAuth);
+  document.getElementById("authToggle")?.addEventListener("click", toggleAuthMode);
+  
+  // Chat Listeners
+  document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
+  document.getElementById("chatInput")?.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  
+  // Terminal Listeners
+  document.getElementById("terminalInput")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") executeTerminalCmd();
+  });
 });
 </script>
 </body>

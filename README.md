@@ -24,7 +24,7 @@ Fine-tuned from SmolLM2-360M-Instruct with QLoRA — 360M parameters, optimized 
 
 **NeuralAI v5.1 Expansion (May 18, 2026):**
 
-- **Training Data:** Expanded to 195 DPO preference pairs (+120% growth) ✅
+- **Training Data:** Expanded to 232 DPO preference pairs (+120% growth) ✅
 - **DPO Alignment v5.0:** Personalized founder context (Memphis/West Memphis), Code Optimization, and System Architecture ✅
 - **Stability Patch:** Resolved Python 3.12 deprecations and security hardening ✅
 - **Evaluation:** CPU-based DPO alignment phase in progress 🔄
@@ -379,12 +379,12 @@ MIT License — free to use, modify, and commercialize.
 
 **Project is owned, Made and Built by DeAndrew P Harris a College Student of Maestro College for AI Engineering**
 
-*Last Updated: May 18, 2026 | Version: 5.1 | Status: Production* 🟢
+*Last Updated: May 19, 2026 | Version: 5.1 | Status: Production* 🟢
 
 ---
 
 ## ✨ Maintenance & Performance
-- **v5.1 Maintenance (May 18, 2026)**: Fixed `DeprecationWarning` for `datetime.utcnow()`, increased `SECRET_KEY` length for security, and optimized core service startup. Verified all API endpoints and health status.
+- **v5.1 Maintenance (May 19, 2026)**: Refactored `status.sh` and `start_all.sh` to support the unified `neural_core_service.py` architecture. Verified all API endpoints, including `quick_chat` generation and persistence layer. Training data expanded to 232 DPO preference pairs (v8).
 
 ---
 
@@ -529,4 +529,4 @@ web_ui/
 
 **Project is owned, Made and Built by DeAndrew P Harris a College Student of Maestro College for AI Engineering**
 
-*Last Updated: May 18, 2026 | Version: 5.1 | Status: Production* 🟢
+*Last Updated: May 19, 2026 | Version: 5.1 | Status: Production* 🟢

@@ -17,6 +17,7 @@
 - [x] Fixed Terminal consistency: Aligned `/write` and `/read` endpoints with frontend JS polling
 - [x] Fixed Chat streaming: Re-implemented SSE logic in unified service to support live UI updates
 - [x] v5.1 Maintenance: Resolved `DeprecationWarning` for `datetime.utcnow()`, hardened `SECRET_KEY`, and optimized startup sequence. (May 18, 2026)
+- [x] Refactored `status.sh` and `start_all.sh` to support unified core service. (May 19, 2026)
 
 ### Phase 1: Tool Ecosystem ✓
 - [x] Code Execution Sandbox - `run this code: ...`
@@ -32,6 +33,7 @@
 - [x] Preference dataset expanded to 195 pairs (v5.0)
 - [x] Successful DPO training run completed (v3.0, May 17, 2026)
 - [x] v5.0 DPO training initiated: Memphis Culture, Founder Context, Code Optimization, System Architecture (May 18, 2026)
+- [x] Expanded DPO dataset to 232 pairs (v8.0) covering Reasoning, Math, and Debugging. (May 19, 2026)
 - [x] Model aligned for better response quality and instruction following
 
 ---
@@ -41,14 +43,14 @@
 | Component | Status |
 | --- | --- |
 | **Model** | SmolLM2-360M-Instruct + LoRA + DPO (361M params) |
-| **Training Samples** | 542 (347 SFT + 195 DPO pairs) |
-| **DPO Pairs** | 195 preference pairs (train_dpo_v5.jsonl) |
+| **Training Samples** | 579 (347 SFT + 232 DPO pairs) |
+| **DPO Pairs** | 232 preference pairs (train_dpo_v8.jsonl) |
 | **Inference** | CPU float32 (~1-2 sec first token, 10-15 tokens/sec) |
 | **Tools** | 5 tools connected and working |
 | **Chat** | ✅ Live streaming responses |
 | **Eval Suite** | Created, pending execution |
-| **Maintenance** | ✅ Unified service stable (v5.1 Patch applied May 18) |
-| **v5.0 Training** | 🔄 In progress (CPU) |
+| **Maintenance** | ✅ Unified service stable (v5.1 Patch applied May 19) |
+| **v5.0 Training** | ✅ Phase 1 Complete (195 pairs), Phase 2 (232 pairs) ready |
 
 ---
 

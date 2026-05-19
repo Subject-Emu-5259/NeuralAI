@@ -1,48 +1,26 @@
 #!/bin/bash
-# NeuralAI Status Checker
-# Shows status of all services
+# NeuralAI Status Checker (Unified Service)
+# Shows status of the unified NeuralAI service
 
-echo "NeuralAI Service Status"
-echo "======================="
+echo "NeuralAI Service Status (v5.1)"
+echo "=============================="
 echo ""
 
-# Check model service
-echo "Model Service (port 7001):"
-if curl -s http://localhost:7001/health 2>/dev/null | python3 -m json.tool 2>/dev/null; then
-    echo "  ✓ Running"
+# Check unified service
+echo "Unified Core Service (port 5000):"
+if curl -s http://localhost:5000/api/status 2>/dev/null | python3 -m json.tool 2>/dev/null; then
+    echo "  ✓ Running (Ready)"
 else
     echo "  ✗ Offline"
 fi
 echo ""
 
-# Check tools service
-echo "Tools Service (port 7002):"
-if curl -s http://localhost:7002/health 2>/dev/null | python3 -m json.tool 2>/dev/null; then
-    echo "  ✓ Running"
-else
-    echo "  ✗ Offline"
-fi
-echo ""
-
-# Check webui service
-echo "WebUI Service (port 5000):"
-if curl -s http://localhost:5000/api/health 2>/dev/null | python3 -m json.tool 2>/dev/null; then
-    echo "  ✓ Running"
-else
-    echo "  ✗ Offline"
-fi
-echo ""
-
-# Show PIDs if available
+# Show PIDs
 echo "Process IDs:"
-for svc in model tools webui; do
-    pid_file="/tmp/neuralai_${svc}.pid"
-    if [ -f "$pid_file" ]; then
-        pid=$(cat "$pid_file")
-        if ps -p $pid > /dev/null 2>&1; then
-            echo "  • $svc: $pid (running)"
-        else
-            echo "  • $svc: $pid (dead)"
-        fi
-    fi
-done
+pid=$(pgrep -f "neural_core_service.py")
+if [ -n "$pid" ]; then
+    echo "  • Core: $pid (running)"
+else
+    echo "  • Core: Not found"
+fi
+echo ""

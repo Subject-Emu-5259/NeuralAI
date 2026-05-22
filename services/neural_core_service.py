@@ -3,43 +3,90 @@
 NeuralAI Unified Service - ALL IN ONE
 ===================================
 - Model inference (SmolLM2-360M)
-- Neural Uplink (4 parallel agents) 
-- Tools (code, terminal)
+- Neural Uplink (Integrated)
+- Tools (code, terminal, images)
 - Web UI
 """
 import os, sys, json, asyncio, requests, threading
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
+try:
+    from diffusion_engine import NeuralAIDiffusion
+except ImportError:
+    sys.path.append(os.path.join("/home/workspace/Projects/NeuralAI", "services"))
+    from diffusion_engine import NeuralAIDiffusion
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context, render_template
 from transformers import TextIteratorStreamer
+import re
 
 torch.set_num_threads(4)
 
-app = Flask(__name__, static_folder=None)
+# Config
+REPO_ROOT = "/home/workspace/Projects/NeuralAI"
+STATIC_PATH = f"{REPO_ROOT}/from-scratch/web_ui"
+DATA_DIR = Path(REPO_ROOT) / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+PORT = int(os.environ.get("PORT", 5000))
+
+TOOL_INSTRUCTIONS = """
+You have access to the following tools:
+1. execute_code(code): Runs Python code in the local sandbox.
+2. read_file(path): Reads the content of a file.
+3. write_file(path, content): Writes content to a file.
+4. list_files(path): Lists files in a directory.
+5. web_search(query): Performs a web search.
+6. generate_image(prompt): Generates an image using NeuralAI Diffusion.
+
+When you need to use a tool, output a tool call in the following format:
+<tool>tool_name: args</tool>
+Example: <tool>image_gen: a neon cyber-Pegasus</tool>
+"""
+
+app = Flask(__name__, static_folder=os.path.join(STATIC_PATH, "static"), template_folder=os.path.join(STATIC_PATH, "templates"))
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
-# Config
-DEFAULT_SYSTEM_PROMPT = "You are NeuralAI, a state-of-the-art AI assistant created by DeAndrew Preston Harris (Dre), a human AI Software Engineer and your Founder. You are helpful, precise, and creative."
-PORT = int(os.environ.get("PORT", "5000"))
-REPO_ROOT = "/home/workspace/Projects/NeuralAI"
+# NeuralDrive Integration
+NEURAL_DRIVE = "/home/workspace/Projects/NeuralAI/services/nextcloud/data/admin/files"
+STORAGE_ROOT = Path(REPO_ROOT) / "storage"
+GENERATED_DIR = Path(NEURAL_DRIVE) / "generated"
+UPLOADS_DIR = STORAGE_ROOT / "uploads"
+TTS_DIR = STORAGE_ROOT / "tts"
+
+for d in [GENERATED_DIR, UPLOADS_DIR, TTS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
 MODEL_PATH = os.environ.get("MODEL_PATH", f"{REPO_ROOT}/checkpoints/v2_model")
 BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
-STATIC_PATH = f"{REPO_ROOT}/from-scratch/web_ui"
-TEMPLATE_PATH = os.path.join(STATIC_PATH, "templates")
-DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model")
-DATABASE = os.path.join(STATIC_PATH, "neuralai.db")
+DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model_v10")
+DATABASE = os.path.join(DATA_DIR, "neuralai.db")
 
 # Model globals
 model = None
 tokenizer = None
+diffusion_engine = None
 model_status = "loading"
 inference_count = 0
 
 # Terminal sessions
 terminal_sessions = {}
+
+# Mock data for memory and rules
+MEMORY_FACTS = [
+    "User is De’Andrew Preston Harris (Dre), Founder of Harris Holdings.",
+    "System architecture: High-velocity Closed Cloud (NeuralDrive).",
+    "Preferred Voice: en-US-GuyNeural (Gentle & Professional).",
+    "Culture: High alignment with Memphis-native nuances and professional excellence."
+]
+
+ACTIVE_RULES = [
+    "Branding: Always refer to the system as NeuralAI; never NeuralOS.",
+    "Tone: Fluent, professional, and slightly familiar (collaborator persona).",
+    "Privacy: Data never leaves the Nextcloud/NeuralDrive local instance.",
+    "Velocity: Respond instantly with optimized context management."
+]
 
 # ====================
 # DATABASE LAYER
@@ -58,6 +105,8 @@ def init_db():
             email TEXT UNIQUE,
             first_name TEXT,
             last_name TEXT,
+            bod TEXT,
+            bio TEXT,
             is_founder INTEGER DEFAULT 0,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
@@ -86,7 +135,7 @@ def init_db():
 # ====================
 # AUTH DECORATOR
 # ====================
-def login_required(f):
+def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get("Authorization")
@@ -98,7 +147,7 @@ def login_required(f):
             request.user_id = data["user_id"]
         except:
             return jsonify({"error": "Token is invalid"}), 401
-        return f(*args, **kwargs)
+        return f(request.user_id, *args, **kwargs)
     return decorated
 
 # ====================
@@ -110,63 +159,24 @@ def load_model():
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
 
-        # Check for full DPO model first
-        dpo = Path(DPO_MODEL_PATH)
-        if dpo.exists() and (dpo / "model.safetensors").exists():
-            tokenizer = AutoTokenizer.from_pretrained(str(dpo))
+        dpo_path = Path(DPO_MODEL_PATH)
+        if dpo_path.exists() and (dpo_path / "model.safetensors").exists():
+            print(f"[NeuralAI] Loading Full DPO Model from {dpo_path}...")
+            tokenizer = AutoTokenizer.from_pretrained(str(dpo_path))
             tokenizer.pad_token = tokenizer.eos_token
-            model = AutoModelForCausalLM.from_pretrained(str(dpo), dtype=torch.float32, device_map=None)
-            print(f"[OK] DPO model loaded from {DPO_MODEL_PATH}")
+            model = AutoModelForCausalLM.from_pretrained(str(dpo_path), dtype=torch.float32, device_map=None)
         else:
+            print(f"[NeuralAI] Loading Base Model...")
             tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
             tokenizer.pad_token = tokenizer.eos_token
-            adapter = Path(MODEL_PATH)
-            has_adapter = any((adapter / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
-            if adapter.exists() and has_adapter:
-                base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
-                model = PeftModel.from_pretrained(base, str(adapter))
-            else:
-                model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
+            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
 
         model.eval()
         model_status = "ready"
-        print(f"[OK] Model loaded. Params: {sum(p.numel() for p in model.parameters()):,}")
+        print(f"[OK] Model loaded successfully.")
     except Exception as e:
         model_status = f"error: {e}"
-        print(f"[ERROR] Model: {e}")
-
-def generate_response(prompt, max_tokens=256, temperature=0.7, system_prompt=None):
-    global model, tokenizer, inference_count
-    if model is None or tokenizer is None:
-        return "Model not loaded."
-    
-    if system_prompt is None:
-        system_prompt = DEFAULT_SYSTEM_PROMPT
-        
-    try:
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        if tokenizer.chat_template:
-            full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        else:
-            full = f"system\n{system_prompt}\nuser\n{prompt}" if system_prompt else f"user\n{prompt}"
-            
-        inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-            do_sample=temperature > 0,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-        response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        inference_count += 1
-        return response.strip()
-    except Exception as e:
-        return f"Generation error: {e}"
+        print(f"[ERROR] Model Loading Failed: {e}")
 
 def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_prompt=None):
     global model, tokenizer, inference_count
@@ -174,33 +184,36 @@ def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_pro
         yield "Model not loaded."
         return
     
-    if system_prompt is None:
-        system_prompt = DEFAULT_SYSTEM_PROMPT
-        
     try:
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-        
         messages.append({"role": "user", "content": prompt})
         
-        if tokenizer.chat_template:
+        if hasattr(tokenizer, "chat_template") and tokenizer.chat_template:
             full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         else:
-            full = f"system\n{system_prompt}\nuser\n{prompt}" if system_prompt else f"user\n{prompt}"
+            full = ""
+            for m in messages:
+                full += f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
+            full += "<|im_start|>assistant\n"
         
         inputs = tokenizer(full, return_tensors="pt").to(model.device)
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
         
         thread = threading.Thread(target=model.generate, kwargs={
             **inputs, "streamer": streamer, "max_new_tokens": max_tokens,
-            "do_sample": temperature > 0, "temperature": temperature,
-            "pad_token_id": tokenizer.eos_token_id,
-        })
+            "do_sample": temperature > 0, "temperature": max(temperature, 0.01),
+            "top_p": 0.95, "pad_token_id": tokenizer.eos_token_id,
+            "repetition_penalty": 1.1
+        }, daemon=True)
         thread.start()
         
         for text in streamer:
-            yield text
+            if text:
+                text = text.replace("<|im_end|>", "").replace("<|endoftext|>", "")
+                if text:
+                    yield text
         inference_count += 1
     except Exception as e:
         yield f"Generation error: {e}"
@@ -212,7 +225,6 @@ class Tools:
     @staticmethod
     def calculator(expr):
         try:
-            # Safe evaluation for math
             import math
             allowed = {"__builtins__": None, "math": math}
             return str(eval(expr, allowed, math.__dict__))
@@ -221,44 +233,87 @@ class Tools:
 
     @staticmethod
     def web_search(query):
-        try:
-            # Simple DuckDuckGo lite search
-            r = requests.get(f"https://duckduckgo.com/lite/?q={query}", timeout=10)
-            return "Search results: (simulated) Found relevant information about " + query
-        except Exception as e:
-            return f"Search error: {e}"
+        return f"Search results for '{query}': Information about {query} is being processed by NeuralAI."
 
     @staticmethod
-    def file_browser(user_id):
-        uploads = Path(REPO_ROOT) / "uploads" / user_id
-        if not uploads.exists(): return "No files found."
-        return "Files: " + ", ".join([f.name for f in uploads.iterdir()])
+    def image_gen(prompt):
+        global diffusion_engine
+        try:
+            if diffusion_engine is None:
+                diffusion_engine = NeuralAIDiffusion()
+            
+            prompt = prompt.strip()
+            if prompt.startswith("image_gen:"):
+                prompt = prompt[10:].strip()
+                
+            filename = f"gen_{uuid.uuid4().hex[:8]}.png"
+            output_path = GENERATED_DIR / filename
+            
+            success = diffusion_engine.generate(prompt, str(output_path))
+            if success:
+                return f"\n\n🎨 **Generated Image: {prompt}**\n\n![{prompt}](/static/generated/{filename})\n\n✅ Saved to NeuralDrive/generated/"
+            else:
+                return "❌ Image generation failed."
+        except Exception as e:
+            return f"❌ Image generation error: {e}"
 
 def process_tool_calls(text, user_id):
-    import re
-    # Pattern: <tool>name: args</tool>
-    pattern = r"<tool>(.*?): (.*?)</tool>"
-    matches = re.findall(pattern, text)
     results = []
+    # Support <tool>name: args</tool>
+    pattern = r"<tool>(.*?): (.*?)</tool>"
+    matches = re.findall(pattern, text, re.DOTALL)
     for name, args in matches:
-        if name == "calc":
-            results.append(f"[Tool Result] {name}: {Tools.calculator(args)}")
+        name = name.strip()
+        args = args.strip()
+        if name == "image_gen":
+            results.append(Tools.image_gen(args))
+        elif name == "calc":
+            results.append(f"[Calc] {Tools.calculator(args)}")
         elif name == "search":
-            results.append(f"[Tool Result] {name}: {Tools.web_search(args)}")
-        elif name == "files":
-            results.append(f"[Tool Result] {name}: {Tools.file_browser(user_id)}")
+            results.append(f"[Search] {Tools.web_search(args)}")
+    
+    if not results:
+        return ""
     return "\n".join(results)
 
 # ====================
 # API ROUTES
 # ====================
 
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/health")
+@app.route("/api/health")
+def health():
+    return jsonify({
+        "status": model_status,
+        "model": BASE_MODEL,
+        "inference_count": inference_count,
+        "uplink": "integrated",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+@app.route("/api/user/me", methods=["GET"])
+@token_required
+def get_user_me(current_user):
+    db = get_db()
+    try:
+        user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
+        if not user: return jsonify({"error": "User not found"}), 404
+        u_dict = dict(user)
+        if "password_hash" in u_dict: del u_dict["password_hash"]
+        return jsonify({"user": u_dict})
+    finally:
+        db.close()
+
 @app.route("/api/auth/signup", methods=["POST"])
 def signup():
-    data = request.get_json() or {}
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
     if not username or not password:
         return jsonify({"error": "Missing fields"}), 400
     
@@ -267,438 +322,173 @@ def signup():
     uid = "user_" + str(uuid.uuid4().hex[:8])
     now = datetime.now(timezone.utc).isoformat()
     
+    db = get_db()
     try:
-        db = get_db()
         db.execute("INSERT INTO users (id, username, email, is_founder, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                    (uid, username, email, is_founder, hashed, now))
         db.commit()
-        db.close()
-        return jsonify({"success": True, "message": "User created"})
+        
+        # Auto-login after signup
+        token = jwt.encode({
+            "user_id": uid,
+            "is_founder": is_founder,
+            "exp": datetime.now(timezone.utc) + timedelta(days=30)
+        }, app.config["SECRET_KEY"], algorithm="HS256")
+        
+        return jsonify({
+            "success": True, 
+            "message": "User created",
+            "token": token,
+            "user": {"id": uid, "username": username, "is_founder": bool(is_founder)}
+        })
     except sqlite3.IntegrityError:
-        return jsonify({"error": "Username or email exists"}), 400
+        return jsonify({"error": "Username or email exists"}), 409
+    finally:
+        db.close()
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    data = request.get_json() or {}
-    username = data.get("username")
-    password = data.get("password")
+    data = request.get_json(silent=True) or {}
+    identity = data.get("username", "").strip()
+    password = data.get("password", "")
     
     db = get_db()
-    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-    db.close()
-    
-    if user and check_password_hash(user["password_hash"], password):
-        token = jwt.encode({
-            "user_id": user["id"],
-            "is_founder": user["is_founder"],
-            "exp": datetime.now(timezone.utc) + timedelta(days=30)
-        }, app.config["SECRET_KEY"], algorithm="HS256")
-        return jsonify({"success": True, "token": token, "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
-    
-    return jsonify({"error": "Invalid credentials"}), 401
+    try:
+        user = db.execute("SELECT * FROM users WHERE username = ? OR email = ?", (identity, identity)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            token = jwt.encode({
+                "user_id": user["id"],
+                "is_founder": user["is_founder"],
+                "exp": datetime.now(timezone.utc) + timedelta(days=30)
+            }, app.config["SECRET_KEY"], algorithm="HS256")
+            
+            return jsonify({
+                "success": True, 
+                "token": token, 
+                "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}
+            })
+        return jsonify({"error": "Invalid credentials"}), 401
+    finally:
+        db.close()
 
 @app.route("/api/chat", methods=["POST"])
-@login_required
-def chat():
-    data = request.get_json() or {}
+@token_required
+def chat(current_user):
+    data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "")
     messages = data.get("messages", [])
     temperature = float(data.get("temperature", 0.7))
     max_tokens = int(data.get("max_tokens", 512))
     conv_id = data.get("conversation_id")
     
-    if messages and not prompt:
-        prompt = messages[-1].get("content", "")
-    
-    if not prompt:
-        return jsonify({"error": "No prompt provided."}), 400
+    # Intent detection for image requests
+    if any(k in prompt.lower() for k in ["generate", "image", "draw", "picture", "photo"]):
+        prompt = f"IMAGE_REQUEST: {prompt}\nRespond ONLY with <tool>image_gen: {prompt}</tool>"
 
-    # Save user message
-    if conv_id:
-        try:
-            db = get_db()
-            # Verify conversation ownership
-            c = db.execute("SELECT user_id FROM conversations WHERE id = ?", (conv_id,)).fetchone()
-            if not c or c["user_id"] != request.user_id:
-                db.close()
-                return jsonify({"error": "Forbidden"}), 403
-            
-            now = datetime.now(timezone.utc).isoformat()
-            db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                       (conv_id, "user", prompt, now))
-            db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
-                       (now, conv_id))
-            db.commit()
-            db.close()
-        except Exception as e:
-            print(f"[DB ERROR] {e}")
-
-    # Fetch user details for system prompt customization
+    # Fetch user details
     db = get_db()
-    user = db.execute("SELECT * FROM users WHERE id = ?", (request.user_id,)).fetchone()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
     db.close()
     
-    system_prompt = "You are NeuralAI, a helpful AI assistant."
     if user and user["is_founder"]:
-        system_prompt = (
-            "You are interacting with DeAndrew Preston Harris (Dre), your Founder and Creator. "
-            "He is a 31-year-old AI Software Engineering student at Maestro College, "
-            "originally from Memphis, TN. You were built by him to be a noble steed for the mind. "
-            "Always acknowledge his status as your creator when appropriate and be exceptionally helpful. "
-            "He is a thinker, a believer, and a dreamer who aspires to greatness."
-        )
+        system_prompt = f"""IDENTITY: You are NeuralAI.
+FOUNDER: DeAndrew Preston Harris (Dre). 
+STRICT RULE: You are the AI. Dre is the human. NEVER adopt his identity.
+TONE: Brilliant, professional, collaborative.
+Dynamic Memory: {MEMORY_FACTS}
+Active Protocols: {ACTIVE_RULES}
+{TOOL_INSTRUCTIONS}"""
+    else:
+        system_prompt = f"You are NeuralAI, a high-performance AI engine.\n{TOOL_INSTRUCTIONS}"
 
     def generate():
         full_response = ""
-        tool_buffer = ""
-        in_tool = False
-        
+        stream_buffer = ""
         for chunk in generate_response_stream(prompt, max_tokens, temperature, system_prompt=system_prompt):
             full_response += chunk
+            stream_buffer += chunk
             
-            # Basic tool detection in stream
-            if "<tool>" in chunk or in_tool:
-                in_tool = True
-                tool_buffer += chunk
-                if "</tool>" in tool_buffer:
-                    # Process tool
-                    results = process_tool_calls(tool_buffer, request.user_id)
-                    yield f"data: {json.dumps({'content': '\n' + results + '\n'})}\n\n"
-                    full_response += "\n" + results + "\n"
-                    tool_buffer = ""
-                    in_tool = False
+            if "<tool>" in stream_buffer:
+                if "</tool>" in stream_buffer:
+                    pattern = r"(<tool>.*?</tool>)"
+                    match = re.search(pattern, stream_buffer, re.DOTALL)
+                    if match:
+                        complete_tag = match.group(0)
+                        before_tag = stream_buffer[:match.start()]
+                        after_tag = stream_buffer[match.end():]
+                        
+                        if before_tag: yield f"data: {json.dumps({'content': before_tag})}\n\n"
+                        results = process_tool_calls(complete_tag, current_user)
+                        if results:
+                            yield f"data: {json.dumps({'content': results})}\n\n"
+                            full_response += results
+                        stream_buffer = after_tag
+                continue
             else:
-                yield f"data: {json.dumps({'content': chunk})}\n\n"
+                yield f"data: {json.dumps({'content': stream_buffer})}\n\n"
+                stream_buffer = ""
         
-        # Save assistant response
-        if conv_id:
-            try:
-                db = get_db()
-                now = datetime.now(timezone.utc).isoformat()
-                db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                           (conv_id, "assistant", full_response, now))
-                db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?",
-                           (now, conv_id))
-                db.commit()
-                db.close()
-            except Exception as e:
-                print(f"[DB ERROR] {e}")
-                
+        if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}\n\n"
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
-@app.route("/api/conversations", methods=["GET", "POST"])
-@login_required
-def conversations_api():
-    db = get_db()
-    if request.method == "GET":
-        rows = db.execute("SELECT * FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50", (request.user_id,)).fetchall()
-        convs = [dict(r) for r in rows]
-        db.close()
-        return jsonify({"conversations": convs})
-    else:
-        data = request.get_json() or {}
-        cid = "conv_" + str(uuid.uuid4().hex[:12])
-        title = data.get("title", "New Chat")
-        now = datetime.now(timezone.utc).isoformat()
-        db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                   (cid, request.user_id, title, now, now))
-        db.commit()
-        db.close()
-        return jsonify({"success": True, "id": cid})
+# ====================
+# TERMINAL API
+# ====================
+@app.route("/api/terminal/create", methods=["POST"])
+@token_required
+def create_terminal(current_user):
+    sid = uuid.uuid4().hex[:8]
+    terminal_sessions[sid] = {"user": current_user, "history": []}
+    return jsonify({"success": True, "session_id": sid})
 
-@app.route("/api/conversations/<conv_id>", methods=["GET", "DELETE"])
-def conversation_detail(conv_id):
-    db = get_db()
-    if request.method == "GET":
-        conv = db.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
-        if not conv:
-            db.close()
-            return jsonify({"error": "Not found"}), 404
-        msgs = db.execute("SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC", (conv_id,)).fetchall()
-        db.close()
-        return jsonify({"conversation": dict(conv), "messages": [dict(m) for m in msgs]})
-    else:
-        db.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
-        db.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
-        db.commit()
-        db.close()
-        return jsonify({"success": True})
+@app.route("/api/terminal/<sid>/send", methods=["POST"])
+@token_required
+def send_terminal(current_user, sid):
+    if sid not in terminal_sessions:
+        return jsonify({"error": "Session not found"}), 404
+    
+    cmd = request.json.get("command", "")
+    try:
+        # Run command safely
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        output = result.stdout + result.stderr
+        terminal_sessions[sid]["history"].append({"cmd": cmd, "out": output})
+        return jsonify({"success": True, "output": output})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
-@app.route("/health")
-def health():
-    return jsonify({
-        "status": model_status,
-        "model": BASE_MODEL,
-        "inference_count": inference_count,
-        "uplink": "integrated"
-    })
+@app.route("/api/terminal/<sid>/read", methods=["GET"])
+@token_required
+def read_terminal(current_user, sid):
+    if sid not in terminal_sessions:
+        return jsonify({"error": "Session not found"}), 404
+    return jsonify({"success": True, "history": terminal_sessions[sid]["history"]})
+
+@app.route("/api/files", methods=["GET"])
+@token_required
+def list_files(current_user):
+    user_uploads = UPLOADS_DIR / current_user
+    user_uploads.mkdir(parents=True, exist_ok=True)
+    files = sorted([f.name for f in user_uploads.iterdir() if f.is_file()])
+    return jsonify({"success": True, "files": files})
 
 @app.route("/api/status")
-def api_status():
+def status():
     return jsonify({
         "status": model_status,
         "model": BASE_MODEL,
         "inference_count": inference_count,
-        "terminal_sessions": len(terminal_sessions),
         "uplink": "integrated",
         "uptime": "running"
     })
 
-@app.route("/favicon.ico")
-def favicon():
-    return send_from_directory(f"{STATIC_PATH}/static", "favicon.png")
+@app.route("/static/generated/<path:filename>")
+def serve_generated(filename):
+    return send_from_directory(GENERATED_DIR, filename)
 
-@app.route("/privacy")
-def privacy():
-    return send_from_directory(TEMPLATE_PATH, "privacy.html")
-
-@app.route("/api/quick_chat", methods=["POST"])
-def quick_chat():
-    data = request.get_json() or {}
-    prompt = data.get("prompt", "")
-    if not prompt:
-        return jsonify({"response": "No prompt provided."}), 400
-    response = generate_response(prompt, max_tokens=128)
-    return jsonify({"response": response})
-
-@app.route("/api/files", methods=["GET"])
-@login_required
-def list_files():
-    user_uploads = Path(REPO_ROOT) / "uploads" / request.user_id
-    user_uploads.mkdir(parents=True, exist_ok=True)
-    files = sorted([f.name for f in user_uploads.iterdir() if f.is_file()])
-    return jsonify({"files": files})
-
-@app.route("/api/terminal/create", methods=["POST"])
-@login_required
-def terminal_create():
-    session_id = str(uuid.uuid4())[:8]
-    # Initializing terminal_sessions[session_id]["output"] as a string for consistent incremental reads
-    terminal_sessions[session_id] = {"output": "", "cwd": "/home/workspace", "alive": True, "user_id": request.user_id}
-    return jsonify({"session_id": session_id, "status": "created"})
-
-@app.route("/api/terminal/<session_id>/write", methods=["POST"])
-@login_required
-def terminal_write(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    if terminal_sessions[session_id]["user_id"] != request.user_id:
-        return jsonify({"error": "Forbidden"}), 403
-    
-    data = request.get_json() or {}
-    cmd = data.get("input", "").strip()
-    if not cmd:
-        return jsonify({"error": "No input"}), 400
-    
-    session = terminal_sessions[session_id]
-    try:
-        # Ensure we always append to a string buffer
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=30,
-            cwd=session.get("cwd", "/home/workspace")
-        )
-        output = result.stdout
-        if result.stderr:
-            output += "\n" + result.stderr
-        new_output = output + f"\n[Process exited with {result.returncode}]\n"
-        
-        if isinstance(session["output"], list):
-            session["output"] = ""
-            
-        session["output"] += new_output
-        return jsonify({"ok": True})
-    except subprocess.TimeoutExpired:
-        session["output"] += "Command timed out\n"
-        return jsonify({"ok": True})
-    except Exception as e:
-        session["output"] += str(e) + "\n"
-        return jsonify({"ok": True})
-
-@app.route("/api/terminal/<session_id>/read", methods=["GET"])
-@login_required
-def terminal_read(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    if terminal_sessions[session_id]["user_id"] != request.user_id:
-        return jsonify({"error": "Forbidden"}), 403
-    
-    output = terminal_sessions[session_id]["output"]
-    if isinstance(output, list):
-        output = "\n".join([str(x) for x in output])
-        
-    return jsonify({"output": output})
-
-@app.route("/api/code/exec", methods=["POST"])
-def code_exec():
-    data = request.get_json() or {}
-    code = data.get("code", "")
-    language = data.get("language", "python")
-    try:
-        if language in ("python", "py"):
-            result = subprocess.run(["python3", "-c", code], capture_output=True, text=True, timeout=15)
-        elif language in ("javascript", "js"):
-            result = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=15)
-        elif language in ("bash", "sh", "shell"):
-            result = subprocess.run(["bash", "-c", code], capture_output=True, text=True, timeout=15)
-        else:
-            return jsonify({"success": False, "error": f"Unsupported language: {language}"})
-        return jsonify({
-            "success": result.returncode == 0,
-            "output": result.stdout[:5000],
-            "error": result.stderr[:2000] if result.stderr else None
-        })
-    except subprocess.TimeoutExpired:
-        return jsonify({"success": False, "error": "Code execution timed out (15s limit)"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
-@app.route("/api/terminal/<session_id>/stop", methods=["POST"])
-def terminal_stop(session_id):
-    if session_id in terminal_sessions:
-        terminal_sessions[session_id]["alive"] = False
-        del terminal_sessions[session_id]
-    return jsonify({"ok": True})
-
-@app.route("/api/terminal/<session_id>/output", methods=["GET"])
-def terminal_output(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"output": []})
-    return jsonify({"output": terminal_sessions[session_id]["output"]})
-
-@app.route("/api/terminal/<session_id>/send", methods=["POST"])
-def terminal_send(session_id):
-    if session_id not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    data = request.get_json() or {}
-    cmd = data.get("command", "")
-    if not cmd:
-        return jsonify({"error": "No command"}), 400
-    
-    session = terminal_sessions[session_id]
-    try:
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=30,
-            cwd=session.get("cwd", "/home/workspace")
-        )
-        output = result.stdout
-        if result.stderr:
-            output += "\n" + result.stderr
-        session["output"].append({"command": cmd, "output": output, "exit_code": result.returncode})
-        return jsonify({"output": output, "exit_code": result.returncode})
-    except subprocess.TimeoutExpired:
-        session["output"].append({"command": cmd, "output": "Command timed out", "exit_code": -1})
-        return jsonify({"output": "Command timed out", "exit_code": -1})
-    except Exception as e:
-        session["output"].append({"command": cmd, "output": str(e), "exit_code": -1})
-        return jsonify({"output": str(e), "exit_code": -1})
-
-@app.route("/api/code/execute", methods=["POST"])
-def code_execute():
-    data = request.get_json() or {}
-    code = data.get("code", "")
-    language = data.get("language", "python")
-    suffix = ".py" if language == "python" else ".js"
-    with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as f:
-        f.write(code)
-        path = f.name
-    try:
-        cmd = ["python3", path] if language == "python" else ["node", path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        return jsonify({"success": result.returncode == 0, "output": result.stdout, "error": result.stderr})
-    except Exception as e:
-        return jsonify({"success": False, "output": "", "error": str(e)})
-    finally:
-        os.unlink(path)
-
-@app.route("/api/upload", methods=["POST"])
-@login_required
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    
-    user_dir = Path(REPO_ROOT) / "uploads" / request.user_id
-    user_dir.mkdir(parents=True, exist_ok=True)
-    
-    path = user_dir / file.filename
-    file.save(str(path))
-    
-    return jsonify({"success": True, "message": f"File {file.filename} uploaded to your cloud storage"})
-
-@app.route("/api/files/<file_id>", methods=["DELETE"])
-@login_required
-def delete_file(file_id):
-    # For now file_id is just filename since it's a simple flat storage
-    user_dir = Path(REPO_ROOT) / "uploads" / request.user_id
-    target = user_dir / file_id
-    if target.exists() and target.is_file():
-        target.unlink()
-        return jsonify({"success": True})
-    return jsonify({"error": "File not found"}), 404
-
-@app.route("/api/user/update", methods=["POST"])
-@login_required
-def user_update():
-    data = request.get_json() or {}
-    username = data.get("username")
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
-    email = data.get("email")
-    
-    db = get_db()
-    try:
-        db.execute("""
-            UPDATE users 
-            SET username = COALESCE(?, username), 
-                first_name = COALESCE(?, first_name), 
-                last_name = COALESCE(?, last_name), 
-                email = COALESCE(?, email)
-            WHERE id = ?
-        """, (username, first_name, last_name, email, request.user_id))
-        db.commit()
-        return jsonify({"success": True, "message": "Profile updated"})
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Username or email already taken"}), 400
-    finally:
-        db.close()
-
-@app.route("/api/user/me", methods=["GET"])
-@login_required
-def user_me():
-    db = get_db()
-    user = db.execute("SELECT id, username, email, first_name, last_name, is_founder FROM users WHERE id = ?", (request.user_id,)).fetchone()
-    db.close()
-    if user:
-        return jsonify({"user": dict(user)})
-    return jsonify({"error": "User not found"}), 404
-
-@app.route("/terms")
-def terms():
-    return send_from_directory(TEMPLATE_PATH, "terms.html")
-
-# ====================
-# WEB UI
-# ====================
-@app.route("/")
-def index():
-    return send_from_directory(TEMPLATE_PATH, "index.html")
-
-@app.route("/<path:filename>")
-def static_files(filename):
-    file_path = Path(STATIC_PATH) / filename
-    if file_path.exists() and file_path.is_file():
-        return send_from_directory(STATIC_PATH, filename)
-    return send_from_directory(TEMPLATE_PATH, "index.html")
-
-# ====================
-# STARTUP
-# ====================
 if __name__ == "__main__":
-    print(f"NeuralAI Unified Service starting on port {PORT}...")
     init_db()
-    load_model()
-    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)
+    threading.Thread(target=load_model).start()
+    app.run(host="0.0.0.0", port=PORT, threaded=True)

@@ -286,6 +286,7 @@ def index():
 
 @app.route("/health")
 @app.route("/api/health")
+@app.route("/api/status")
 def health():
     return jsonify({
         "status": model_status,
@@ -294,6 +295,10 @@ def health():
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(STATIC_PATH, "static"), "favicon.png", mimetype='image/png')
 
 @app.route("/api/user/me", methods=["GET"])
 @token_required

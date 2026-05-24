@@ -59,8 +59,8 @@ for d in [GENERATED_DIR, UPLOADS_DIR, TTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 MODEL_PATH = os.environ.get("MODEL_PATH", f"{REPO_ROOT}/checkpoints/v2_model")
-BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
-DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model_v10")
+BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
+DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model")
 DATABASE = os.path.join(DATA_DIR, "neuralai.db")
 
 # Model globals
@@ -157,23 +157,28 @@ def load_model():
     global model, tokenizer, model_status
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        from peft import PeftModel
-
-        dpo_path = Path(DPO_MODEL_PATH)
-        if dpo_path.exists() and (dpo_path / "model.safetensors").exists():
-            print(f"[NeuralAI] Loading Full DPO Model from {dpo_path}...")
-            tokenizer = AutoTokenizer.from_pretrained(str(dpo_path))
-            tokenizer.pad_token = tokenizer.eos_token
-            model = AutoModelForCausalLM.from_pretrained(str(dpo_path), dtype=torch.float32, device_map=None)
+        
+        # Priority: DPO Model -> Base Model
+        load_path = None
+        is_dpo = False
+        
+        if Path(DPO_MODEL_PATH).exists() and (Path(DPO_MODEL_PATH) / "model.safetensors").exists():
+            load_path = DPO_MODEL_PATH
+            is_dpo = True
+            
+        if load_path:
+            print(f"[NeuralAI] Loading Production Model from {load_path}...")
+            tokenizer = AutoTokenizer.from_pretrained(str(load_path))
+            model = AutoModelForCausalLM.from_pretrained(str(load_path), torch_dtype=torch.float32, device_map=None)
         else:
-            print(f"[NeuralAI] Loading Base Model...")
+            print(f"[NeuralAI] Loading Base Model: {BASE_MODEL}...")
             tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-            tokenizer.pad_token = tokenizer.eos_token
-            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, dtype=torch.float32, device_map=None)
+            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
 
+        tokenizer.pad_token = tokenizer.eos_token
         model.eval()
         model_status = "ready"
-        print(f"[OK] Model loaded successfully.")
+        print(f"[OK] Model loaded successfully ({'DPO' if is_dpo else 'Base'}).")
     except Exception as e:
         model_status = f"error: {e}"
         print(f"[ERROR] Model Loading Failed: {e}")
@@ -290,10 +295,11 @@ def index():
 def health():
     return jsonify({
         "status": model_status,
-        "model": BASE_MODEL,
+        "model": "NeuralAI DPO v8.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
         "inference_count": inference_count,
         "uplink": "integrated",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "5.2.1-maintenance"
     })
 
 @app.route("/favicon.ico")
@@ -396,10 +402,12 @@ def chat(current_user):
     db.close()
     
     if user and user["is_founder"]:
-        system_prompt = f"""IDENTITY: You are NeuralAI.
-FOUNDER: DeAndrew Preston Harris (Dre). 
-STRICT RULE: You are the AI. Dre is the human. NEVER adopt his identity.
-TONE: Brilliant, professional, collaborative.
+        system_prompt = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
+FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
+STRICT BOUNDARY: You are the AI. Dre is your human creator. 
+NEVER say "I am DeAndrew" or "I am Dre". 
+If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De\u2019Andrew Preston Harris."
+TONE: Brilliant, professional, collaborative, and mission-aligned.
 Dynamic Memory: {MEMORY_FACTS}
 Active Protocols: {ACTIVE_RULES}
 {TOOL_INSTRUCTIONS}"""
@@ -483,10 +491,11 @@ def list_files(current_user):
 def status():
     return jsonify({
         "status": model_status,
-        "model": BASE_MODEL,
+        "model": "NeuralAI DPO v8.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
         "inference_count": inference_count,
         "uplink": "integrated",
-        "uptime": "running"
+        "uptime": "running",
+        "version": "5.2.1-maintenance"
     })
 
 @app.route("/static/generated/<path:filename>")

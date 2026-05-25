@@ -183,18 +183,13 @@ def load_model():
         model_status = f"error: {e}"
         print(f"[ERROR] Model Loading Failed: {e}")
 
-def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_prompt=None):
+def generate_response_stream(messages, max_tokens=512, temperature=0.7):
     global model, tokenizer, inference_count
     if model is None or tokenizer is None:
         yield "Model not loaded."
         return
     
     try:
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-        
         if hasattr(tokenizer, "chat_template") and tokenizer.chat_template:
             full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         else:
@@ -203,7 +198,8 @@ def generate_response_stream(prompt, max_tokens=256, temperature=0.7, system_pro
                 full += f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
             full += "<|im_start|>assistant\n"
         
-        inputs = tokenizer(full, return_tensors="pt").to(model.device)
+        # Safe truncation for SmolLM2 context window
+        inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
         
         thread = threading.Thread(target=model.generate, kwargs={
@@ -300,7 +296,7 @@ def status():
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": "running",
-        "version": "5.2.1-maintenance"
+        "version": "5.2.2-maintenance"
     })
 
 @app.route("/privacy")

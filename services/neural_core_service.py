@@ -5,9 +5,9 @@ NeuralAI Unified Service - ALL IN ONE
 - Model inference (SmolLM2-360M)
 - Neural Uplink (Integrated)
 - Tools (code, terminal, images)
-- Web UI
+- Web UI & API
 """
-import os, sys, json, asyncio, requests, threading
+import os, sys, json, asyncio, requests, threading, logging
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
 try:
@@ -21,6 +21,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context, render_template
 from transformers import TextIteratorStreamer
 import re
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("NeuralCore")
 
 torch.set_num_threads(4)
 
@@ -73,21 +77,6 @@ inference_count = 0
 # Terminal sessions
 terminal_sessions = {}
 
-# Mock data for memory and rules
-MEMORY_FACTS = [
-    "User is De’Andrew Preston Harris (Dre), Founder of Harris Holdings.",
-    "System architecture: High-velocity Closed Cloud (NeuralDrive).",
-    "Preferred Voice: en-US-GuyNeural (Gentle & Professional).",
-    "Culture: High alignment with Memphis-native nuances and professional excellence."
-]
-
-ACTIVE_RULES = [
-    "Branding: Always refer to the system as NeuralAI; never NeuralOS.",
-    "Tone: Fluent, professional, and slightly familiar (collaborator persona).",
-    "Privacy: Data never leaves the Nextcloud/NeuralDrive local instance.",
-    "Velocity: Respond instantly with optimized context management."
-]
-
 # ====================
 # DATABASE LAYER
 # ====================
@@ -128,6 +117,28 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id)
         );
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, key)
+        );
+        CREATE TABLE IF NOT EXISTS memory_facts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fact TEXT NOT NULL,
+            category TEXT DEFAULT 'general',
+            importance INTEGER DEFAULT 0,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS active_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        );
     """)
     db.commit()
     db.close()
@@ -145,7 +156,8 @@ def token_required(f):
             token = token.split(" ")[1]
             data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
             request.user_id = data["user_id"]
-        except:
+        except Exception as e:
+            logger.error(f"Token validation failed: {e}")
             return jsonify({"error": "Token is invalid"}), 401
         return f(request.user_id, *args, **kwargs)
     return decorated
@@ -296,7 +308,7 @@ def status():
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": "running",
-        "version": "5.2.2-maintenance"
+        "version": "5.2.5-stable"
     })
 
 @app.route("/privacy")
@@ -365,8 +377,14 @@ def signup():
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
-    identity = data.get("username", "").strip()
+    # Better extraction for robustness
+    identity = (data.get("username") or data.get("email") or "").strip()
     password = data.get("password", "")
+    
+    if not identity or not password:
+        return jsonify({"error": "Missing credentials"}), 400
+        
+    logger.info(f"Login attempt for identity: {identity}")
     
     db = get_db()
     try:
@@ -378,12 +396,116 @@ def login():
                 "exp": datetime.now(timezone.utc) + timedelta(days=30)
             }, app.config["SECRET_KEY"], algorithm="HS256")
             
+            logger.info(f"Login successful for user: {user['username']}")
             return jsonify({
                 "success": True, 
                 "token": token, 
                 "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}
             })
+        
+        logger.warning(f"Login failed for identity: {identity}")
         return jsonify({"error": "Invalid credentials"}), 401
+    finally:
+        db.close()
+
+@app.route("/api/settings", methods=["GET", "POST"])
+@token_required
+def manage_settings(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            now = datetime.now(timezone.utc).isoformat()
+            for k, v in data.items():
+                db.execute("INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                           (current_user, k, str(v), now))
+            db.commit()
+            return jsonify({"success": True})
+        
+        rows = db.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (current_user,)).fetchall()
+        settings = {row["key"]: row["value"] for row in rows}
+        return jsonify({"success": True, "settings": settings})
+    finally:
+        db.close()
+
+@app.route("/api/memory", methods=["GET", "POST"])
+@token_required
+def manage_memory(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            fact = data.get("fact")
+            if not fact: return jsonify({"error": "Missing fact"}), 400
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO memory_facts (fact, user_id, created_at) VALUES (?, ?, ?)",
+                       (fact, current_user, now))
+            db.commit()
+            return jsonify({"success": True})
+        
+        rows = db.execute("SELECT fact, created_at FROM memory_facts WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        facts = [dict(row) for row in rows]
+        return jsonify({"success": True, "facts": facts})
+    finally:
+        db.close()
+
+@app.route("/api/rules", methods=["GET", "POST"])
+@token_required
+def manage_rules(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            rule = data.get("rule")
+            if not rule: return jsonify({"error": "Missing rule"}), 400
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO active_rules (rule, user_id, created_at) VALUES (?, ?, ?)",
+                       (rule, current_user, now))
+            db.commit()
+            return jsonify({"success": True})
+        
+        rows = db.execute("SELECT rule, active, created_at FROM active_rules WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        rules = [dict(row) for row in rows]
+        return jsonify({"success": True, "rules": rules})
+    finally:
+        db.close()
+
+@app.route("/api/conversations", methods=["GET", "POST"])
+@token_required
+def manage_convs(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            cid = str(uuid.uuid4().hex[:8])
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                       (cid, current_user, data.get("title", "New Chat"), now, now))
+            db.commit()
+            return jsonify({"success": True, "id": cid})
+        
+        rows = db.execute("SELECT id, title, updated_at FROM conversations WHERE user_id = ? ORDER BY updated_at DESC", (current_user,)).fetchall()
+        convs = [dict(row) for row in rows]
+        return jsonify(convs)
+    finally:
+        db.close()
+
+@app.route("/api/conversations/<cid>", methods=["GET", "DELETE"])
+@token_required
+def conv_detail(current_user, cid):
+    db = get_db()
+    try:
+        if request.method == "DELETE":
+            db.execute("DELETE FROM messages WHERE conversation_id = ?", (cid,))
+            db.execute("DELETE FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user))
+            db.commit()
+            return jsonify({"success": True})
+        
+        conv = db.execute("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user)).fetchone()
+        if not conv: return jsonify({"error": "Not found"}), 404
+        
+        msgs = db.execute("SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC", (cid,)).fetchall()
+        return jsonify({**dict(conv), "messages": [dict(m) for m in msgs]})
     finally:
         db.close()
 
@@ -392,7 +514,7 @@ def login():
 def chat(current_user):
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "")
-    messages = data.get("messages", [])
+    history = data.get("messages", [])
     temperature = float(data.get("temperature", 0.7))
     max_tokens = int(data.get("max_tokens", 512))
     conv_id = data.get("conversation_id")
@@ -401,28 +523,42 @@ def chat(current_user):
     if any(k in prompt.lower() for k in ["generate", "image", "draw", "picture", "photo"]):
         prompt = f"IMAGE_REQUEST: {prompt}\nRespond ONLY with <tool>image_gen: {prompt}</tool>"
 
-    # Fetch user details
+    # Fetch user context
     db = get_db()
     user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
+    mem_rows = db.execute("SELECT fact FROM memory_facts WHERE user_id = ?", (current_user,)).fetchall()
+    rule_rows = db.execute("SELECT rule FROM active_rules WHERE user_id = ? AND active = 1", (current_user,)).fetchall()
     db.close()
     
+    mem_facts = [row["fact"] for row in mem_rows]
+    active_rules = [row["rule"] for row in rule_rows]
+    
     if user and user["is_founder"]:
-        system_prompt = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
+        system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
 FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
 STRICT BOUNDARY: You are the AI. Dre is your human creator. 
 NEVER say "I am DeAndrew" or "I am Dre". 
-If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De\u2019Andrew Preston Harris."
+If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
 TONE: Brilliant, professional, collaborative, and mission-aligned.
-Dynamic Memory: {MEMORY_FACTS}
-Active Protocols: {ACTIVE_RULES}
+Dynamic Memory: {mem_facts}
+Active Protocols: {active_rules}
 {TOOL_INSTRUCTIONS}"""
     else:
-        system_prompt = f"You are NeuralAI, a high-performance AI engine.\n{TOOL_INSTRUCTIONS}"
+        system_content = f"You are NeuralAI, a high-performance AI engine.\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
+
+    # Build messages list
+    messages = [{"role": "system", "content": system_content}]
+    for m in history[-10:]:
+        messages.append({"role": m["role"], "content": m["content"]})
+    
+    # Append current user prompt if not already in history
+    if not history or history[-1]["content"] != prompt:
+        messages.append({"role": "user", "content": prompt})
 
     def generate():
         full_response = ""
         stream_buffer = ""
-        for chunk in generate_response_stream(prompt, max_tokens, temperature, system_prompt=system_prompt):
+        for chunk in generate_response_stream(messages, max_tokens, temperature):
             full_response += chunk
             stream_buffer += chunk
             
@@ -447,6 +583,19 @@ Active Protocols: {ACTIVE_RULES}
                 stream_buffer = ""
         
         if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}\n\n"
+        
+        # Save to database if conv_id provided
+        if conv_id:
+            db = get_db()
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                       (conv_id, "user", prompt, now))
+            db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                       (conv_id, "assistant", full_response, now))
+            db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 2 WHERE id = ?", (now, conv_id))
+            db.commit()
+            db.close()
+            
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")

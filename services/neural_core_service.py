@@ -292,15 +292,24 @@ def index():
 @app.route("/health")
 @app.route("/api/health")
 @app.route("/api/status")
-def health():
+def status():
     return jsonify({
         "status": model_status,
         "model": "NeuralAI DPO v8.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
         "inference_count": inference_count,
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime": "running",
         "version": "5.2.1-maintenance"
     })
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
 
 @app.route("/favicon.ico")
 def favicon():
@@ -486,17 +495,6 @@ def list_files(current_user):
     user_uploads.mkdir(parents=True, exist_ok=True)
     files = sorted([f.name for f in user_uploads.iterdir() if f.is_file()])
     return jsonify({"success": True, "files": files})
-
-@app.route("/api/status")
-def status():
-    return jsonify({
-        "status": model_status,
-        "model": "NeuralAI DPO v8.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
-        "inference_count": inference_count,
-        "uplink": "integrated",
-        "uptime": "running",
-        "version": "5.2.1-maintenance"
-    })
 
 @app.route("/static/generated/<path:filename>")
 def serve_generated(filename):

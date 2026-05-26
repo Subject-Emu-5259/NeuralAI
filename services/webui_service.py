@@ -34,8 +34,9 @@ terminal_sessions = {}
 # Conversations storage (Simple JSON file)
 CONV_FILE = Path("/home/workspace/Projects/NeuralAI/conversations.json")
 # Files storage
-FILES_DIR = Path("/home/workspace/Projects/NeuralAI/uploads")
-FILES_DIR.mkdir(parents=True, exist_ok=True)
+STORAGE_SERVICE = os.environ.get("STORAGE_SERVICE", "http://localhost:7003")
+STORAGE_ROOT = Path("/home/workspace/Projects/NeuralAI/storage")
+STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
 def load_convs():
     if CONV_FILE.exists():
@@ -116,6 +117,25 @@ def static_files(path):
     return "Not found", 404
 
 # ====================
+# ROUTES - POLICIES
+# ====================
+@app.route("/privacy")
+def privacy():
+    p = f"{STATIC_PATH}/templates/privacy.html"
+    if os.path.exists(p):
+        with open(p) as f:
+            return f.read(), 200, {"Content-Type": "text/html"}
+    return "Privacy policy not found", 404
+
+@app.route("/terms")
+def terms():
+    p = f"{STATIC_PATH}/templates/terms.html"
+    if os.path.exists(p):
+        with open(p) as f:
+            return f.read(), 200, {"Content-Type": "text/html"}
+    return "Terms of service not found", 404
+
+# ====================
 # ROUTES - HEALTH
 # ====================
 @app.route("/health")
@@ -194,65 +214,49 @@ def conv_detail(cid):
     return jsonify(convs[cid])
 
 # ====================
-# ROUTES - FILES
+# ROUTES - FILES (Proxied to Storage Service)
 # ====================
 @app.route("/api/files", methods=["GET", "POST"])
 def manage_files():
-    if request.method == "POST":
-        if 'file' not in request.files: return jsonify({"error": "No file"}), 400
-        file = request.files['file']
-        path = FILES_DIR / file.filename
-        file.save(str(path))
-        return jsonify({"success": True, "filename": file.filename})
-    
-    files = []
-    for f in FILES_DIR.iterdir():
-        files.append({"name": f.name, "size": f.stat().st_size, "path": str(f)})
-    return jsonify(files)
+    try:
+        if request.method == "POST":
+            if 'file' not in request.files: return jsonify({"error": "No file"}), 400
+            file = request.files['file']
+            files = {'file': (file.filename, file.read(), file.content_type)}
+            r = requests.post(f"{STORAGE_SERVICE}/api/storage/upload", files=files)
+            return jsonify(r.json()), r.status_code
+        
+        r = requests.get(f"{STORAGE_SERVICE}/api/storage/list")
+        if r.status_code == 200:
+            data = r.json()
+            legacy_files = []
+            for item in data.get("items", []):
+                legacy_files.append({
+                    "name": item["name"],
+                    "size": item["size"],
+                    "path": item["name"],
+                    "is_dir": item["is_dir"]
+                })
+            return jsonify(legacy_files)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        print(f"[WARN] Storage service down: {e}")
+        files = []
+        for f in STORAGE_ROOT.iterdir():
+            files.append({"name": f.name, "size": f.stat().st_size, "path": f.name})
+        return jsonify(files)
 
-@app.route("/api/files/<filename>", methods=["DELETE"])
-def delete_file(filename):
-    path = FILES_DIR / filename
-    if path.exists():
-        path.unlink()
-        return jsonify({"success": True})
-    return jsonify({"error": "Not found"}), 404
-
-# ====================
-# ROUTES - NEURAL UPLINK (INTEGRATED)
-# ====================
-@app.route("/uplink/stream", methods=["POST"])
-def uplink_stream():
-    data = request.get_json() or {}
-    prompt = data.get("prompt", data.get("message", ""))
-    
-    def generate():
-        results = []
-        for agent_name, agent in UPLINK_AGENTS.items():
-            try:
-                resp = generate_response(f"[{agent['system']}]\n{prompt}", max_tokens=80)
-                if resp and len(resp) > 5:
-                    chunk = f"{agent['color']} **{agent['name']}**: {resp.strip()}\n\n"
-                    results.append(chunk)
-                    yield f"data: {json.dumps({'content': chunk})}\n\n"
-            except Exception as e:
-                pass
-        if not results:
-            yield f"data: {json.dumps({'content': 'Neural Uplink: No responses. Try again.'})}\n\n"
-        yield "data: [DONE]\n\n"
-    
-    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-
-@app.route("/uplink", methods=["POST"])
-def uplink():
-    data = request.get_json() or {}
-    prompt = data.get("prompt", data.get("message", ""))
-    responses = []
-    for agent_name, agent in UPLINK_AGENTS.items():
-        resp = generate_response(f"[{agent['system']}]\n{prompt}", max_tokens=80)
-        if resp and len(resp) > 5:
-            responses.append({"agent": agent["name"], "color": agent["color"], "response": resp})
-    return jsonify({"success": True, "responses": responses, "fused": "\n".join([f"{r['color']} **{r['agent']}**: {r['response']}" for r in responses])})
+@app.route("/api/files/<path:filename>", methods=["GET", "DELETE"])
+def handle_file(filename):
+    try:
+        if request.method == "DELETE":
+            r = requests.delete(f"{STORAGE_SERVICE}/api/storage/delete", params={"path": filename})
+            return jsonify(r.json()), r.status_code
+        
+        r = requests.get(f"{STORAGE_SERVICE}/api/storage/download", params={"path": filename}, stream=True)
+        return Response(r.iter_content(chunk_size=1024), content_type=r.headers.get('Content-Type'))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ====================
 # ROUTES - TERMINAL

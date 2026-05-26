@@ -1,5 +1,5 @@
 import re
-# NeuralAI Web UI v4.0 - Enhanced with Persistence, Memory, and Settings
+# NeuralAI Web UI v5.2 - Enhanced with Persistence, Memory, and Settings
 import hashlib
 import json
 import os
@@ -15,6 +15,13 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context, g
 from werkzeug.utils import secure_filename
 
+# NeuralAI Cloud Client
+try:
+    from neural_cloud_client import NeuralCloudClient
+    cloud_client = NeuralCloudClient(base_url="http://localhost:8002/remote.php/dav/files/admin", user="admin", password="NeuralAI_Admin_2026!")
+except ImportError:
+    cloud_client = None
+
 # NeuralAI Engine - Router + Local Model + Uplink + Tools
 try:
     from neuralai_router import neuralai_route
@@ -29,33 +36,11 @@ except ImportError as e:
     local_model = None
     neuralai_tool_call = None
 
-
-
-
 def run_tool_sync(tool: str, msg: str):
     """Run tool synchronously by collecting all chunks from async generator."""
     import asyncio
     import time
     import os
-    
-    # Handle image generation directly - uses Zo's generate_image tool
-    if tool == "image_gen":
-        # Extract prompt from message
-        prompt = msg.lower().replace("generate an image of", "").replace("create an image of", "").replace("make an image of", "").replace("generate image of", "").replace("image of", "").strip()
-        
-        # Prepare output directory - NeuralAI personal storage
-        output_dir = "/home/workspace/NeuralAI/images"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        file_stem = f"neuralai_{timestamp}"
-        
-        # Signal that we need to generate an image
-        # The actual generation will be done via a special return format
-        return [
-            f"🎨 **Generating image: {prompt}**\n\n",
-            f"[IMAGE_GEN:{prompt}|{file_stem}|{output_dir}]"
-        ]
     
     if neuralai_tool_call is None:
         return ["[Error] Tool handler not available"]
@@ -106,18 +91,28 @@ except Exception:
     terminal_bp = Blueprint("terminal", __name__)
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
-UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+REPO_ROOT = BASE_DIR.parent.parent
+DATA_DIR = REPO_ROOT / "data"
+STORAGE_DIR = REPO_ROOT / "storage"
+LOGS_DIR = REPO_ROOT / "logs"
+
+# Structured storage
+UPLOAD_FOLDER = REPO_ROOT / "uploads"
+IMAGE_STORAGE = STORAGE_DIR / "images"
+
+# Ensure all structured directories exist
+for d in [DATA_DIR, STORAGE_DIR, LOGS_DIR, UPLOAD_FOLDER, IMAGE_STORAGE]:
+    d.mkdir(parents=True, exist_ok=True)
 
 # Database path
-DATABASE = BASE_DIR / "neuralai.db"
+DATABASE = DATA_DIR / "neuralai.db"
 
-MODEL_PATH = os.environ.get("MODEL_PATH", str(BASE_DIR.parent.parent / "checkpoints" / "v2_model"))
+MODEL_PATH = os.environ.get("MODEL_PATH", str(REPO_ROOT / "checkpoints" / "v2_model"))
 MODEL_NAME = os.environ.get("MODEL_NAME", "HuggingFaceTB/SmolLM2-360M-Instruct")
 UPLINK_URL = os.environ.get("UPLINK_URL", "http://localhost:7000")
 PORT = int(os.environ.get("PORT", "5000"))
 ALLOWED = {".pdf", ".docx", ".doc", ".txt", ".md"}
-REGISTRY_FILE = BASE_DIR / ".indexed_files.json"
+REGISTRY_FILE = DATA_DIR / ".indexed_files.json"
 VERSION = os.environ.get("NEURALAI_VERSION", "4.0")
 
 app = Flask(__name__)
@@ -318,6 +313,21 @@ def add_memory():
     return jsonify({"success": True, "id": cursor.lastrowid, "fact": fact})
 
 
+@app.route("/api/memory/<int:fact_id>", methods=["PUT"])
+def update_memory(fact_id):
+    """Update a memory fact."""
+    data = request.get_json(silent=True) or {}
+    fact = data.get("fact", "").strip()
+    
+    if not fact:
+        return jsonify({"error": "Fact content is required"}), 400
+    
+    db = get_db()
+    db.execute("UPDATE memory_facts SET fact = ? WHERE id = ?", (fact, fact_id))
+    db.commit()
+    return jsonify({"success": True})
+
+
 @app.route("/api/memory/<int:fact_id>", methods=["DELETE"])
 def delete_memory(fact_id):
     """Delete a memory fact."""
@@ -358,6 +368,21 @@ def add_rule():
     )
     db.commit()
     return jsonify({"success": True, "id": cursor.lastrowid})
+
+
+@app.route("/api/rules/<int:rule_id>", methods=["PUT"])
+def update_rule(rule_id):
+    """Update a model rule."""
+    data = request.get_json(silent=True) or {}
+    rule = data.get("rule", "").strip()
+    
+    if not rule:
+        return jsonify({"error": "Rule content is required"}), 400
+    
+    db = get_db()
+    db.execute("UPDATE model_rules SET rule = ? WHERE id = ?", (rule, rule_id))
+    db.commit()
+    return jsonify({"success": True})
 
 
 @app.route("/api/rules/<int:rule_id>", methods=["DELETE"])
@@ -614,7 +639,7 @@ def load_model() -> None:
         print(f"[NeuralAI] Model load failed: {exc}")
 
 
-def get_system_prompt() -> str:
+def get_system_prompt(founder_mode=False) -> str:
     """Build system prompt from user bio, memory, and rules."""
     db = get_db()
     
@@ -633,13 +658,16 @@ def get_system_prompt() -> str:
     memories = [m["fact"] for m in memory_rows]
     
     # Build prompt
-    base = "You are NeuralAI, a helpful AI assistant."
+    if founder_mode:
+        base = "You are NeuralAI in FOUNDER MODE. You are the high-velocity intelligence engine for Harris Holdings. You operate with extreme clarity, prioritizing results, code optimization, and architectural excellence. You speak directly to the founder, De'Andrew Preston Harris, with deep context of his Memphis roots and vision."
+    else:
+        base = "You are NeuralAI, a helpful AI model designed for creative thinking, brainstorming, and high-velocity shipping."
     
     if user_bio:
         base += f"\n\n## User Profile\n{user_bio}"
     
     if memories:
-        base += "\n\n## What you know about the user\n" + "\n".join(f"- {m}" for m in memories)
+        base += "\n\n## Long-Term Memory\n" + "\n".join(f"- {m}" for m in memories)
     
     if rules:
         base += "\n\n## Behavioral Guidelines\n" + "\n".join(f"- {r}" for r in rules)
@@ -660,9 +688,9 @@ def build_doc_context(user_content: str, file_ids: list[str]) -> str:
     return f"\n\nRelevant context from uploaded documents:\n{chunks_text}\n"
 
 
-def build_prompt(messages: list[dict], user_content: str, doc_context: str) -> str:
+def build_prompt(messages: list[dict], user_content: str, doc_context: str, founder_mode=False) -> str:
     # Get dynamic system prompt
-    system_content = get_system_prompt()
+    system_content = get_system_prompt(founder_mode=founder_mode)
     
     # Add document context if files attached
     if doc_context:
@@ -690,14 +718,14 @@ def build_prompt(messages: list[dict], user_content: str, doc_context: str) -> s
     return "\n\n".join(prompt)
 
 
-def answer_with_model_stream(messages: list[dict], user_content: str, doc_context: str, max_new_tokens: int, temperature: float):
+def answer_with_model_stream(messages: list[dict], user_content: str, doc_context: str, max_new_tokens: int, temperature: float, founder_mode=False):
     """
     Yields tokens from the local model directly.
     """
     try:
         from neuralai_engine import local_model
         
-        full_formatted_prompt = build_prompt(messages, user_content, doc_context)
+        full_formatted_prompt = build_prompt(messages, user_content, doc_context, founder_mode=founder_mode)
         
         for token in local_model.generate_sync_stream(
             full_formatted_prompt, 
@@ -795,18 +823,10 @@ def serve_neuralai_image(filename):
     from flask import send_from_directory
     import os
     
-    # NeuralAI personal storage
-    image_dir = "/home/workspace/NeuralAI/images"
-    
-    # Check if file exists
-    filepath = os.path.join(image_dir, filename)
-    if os.path.exists(filepath):
-        return send_from_directory(image_dir, filename)
-    
-    # Fallback: Check old location
-    old_dir = "/home/workspace/Images/NeuralAI"
-    if os.path.exists(os.path.join(old_dir, filename)):
-        return send_from_directory(old_dir, filename)
+    # Check if file exists in structured storage
+    filepath = IMAGE_STORAGE / filename
+    if filepath.exists():
+        return send_from_directory(str(IMAGE_STORAGE), filename)
     
     return "Image not found", 404
 
@@ -818,6 +838,26 @@ def index():
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html")
+
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
+@app.route("/api/files/<folder>/<path:filename>")
+def serve_file(folder, filename):
+    from flask import send_from_directory
+    if folder == "generated":
+        directory = IMAGE_STORAGE
+    else:
+        directory = UPLOAD_FOLDER
+    
+    filepath = directory / filename
+    if filepath.exists():
+        return send_from_directory(str(directory), filename)
+    
+    return "File not found", 404
 
 
 @app.route("/api/status", methods=["GET"])
@@ -865,22 +905,76 @@ def health():
 
 @app.route("/api/files", methods=["GET"])
 def list_files():
-    return jsonify({"files": list(INDEXED_FILES.values()), "ids": list(INDEXED_FILES.keys())})
+    files_list = []
+    # Recursively find all files in UPLOAD_FOLDER
+    if UPLOAD_FOLDER.exists():
+        for f in UPLOAD_FOLDER.rglob("*"):
+            if f.is_file():
+                # Use relative path so we can serve it back
+                rel_path = f.relative_to(UPLOAD_FOLDER)
+                files_list.append({
+                    "id": hashlib.sha256(str(rel_path).encode()).hexdigest()[:16],
+                    "name": str(rel_path),
+                    "type": "upload",
+                    "size": f.stat().st_size
+                })
+    
+    # Also add generated images
+    if IMAGE_STORAGE.exists():
+        for f in IMAGE_STORAGE.rglob("*"):
+            if f.is_file():
+                rel_path = f.relative_to(IMAGE_STORAGE)
+                files_list.append({
+                    "id": hashlib.sha256(str(rel_path).encode()).hexdigest()[:16],
+                    "name": str(rel_path),
+                    "type": "generated",
+                    "size": f.stat().st_size
+                })
+
+    return jsonify({"files": files_list})
 
 
 @app.route("/api/files/<file_id>", methods=["DELETE"])
 def delete_file(file_id):
-    if file_id not in INDEXED_FILES:
+    filename = None
+    filepath_to_delete = None
+    
+    # Check INDEXED_FILES first
+    if file_id in INDEXED_FILES:
+        filename = INDEXED_FILES[file_id]
+        del INDEXED_FILES[file_id]
+        save_registry()
+        filepath_to_delete = UPLOAD_FOLDER / filename
+    else:
+        # Search by hashing relative paths
+        if UPLOAD_FOLDER.exists():
+            for f in UPLOAD_FOLDER.rglob("*"):
+                if f.is_file():
+                    rel_path = str(f.relative_to(UPLOAD_FOLDER))
+                    if hashlib.sha256(rel_path.encode()).hexdigest()[:16] == file_id:
+                        filename = rel_path
+                        filepath_to_delete = f
+                        break
+        
+        # Search generated images
+        if not filename and IMAGE_STORAGE.exists():
+            for f in IMAGE_STORAGE.rglob("*"):
+                if f.is_file():
+                    rel_path = str(f.relative_to(IMAGE_STORAGE))
+                    if hashlib.sha256(rel_path.encode()).hexdigest()[:16] == file_id:
+                        filename = rel_path
+                        filepath_to_delete = f
+                        break
+
+    if not filename or not filepath_to_delete:
         return jsonify({"error": "File not found"}), 404
-    filename = INDEXED_FILES[file_id]
-    del INDEXED_FILES[file_id]
-    save_registry()
+
     try:
-        filepath = UPLOAD_FOLDER / filename
-        if filepath.exists():
-            filepath.unlink()
-    except Exception:
-        pass
+        if filepath_to_delete.exists():
+            filepath_to_delete.unlink()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     return jsonify({"success": True, "deleted": filename})
 
 
@@ -898,6 +992,13 @@ def upload():
     filename = secure_filename(file.filename)
     filepath = UPLOAD_FOLDER / filename
     file.save(filepath)
+
+    # Sync to Cloud
+    if cloud_client:
+        try:
+            cloud_client.upload_file(str(filepath), filename)
+        except Exception as e:
+            print(f"[NeuralDrive] Cloud sync failed: {e}")
 
     result = index_document(str(filepath))
     file_id = result.get("file_id", hashlib.sha256(filename.encode()).hexdigest()[:16])
@@ -923,6 +1024,7 @@ def chat():
     prompt_only = data.get("prompt", "")
     conv_id = data.get("conversation_id")  # NEW: conversation ID for persistence
     force_local = data.get("force_local", False)
+    founder_mode = data.get("founder_mode", False)
     
     # Get settings from DB
     db = get_db()
@@ -1031,7 +1133,7 @@ def chat():
         doc_context = build_doc_context(user_content, file_ids)
         
         full_response = ""
-        for chunk in answer_with_model_stream(messages, user_content, doc_context, max_new_tokens, temperature):
+        for chunk in answer_with_model_stream(messages, user_content, doc_context, max_new_tokens, temperature, founder_mode=founder_mode):
             if chunk:
                 # Format for SSE - stream chunk by chunk directly
                 # Replace newlines so they don't break SSE format

@@ -363,8 +363,9 @@ def main():
     parser = argparse.ArgumentParser(description="DPO Training")
     parser.add_argument("--generate-only", action="store_true", help="Only generate preference dataset")
     parser.add_argument("--beta", type=float, default=0.1)
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--data", type=str, default="/home/workspace/Projects/NeuralAI/data/train_dpo_v8.jsonl")
     args = parser.parse_args()
     
     if args.generate_only:
@@ -376,6 +377,7 @@ def main():
     config.beta = args.beta
     config.epochs = args.epochs
     config.learning_rate = args.lr
+    config.dataset_path = args.data
     
     train_dpo(config)
 

@@ -13,6 +13,7 @@ import re
 TOOL_PATTERNS: Dict[str, List[str]] = {
     # Image generation - highest priority for creative requests
     "image_gen": [
+        "generate", "image", "drawing", "picture", "photo", "artwork", "art",
         "create an image", "create a image", "create image",
         "generate an image", "generate a image", "generate image",
         "make an image", "make a image", "make image",
@@ -27,7 +28,12 @@ TOOL_PATTERNS: Dict[str, List[str]] = {
         "image of", "picture of", "photo of", "drawing of",
         "show me an image", "show me a picture", "show me a photo",
         "i want an image", "i want a picture", "i want a photo",
-        "generate me an", "create me an", "make me an"
+        "generate me an", "create me an", "make me an",
+        # Multimodal / Editing patterns
+        "edit this image", "edit the image", "modify this image", "modify the image",
+        "change this image", "change the image", "transform this image",
+        "edit my photo", "edit my picture", "stylize this", "make a variant",
+        "variation of", "edit image", "modify image", "enhance image"
     ],
     
     "terminal": ["shell ", "command ", "bash ", "terminal "],
@@ -171,6 +177,9 @@ def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
     lower = msg.lower()
     
     if tool == "image_gen":
+        # Check for editing intent
+        is_edit = any(kw in lower for kw in ["edit", "modify", "change", "transform", "variant", "variation", "enhance"])
+        
         # Extract the image description
         prompt = msg
         # Remove trigger phrases
@@ -181,14 +190,23 @@ def extract_tool_params(msg: str, tool: str) -> Dict[str, str]:
             "create an image", "generate an image", "make an image",
             "show me an image of", "show me a image of",
             "i want an image of", "i want a image of",
-            "generate me an", "create me an", "make me an"
+            "generate me an", "create me an", "make me an",
+            "edit this image to", "edit the image to", "modify this image to",
+            "change this image to", "transform this image to", "edit my photo to",
+            "edit this image", "edit the image", "modify this image",
+            "change this image", "transform this image", "edit my photo"
         ]
         for trigger in triggers:
             if trigger in lower:
                 idx = lower.find(trigger)
                 prompt = msg[idx + len(trigger):].strip()
                 break
-        return {"prompt": prompt or msg, "style": "realistic"}
+        
+        return {
+            "prompt": prompt or msg, 
+            "style": "realistic",
+            "mode": "edit" if is_edit else "gen"
+        }
     
     if tool == "terminal":
         for prefix in TOOL_PATTERNS["terminal"]:

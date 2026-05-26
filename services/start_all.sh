@@ -43,7 +43,7 @@ echo "[Startup] Starting Neural Core Service (port 5000)..."
 echo "[Startup] This may take 30-60 seconds to load the model..."
 
 cd "$SCRIPT_DIR"
-nohup python3 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
+nohup python3.12 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
 CORE_PID=$!
 echo "[Startup] Core PID: $CORE_PID"
 

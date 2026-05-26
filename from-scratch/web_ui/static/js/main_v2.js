@@ -25,6 +25,8 @@ let processor = null;
 let micStream = null;
 let audioQueue = [];
 let isPlaying = false;
+let nextPlayTime = 0;
+let voiceReconnectTimer = null;
 
 // ========================================
 // AUTHENTICATION
@@ -85,17 +87,17 @@ function toggleAuthMode() {
 }
 
 async function handleAuth() {
-  const email = document.getElementById("authEmail")?.value.trim();
+  const identity = document.getElementById("authEmail")?.value.trim();
   const username = document.getElementById("authUsername")?.value.trim();
   const password = document.getElementById("authPassword")?.value.trim();
   const confirm = document.getElementById("authConfirmPassword")?.value.trim();
 
-  if (!email || !password) return showToast("Email and password required", "error");
+  if (!identity || !password) return showToast("Credentials required", "error");
   if (authMode === "signup" && !username) return showToast("Username required for signup", "error");
   if (authMode === "signup" && password !== confirm) return showToast("Passwords do not match", "error");
 
   const url = authMode === "signup" ? "/api/auth/signup" : "/api/auth/login";
-  const body = authMode === "signup" ? { username, password, email } : { email, password };
+  const body = authMode === "signup" ? { username, password, email: identity } : { username: identity, password };
 
   try {
     const res = await fetch(url, {
@@ -298,9 +300,21 @@ async function sendMessage(textOverride = null) {
     }
     conversation.push({ role: 'assistant', content: full });
     
+    // Auto-update 'Recent Intelligence' (sidebar) on first reply to pick up the auto-generated title
+    if (conversation.length <= 2) {
+      loadConversations();
+    }
+    
     // Send to Voice TTS if Live Voice is active
-    if (typeof voiceWS !== 'undefined' && voiceWS && voiceWS.readyState === WebSocket.OPEN) {
+    if (voiceWS && voiceWS.readyState === WebSocket.OPEN) {
+      console.log('Sending text to voice engine:', full.substring(0, 50) + '...');
       voiceWS.send(JSON.stringify({ type: 'text', data: full }));
+    } else {
+      console.warn('Voice WebSocket is not open. State:', voiceWS ? voiceWS.readyState : 'null');
+      if (document.getElementById('liveVoiceOverlay') && !document.getElementById('liveVoiceOverlay').classList.contains('hidden')) {
+        showToast('Voice connection lost. Attempting to reconnect...', 'info');
+        initLiveSession(); // Try to re-init if overlay is visible
+      }
     }
   } catch (e) {
     bubble.innerHTML = '<span style="color:#ff6b6b">Generation failed.</span>';
@@ -349,60 +363,83 @@ async function toggleLiveVoice(show) {
 
 async function initLiveSession() {
   return new Promise(async (resolve, reject) => {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-    // WebSocket to NeuralVoice (FastAPI)
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    
-    // Resolve Voice Service Host
-    let voiceHost = host.replace('neuralai-', 'neural-voice-');
-    if (host === 'localhost' || host === '127.0.0.1') voiceHost = `${host}:5001`;
-
-    console.log(`Connecting to Voice Service: ${voiceHost}`);
-    voiceWS = new WebSocket(`${protocol}//${voiceHost}/ws`);
-
-    voiceWS.onopen = () => {
-      console.log('NeuralVoice Live Connected');
+    try {
+      if (voiceReconnectTimer) clearTimeout(voiceReconnectTimer);
       
-      // Send initial voice configuration
-      const selectedVoice = document.getElementById('voiceSelection')?.value || userSettings.neural_voice || 'Andrew';
-      voiceWS.send(JSON.stringify({ 
-        type: 'config', 
-        voice: selectedVoice 
-      }));
-      
-      startMicCapture().then(resolve).catch(reject);
-    };
-
-    voiceWS.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'audio') {
-        const orb = document.querySelector('.live-orb');
-        orb?.classList.remove('listening');
-        orb?.classList.add('speaking');
-        updateLiveStatus('NeuralAI Speaking...');
-        
-        const audioData = base64ToUint8Array(data.data);
-        queueAudioChunk(audioData);
-      } else if (data.type === 'turn_complete') {
-        console.log('Assistant turn complete');
-      } else if (data.type === 'error') {
-        showToast('Live Error: ' + data.message, 'error');
-        toggleLiveVoice(false);
+      // Don't fix sample rate here, handle it per chunk in queueAudioChunk
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        console.log('Resuming AudioContext...');
+        await audioCtx.resume();
       }
-    };
+      
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      let voiceHost = host.replace('neuralai-', 'neural-voice-');
+      if (host === 'localhost' || host === '127.0.0.1') voiceHost = `${host}:5001`;
 
-    voiceWS.onerror = (err) => {
-      console.error('WS Error:', err);
-      reject(new Error('Voice connection lost'));
-    };
+      console.log(`Connecting to Voice Service: ${voiceHost}`);
+      if (voiceWS) voiceWS.close();
+      voiceWS = new WebSocket(`${protocol}//${voiceHost}/ws`);
 
-    voiceWS.onclose = () => {
-      console.log('NeuralVoice Live Disconnected');
-      stopLiveSession();
-    };
+      voiceWS.onopen = () => {
+        console.log('NeuralVoice Live Connected');
+        const selectedVoice = document.getElementById('voiceSelection')?.value || userSettings.neural_voice || 'Andrew';
+        voiceWS.send(JSON.stringify({ type: 'config', voice: selectedVoice }));
+        startMicCapture().then(resolve).catch(reject);
+      };
+
+      voiceWS.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'audio') {
+            const orb = document.querySelector('.live-orb');
+            orb?.classList.remove('listening');
+            orb?.classList.add('speaking');
+            updateLiveStatus('NeuralAI Speaking...');
+            
+            if (data.data) {
+              const audioData = base64ToUint8Array(data.data);
+              // Use sampleRate from message if available
+              queueAudioChunk(audioData, data.sampleRate || 16000);
+            }
+          } else if (data.type === 'turn_complete') {
+            // Wait for audio to finish playing before switching back to listening
+            const now = audioCtx.currentTime;
+            const delay = Math.max(0, (nextPlayTime - now) * 1000);
+            setTimeout(() => {
+              const orb = document.querySelector('.live-orb');
+              if (orb && orb.classList.contains('speaking')) {
+                orb.classList.remove('speaking', 'processing');
+                orb.classList.add('listening');
+                updateLiveStatus('NeuralAI Listening...');
+              }
+            }, delay);
+          } else if (data.type === 'error') {
+            console.error('Live Service Error:', data.message);
+            showToast('Voice Error: ' + data.message, 'error');
+          }
+        } catch (err) {
+          console.error('WS Handler Error:', err);
+        }
+      };
+
+      voiceWS.onclose = (e) => {
+        console.log('Voice WS Closed:', e.code);
+        voiceWS = null;
+        // Auto-reconnect if overlay still open and not closed normally
+        if (e.code !== 1000 && document.getElementById('liveVoiceOverlay') && !document.getElementById('liveVoiceOverlay').classList.contains('hidden')) {
+          console.log('Unexpected close, scheduling reconnect...');
+          voiceReconnectTimer = setTimeout(initLiveSession, 3000);
+        }
+      };
+
+      voiceWS.onerror = (err) => {
+        console.error('Voice WS Error:', err);
+      };
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
@@ -477,13 +514,16 @@ async function startMicCapture() {
   
   try { 
     window.recognition.stop(); // Stop if already running to avoid error
-    setTimeout(() => {
+  } catch(e) {}
+
+  setTimeout(() => {
+    try {
       window.recognition.start();
       updateLiveStatus('NeuralAI Listening...');
-    }, 200);
-  } catch(e) {
-    console.warn('Initial recognition start failed:', e);
-  }
+    } catch(e) {
+      console.warn('Initial recognition start failed:', e);
+    }
+  }, 200);
 }
 
 function float32ToInt16(buffer) {
@@ -496,23 +536,63 @@ function float32ToInt16(buffer) {
   return buf;
 }
 
-function queueAudioChunk(data) {
-  // Simple PCM playback queue
-  const int16Data = new Int16Array(data.buffer);
-  const float32Data = new Float32Array(int16Data.length);
-  for (let i = 0; i < int16Data.length; i++) {
-    float32Data[i] = int16Data[i] / 32768.0;
+function queueAudioChunk(audioData, sampleRate) {
+  audioQueue.push({ data: audioData, sampleRate: sampleRate });
+  if (!isPlaying) {
+    playNextAudioChunk();
   }
+}
+
+async function playNextAudioChunk() {
+  if (audioQueue.length === 0) {
+    isPlaying = false;
+    return;
+  }
+
+  isPlaying = true;
   
-  const audioBuffer = audioCtx.createBuffer(1, float32Data.length, 16000);
-  audioBuffer.getChannelData(0).set(float32Data);
-  
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(audioCtx.destination);
-  source.start(nextPlayTime);
-  
-  nextPlayTime = Math.max(audioCtx.currentTime, nextPlayTime) + audioBuffer.duration;
+  // Schedule all currently queued chunks
+  while (audioQueue.length > 0) {
+    const chunk = audioQueue.shift();
+    try {
+      const data = chunk.data;
+      const sampleRate = chunk.sampleRate || 16000;
+      
+      const buffer = data.buffer;
+      const int16Data = new Int16Array(buffer, data.byteOffset, data.byteLength / 2);
+      const float32Data = new Float32Array(int16Data.length);
+
+      for (let i = 0; i < int16Data.length; i++) {
+        float32Data[i] = int16Data[i] / 32768.0;
+      }
+
+      const audioBuffer = audioCtx.createBuffer(1, float32Data.length, sampleRate);
+      audioBuffer.getChannelData(0).set(float32Data);
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      // Provide a small buffer ahead of current time if we fell behind
+      if (nextPlayTime < now) nextPlayTime = now + 0.05;
+
+      source.start(nextPlayTime);
+      nextPlayTime += audioBuffer.duration;
+
+      source.onended = () => {
+        // If this was the last scheduled chunk and queue is empty, finish
+        if (audioQueue.length === 0 && audioCtx.currentTime >= nextPlayTime - 0.1) {
+          isPlaying = false;
+        } else if (audioQueue.length > 0) {
+          // If more chunks arrived while playing, schedule them
+          playNextAudioChunk();
+        }
+      };
+    } catch (err) {
+      console.error('Playback Error:', err);
+    }
+  }
 }
 
 function stopLiveSession() {
@@ -534,8 +614,13 @@ function stopLiveSession() {
 }
 
 function updateLiveStatus(text) {
-  const statusEl = document.getElementById('liveVoiceStatus');
-  if (statusEl) statusEl.innerText = text;
+  const statusEl = document.getElementById('liveStatusText');
+  const transcriptEl = document.getElementById('liveTranscript');
+  if (text.startsWith('Hearing:') || text.startsWith('You:')) {
+    if (transcriptEl) transcriptEl.innerText = text;
+  } else {
+    if (statusEl) statusEl.innerText = text;
+  }
 }
 
 // ========================================

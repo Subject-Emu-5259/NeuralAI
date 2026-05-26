@@ -26,12 +26,32 @@ import json
 import subprocess
 import re
 from pathlib import Path
-from flask import Blueprint, request, Response, jsonify
+from functools import wraps
+import jwt
+from flask import Blueprint, request, Response, jsonify, current_app
 
 terminal_bp = Blueprint("terminal", __name__)
 
 # In-memory session store
 sessions = {}
+
+# ====================
+# AUTH DECORATOR
+# ====================
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token or not token.startswith("Bearer "):
+            return jsonify({"error": "Token is missing"}), 401
+        try:
+            token = token.split(" ")[1]
+            data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
+            request.user_id = data["user_id"]
+        except:
+            return jsonify({"error": "Token is invalid"}), 401
+        return f(*args, **kwargs)
+    return decorated
 command_history = {}
 snippets = {
     "python": {
@@ -421,9 +441,10 @@ def get_process_list() -> dict:
 # Routes
 
 @terminal_bp.route("/api/terminal/create", methods=["POST"])
+@token_required
 def create_session():
     cleanup_dead_sessions()
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     rows = int(data.get("rows", 24))
     cols = int(data.get("cols", 100))
     session_id = str(uuid.uuid4())[:8]
@@ -480,6 +501,7 @@ Neural Integration:
 
 
 @terminal_bp.route("/api/terminal/<session_id>/read", methods=["GET"])
+@token_required
 def read_session(session_id):
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
@@ -495,10 +517,11 @@ def read_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/write", methods=["POST"])
+@token_required
 def write_session(session_id):
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     cmd = data.get("input", "")
     if cmd:
         # Handle special commands
@@ -514,13 +537,15 @@ def write_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/command", methods=["POST"])
+@terminal_bp.route("/api/terminal/<session_id>/send", methods=["POST"])
+@token_required
 def execute_command(session_id):
     """Execute a command with enhanced handling."""
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
     
-    data = request.json or {}
-    cmd = data.get("command", "").strip()
+    data = request.get_json(silent=True) or {}
+    cmd = data.get("command", data.get("input", "")).strip()
     
     if not cmd:
         return {"error": "No command provided"}
@@ -632,10 +657,11 @@ def execute_command(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/resize", methods=["POST"])
+@token_required
 def resize_session(session_id):
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     rows = int(data.get("rows", 24))
     cols = int(data.get("cols", 100))
     sessions[session_id].resize(rows, cols)
@@ -643,6 +669,7 @@ def resize_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/alive", methods=["GET"])
+@token_required
 def alive_session(session_id):
     if session_id not in sessions:
         return {"alive": False}
@@ -650,6 +677,7 @@ def alive_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/buffer", methods=["GET"])
+@token_required
 def buffer_session(session_id):
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
@@ -657,6 +685,7 @@ def buffer_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/history", methods=["GET"])
+@token_required
 def history_session(session_id):
     if session_id not in sessions:
         return {"error": "Session not found"}, 404
@@ -665,6 +694,7 @@ def history_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/<session_id>/stop", methods=["POST"])
+@token_required
 def stop_session(session_id):
     if session_id in sessions:
         sessions[session_id].stop()
@@ -675,6 +705,7 @@ def stop_session(session_id):
 
 
 @terminal_bp.route("/api/terminal/sessions", methods=["GET"])
+@token_required
 def list_sessions():
     cleanup_dead_sessions()
     return {
@@ -692,6 +723,7 @@ def list_sessions():
 
 
 @terminal_bp.route("/api/terminal/snippets", methods=["GET"])
+@token_required
 def list_snippets():
     """List all available code snippets."""
     return {
@@ -703,6 +735,7 @@ def list_snippets():
 
 
 @terminal_bp.route("/api/terminal/snippets/<language>/<name>", methods=["GET"])
+@token_required
 def get_snippet(language, name):
     """Get a specific code snippet."""
     if language in snippets and name in snippets[language]:

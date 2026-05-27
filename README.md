@@ -1,8 +1,12 @@
 # 🧠 NeuralAI: The Generative AI Engine
 
+<div align="center">
+  <img src="neuralai_ui.png" alt="NeuralAI Logo" width="400" />
+</div>
+
 **The High-Velocity Model for Your Entire Vibe Stack**
 
-NeuralAI is the central intelligence engine developed for Harris Holdings. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ecosystem designed for creative thinking, code optimization, and system architecture.
+NeuralAI is the central intelligence engine developed for **Harris Holdings**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ecosystem designed for creative thinking, code optimization, and system architecture.
 
 ---
 
@@ -18,7 +22,8 @@ Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkans
 
 NeuralAI is built on a high-performance, containerized architecture that marries local inference with cloud-grade storage.
 
-*   **Core Model**: SmolLM2-360M-Instruct (DPO v13.0 Aligned for logic, math, multi-step reasoning, and debugging)
+### Core Stack
+*   **Core Model**: `SmolLM2-360M-Instruct` (DPO v13.0 Aligned for logic, math, multi-step reasoning, and debugging)
 *   **Vocal Identity**: Andrew (Warm/Multilingual) - Optimized for Live Speech-to-Speech (S2S)
 *   **Backend Framework**: Python / Flask (Core Service)
 *   **Storage & Database**: SQLite3 (Metadata) + Nextcloud Hub via NeuralCloud WebDAV Client (NeuralDrive)
@@ -32,7 +37,7 @@ NeuralAI is built on a high-performance, containerized architecture that marries
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features & Capabilities
 
 ### 💬 Multimodal Chat & Live Speech
 *   **High-Velocity Text Inference**: Fast, local inference with deep context awareness.
@@ -51,13 +56,41 @@ NeuralAI is built on a high-performance, containerized architecture that marries
 
 ---
 
-## 🏋️ Model Training & Fine-Tuning
+## 🏋️ Model Training & Fine-Tuning (DPO)
 
 NeuralAI is continuously learning and improving through rigorous **Direct Preference Optimization (DPO)**.
 
-*   **DPO Dataset Expansions**: The dataset is aggressively expanded to include advanced reasoning, complex mathematics, logical deduction, creative writing, and system debugging.
+### Training Pipeline
+```python
+# Example of the DPO alignment configuration used in NeuralAI
+dpo_config = DPOConfig(
+    beta=0.1,
+    learning_rate=5e-5,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    max_length=1024,
+    max_prompt_length=512,
+)
+```
+
+*   **Dataset Expansions**: The dataset is aggressively expanded to include advanced reasoning, complex mathematics, logical deduction, creative writing, and system debugging.
 *   **Behavioral Alignment**: NeuralAI is specifically tuned to adhere strictly to the "Harris Holdings" vibe—maintaining a professional, technical, and highly disciplined engineering tone.
-*   **Model Drift Monitoring**: Continuous evaluation against previous checkpoints (e.g., v2 through v13) to ensure response quality and consistency never regress.
+*   **Model Drift Monitoring**: Continuous evaluation against previous checkpoints to ensure response quality and consistency never regress.
+
+---
+
+## 📸 Brand & UI Gallery
+
+*(UI screenshots showcase the beautiful dark mode interface, the terminal integration, and the NeuralDrive file explorer.)*
+
+```html
+<!-- Example Frontend UI Component Structure -->
+<div class="neural-chat-container">
+  <div class="message-bubble ai-response">
+    NeuralAI: System optimal. Ready for execution.
+  </div>
+</div>
+```
 
 ---
 
@@ -74,13 +107,16 @@ NeuralAI is continuously learning and improving through rigorous **Direct Prefer
 
 ---
 
-## 👨‍💻 The Developer
+## 👨‍💻 The Developer & Architect
 
 **De'Andrew Preston Harris** (D. Harris / Dre)
 *Founder, Harris Holdings & Architect of NeuralAI*
 
 A dedicated software engineer, thinker, and builder from West Memphis, AR. De'Andrew is currently pursuing an AAS in AI Software Engineering at Maestro College. NeuralAI is the culmination of his drive to push the boundaries of accessible, deeply personalized artificial intelligence.
 
-*   [LinkedIn](https://www.linkedin.com/in/deandrewharris94/)
-*   [GitHub](https://github.com/Subject-Emu-5259)
+*   **Location:** Memphis, TN / West Memphis, AR
+*   **Vision:** Building the future of private, high-performance generative AI.
+*   [LinkedIn](https://www.linkedin.com/in/deandrewharris94/) | [GitHub](https://github.com/Subject-Emu-5259)
 
+---
+*Built with precision and discipline for Harris Holdings.*

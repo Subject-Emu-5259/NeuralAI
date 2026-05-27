@@ -303,12 +303,12 @@ def index():
 def status():
     return jsonify({
         "status": model_status,
-        "model": "NeuralAI DPO v12.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
+        "model": "NeuralAI DPO v13.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
         "inference_count": inference_count,
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": "running",
-        "version": "6.0.0-stable"
+        "version": "6.1.0-stable"
     })
 
 @app.route("/privacy")

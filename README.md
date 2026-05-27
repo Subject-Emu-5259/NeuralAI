@@ -7,8 +7,8 @@ NeuralAI is the central intelligence engine for Harris Holdings. It is a highly 
 ## 🧠 The Manifesto
 NeuralAI doesn't just predict text; it operates the work. The goal is to create a multimodal generative system that can bridge the gap between idea and execution through both autoregressive reasoning and generative diffusion.
 
-## 🛠️ Tech Stack (v6.0)
-- **Model**: SmolLM2-360M-Instruct (DPO v10 Aligned)
+## 🛠️ Tech Stack (v6.1.0)
+- **Model**: SmolLM2-360M-Instruct (DPO v13.0 Aligned)
 - **Vocal Identity**: Andrew (Warm/Multilingual) - Live S2S Optimized
 - **Framework**: Flask (Core Service)
 - **Terminal**: Integrated Web Terminal with full shell access

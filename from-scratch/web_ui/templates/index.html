@@ -99,6 +99,17 @@ body.dark-mode .search-box button:hover {
   background: #6d28d9;
 }
 
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.search-icon {
+  font-size: 18px;
+  margin-left: 4px;
+}
+
 /* Auth Overlay Theme Support */
 body.dark-mode #authOverlay {
   background: rgba(9, 9, 11, 0.98);
@@ -207,7 +218,7 @@ body.dark-mode #historyDropdown {
   background: #fff;
   position: sticky;
   top: 0;
-  z-index: 10001; /* Above Auth Overlay */
+  z-index: 9000; /* BELOW Auth Overlay (10000) */
   position: relative;
 }
 
@@ -2783,6 +2794,31 @@ body.dark-mode .onboarding-close:hover {
 
     <button id="authSubmit" class="auth-btn">Login</button>
     <p class="auth-switch" id="authToggle">Don't have an account? <span>Sign Up</span></p>
+
+    <!-- Experimental Access Modes -->
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+        <p style="font-size: 11px; color: #8a8a9a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">Maestro Student & Guest Portal</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div id="maestroGroup" class="auth-input-group" style="margin-bottom: 0;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="maestroCode" class="auth-input" placeholder="Enter Maestro ID (e.g. Mae001)" style="flex: 1; padding: 10px 14px; font-size: 13px;">
+                    <button id="maestroSubmit" class="auth-btn" style="margin: 0; padding: 10px 16px; width: auto; font-size: 13px; background: linear-gradient(135deg, #10b981, #059669);">Verify</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.05);">
+                <span style="font-size: 10px; color: #555;">OR</span>
+                <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.05);">
+            </div>
+
+            <button id="guestSubmit" class="auth-btn" style="margin: 0; background: rgba(139, 92, 246, 0.05); border: 1px dashed rgba(139, 92, 246, 0.4); color: #a78bfa; box-shadow: none; font-size: 14px;">
+                🚀 Test Preview (Instant Guest Access)
+            </button>
+            <p style="font-size: 10px; color: #5f6368; text-align: center; margin-top: 4px;">No account required for trial sessions.</p>
+        </div>
+    </div>
   </div>
 </div>
 
@@ -2829,7 +2865,7 @@ body.dark-mode .onboarding-close:hover {
   </div>
   <div class="topbar-right">
     <span id="userGreeting" class="product-name" style="margin-right: 12px;"></span>
-    <button class="top-btn" onclick="logout()">Logout</button>
+    <button id="logoutBtn" class="top-btn" onclick="logout()">Logout</button>
     <button class="top-btn" onclick="toggleDarkMode()">🌙 Theme</button>
   </div>
 </div>
@@ -2884,7 +2920,7 @@ body.dark-mode .onboarding-close:hover {
           <button class="tab active" data-mode="all">All</button>
           <button class="tab" data-mode="chat">Chat</button>
           <button class="tab" data-mode="files">Files</button>
-          <button class="tab" data-mode="system">System</button>
+          <button class="tab" data-mode="system">System Audit</button>
         </div>
       </section>
 
@@ -3094,13 +3130,29 @@ body.dark-mode .onboarding-close:hover {
 
         <div class="settings-card">
           <h3>Architecture & Node Status</h3>
-          <div class="uplink-row">
-            <span class="status-label">Intelligence Core:</span>
-            <span style="color:#a78bfa; font-weight:600;">v5.1 DPO Aligned</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Intelligence Core</div>
+                  <div style="color:#a78bfa; font-weight:600; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                      <span style="color:#10b981; font-size: 8px; animation: pulse 1s infinite;">●</span> v5.2.1-maintenance
+                  </div>
+                  <div style="font-size: 10px; color: #34a853; margin-top: 2px;">OTA Synchronized</div>
+              </div>
+              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Inference Node</div>
+                  <div id="settingDevice" style="color:#fff; font-weight:600; margin-top: 4px;">Scanning...</div>
+                  <div style="font-size: 10px; color: #1a73e8; margin-top: 2px;">CPU (Optimized)</div>
+              </div>
           </div>
-          <div class="uplink-row">
-            <span class="status-label">Inference Node:</span>
-            <span id="settingDevice">CPU (Optimized)</span>
+          <div style="margin-top: 16px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #5f6368;">Latent Space Depth:</span>
+                  <span style="color: #3b82f6;">360M Params</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #5f6368;">Uplink Status:</span>
+                  <span style="color: #10b981;">CONNECTED</span>
+              </div>
           </div>
         </div>
       </section>

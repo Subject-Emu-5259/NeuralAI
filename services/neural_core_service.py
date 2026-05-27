@@ -150,17 +150,18 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get("Authorization")
-        if not token or not token.startswith("Bearer "):
-            return jsonify({"error": "Token is missing"}), 401
+        if not token:
+            request.user_id = "guest"
+            return f(*args, **kwargs)
         try:
-            token = token.split(" ")[1]
-            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
-            request.user_id = data["user_id"]
+            token = token.replace("Bearer ", "")
+            payload = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            request.user_id = payload["user_id"]
         except Exception as e:
-            logger.error(f"Token validation failed: {e}")
-            return jsonify({"error": "Token is invalid"}), 401
-        return f(request.user_id, *args, **kwargs)
+            return jsonify({"error": "Invalid token"}), 401
+        return f(*args, **kwargs)
     return decorated
+
 
 # ====================
 # MODEL LOADING
@@ -407,6 +408,25 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
     finally:
         db.close()
+
+@app.route("/api/auth/guest", methods=["POST"])
+def auth_guest():
+    import os
+    guest_id = f"guest_{os.urandom(4).hex()}"
+    token = jwt.encode({"user_id": guest_id, "role": "guest"}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token, "user": {"username": f"Guest_{os.urandom(2).hex()}", "role": "guest"}})
+
+@app.route("/api/auth/maestro", methods=["POST"])
+def auth_maestro():
+    import os
+    data = request.json or {}
+    code = data.get("invite_code", "").strip()
+    if not code:
+        return jsonify({"error": "Invite code required"}), 400
+    user_id = f"maestro_{os.urandom(4).hex()}"
+    token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token, "user": {"username": f"Maestro_{code[:4]}", "role": "maestro"}})
+
 
 @app.route("/api/settings", methods=["GET", "POST"])
 @token_required

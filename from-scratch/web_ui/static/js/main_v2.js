@@ -6,7 +6,7 @@
 // ========================================
 // GLOBAL STATE
 // ========================================
-let authToken = localStorage.getItem("neural_token");
+let authToken = window.localStorage.getItem("neural_token");
 let currentUser = null;
 let currentConversationId = null;
 let isStreaming = false;
@@ -18,6 +18,7 @@ let termPoll = null;
 let authMode = "login";
 let currentShell = "bash";
 let searchMode = "all";
+let isInitializingTerm = false;
 let userSettings = { theme: 'dark', neural_voice: 'Andrew', user_bio: '' };
 let voiceWS = null;
 let audioCtx = null;
@@ -32,29 +33,76 @@ let voiceReconnectTimer = null;
 // AUTHENTICATION
 // ========================================
 async function initAuth() {
-  if (!authToken) { showAuth(); return; }
+  console.log("Initializing Auth state...");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const authOverlay = document.getElementById("authOverlay");
+  
+  if (!authToken) { 
+    console.log("No token found, showing auth overlay.");
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    if (authOverlay) authOverlay.classList.remove("hidden");
+    return; 
+  }
+  
   try {
     const r = await fetch("/api/user/me", {
       headers: { "Authorization": `Bearer ${authToken}` }
     });
-    if (!r.ok) throw new Error();
+    
+    if (!r.ok) {
+        console.warn("Auth token invalid or expired.");
+        throw new Error("Invalid token");
+    }
+    
     const data = await r.json();
     currentUser = data.user;
+    
     const greeting = document.getElementById("userGreeting");
-    if (greeting) greeting.textContent = `Hi, ${currentUser.username}`;
-    document.getElementById("authOverlay").classList.add("hidden");
+    if (greeting) {
+        greeting.textContent = currentUser.account_type === "guest" 
+            ? `Guest Session` 
+            : `Hi, ${currentUser.username}`;
+    }
+    
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    if (authOverlay) authOverlay.classList.add("hidden");
+    
     loadConversations();
     loadUserProfile();
-  } catch { logout(); }
+  } catch (err) { 
+    console.error("Auth check failed:", err);
+    logout(); 
+  }
 }
 
 function showAuth() {
-  document.getElementById("authOverlay").classList.remove("hidden");
+  const authOverlay = document.getElementById("authOverlay");
+  if (authOverlay) authOverlay.classList.remove("hidden");
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.classList.add("hidden");
 }
 
 function logout() {
-  localStorage.removeItem("neural_token");
-  location.reload();
+  console.log("Logging out...");
+  window.localStorage.removeItem("neural_token");
+  authToken = null;
+  currentUser = null;
+  
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.classList.add("hidden");
+  
+  const greeting = document.getElementById("userGreeting");
+  if (greeting) greeting.textContent = "";
+  
+  const authOverlay = document.getElementById("authOverlay");
+  if (authOverlay) authOverlay.classList.remove("hidden");
+  
+  // Clear local state
+  conversation = [];
+  currentConversationId = null;
+  document.getElementById('messages').innerHTML = '';
+  
+  // Optional: location.href = "/"; // Only if we want a full clean state
 }
 
 function toggleAuthMode() {
@@ -112,10 +160,12 @@ async function handleAuth() {
       showToast("Account created! Please login.", "success");
       toggleAuthMode();
     } else {
-      localStorage.setItem("neural_token", data.token);
+      window.localStorage.setItem("neural_token", data.token);
       authToken = data.token;
       showToast("Access granted", "success");
       document.getElementById("authOverlay").classList.add("hidden");
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) logoutBtn.classList.remove("hidden");
       if (data.user) {
         currentUser = data.user;
         const greeting = document.getElementById("userGreeting");
@@ -128,6 +178,66 @@ async function handleAuth() {
   }
 }
 
+async function handleMaestroAuth() {
+  showToast("Maestro Auth Triggered", "info");
+  const codeEl = document.getElementById("maestroCode");
+  const code = codeEl?.value?.trim();
+  if (!code) return showToast("Maestro Student ID required", "error");
+
+  try {
+    showToast("Validating Maestro Pattern...", "info");
+    const res = await fetch("/api/auth/maestro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invite_code: code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Access denied");
+
+    window.localStorage.setItem("neural_token", data.token);
+    authToken = data.token;
+    showToast(`Welcome, Maestrian ${data.user?.username || 'Student'}`, "success");
+    document.getElementById("authOverlay")?.classList.add("hidden");
+    document.getElementById("logoutBtn")?.classList.remove("hidden");
+    
+    if (data.user) {
+      currentUser = data.user;
+      const greeting = document.getElementById("userGreeting");
+      if (greeting) greeting.textContent = `Hi, ${currentUser.username}`;
+    }
+    loadConversations();
+  } catch (err) {
+    console.error("Maestro Auth Error:", err);
+    showToast(err.message || "Authentication failed", "error");
+  }
+}
+
+async function handleGuestAuth() {
+  showToast("Guest Auth Triggered", "info");
+  try {
+    showToast("Generating Guest Session...", "info");
+    const res = await fetch("/api/auth/guest", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Guest access failed");
+
+    window.localStorage.setItem("neural_token", data.token);
+    authToken = data.token;
+    showToast(`Session active as ${data.user?.username || 'Guest'}`, "success");
+    document.getElementById("authOverlay")?.classList.add("hidden");
+    document.getElementById("logoutBtn")?.classList.remove("hidden");
+    
+    if (data.user) {
+      currentUser = data.user;
+      const greeting = document.getElementById("userGreeting");
+      if (greeting) greeting.textContent = `Guest Session: ${currentUser.username}`;
+    }
+    loadConversations();
+  } catch (err) {
+    console.error("Guest Auth Error:", err);
+    showToast(err.message || "Authentication failed", "error");
+  }
+}
+
 // ========================================
 // CHAT & CONVERSATIONS
 // ========================================
@@ -137,7 +247,9 @@ async function loadConversations() {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     const data = await res.json();
-    renderConversationList(data.conversations || []);
+    // Support both {conversations: []} and direct array []
+    const convs = Array.isArray(data) ? data : (data.conversations || []);
+    renderConversationList(convs);
   } catch (e) { console.error('Failed to load conversations', e); }
 }
 
@@ -148,19 +260,23 @@ async function createNewConversation() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify({ title: 'New Conversation' })
     });
-    if (!res.ok) throw new Error('Server error');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Server error');
+    }
     const data = await res.json();
     if (!data.id) throw new Error('No ID returned');
-    
+
     currentConversationId = data.id;
     conversation = [];
-    document.getElementById('messages').innerHTML = '';
+    const msgsEl = document.getElementById('messages');
+    if (msgsEl) msgsEl.innerHTML = '';
     const welcome = document.getElementById('welcomeScreen');
     if (welcome) welcome.style.display = 'flex';
     await loadConversations();
     return data.id;
-  } catch (e) { 
-    showToast('Failed to create chat: ' + e.message, 'error'); 
+  } catch (e) {
+    showToast('Failed to create chat: ' + e.message, 'error');
     throw e;
   }
 }
@@ -241,27 +357,49 @@ function renderConversationList(convs) {
 }
 
 async function sendMessage(textOverride = null) {
+  console.log("SendMessage called. Override:", textOverride);
   const input = document.getElementById('chatInput');
-  const text = textOverride || input.value.trim();
-  if (!text || isStreaming) return;
+  const text = textOverride || (input ? input.value.trim() : "");
+  
+  if (!text) {
+    console.warn("SendMessage: No text to send");
+    return;
+  }
+  
+  if (isStreaming) {
+    console.warn("SendMessage: Already streaming");
+    return;
+  }
 
   try {
     if (!currentConversationId) {
+      console.log("No current conversation. Creating one...");
       await createNewConversation();
     }
   } catch (e) {
-    return; // Stop if conversation creation failed
+    console.error("Conversation creation failed:", e);
+    showToast("Failed to initialize intelligence log", "error");
+    return; 
   }
 
-  if (!textOverride) {
+  if (!textOverride && input) {
     input.value = '';
     input.style.height = 'auto';
   }
-  document.getElementById('welcomeScreen').style.display = 'none';
+  
+  const welcome = document.getElementById('welcomeScreen');
+  if (welcome) welcome.style.display = 'none';
 
   addMsg('user', text);
   conversation.push({ role: 'user', content: text });
   isStreaming = true;
+  
+  const sendBtn = document.getElementById('sendBtn');
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '●●●';
+  }
+
   const assistantMsg = addMsg('assistant', '');
   const bubble = assistantMsg.querySelector('.msg-bubble');
   bubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
@@ -272,6 +410,12 @@ async function sendMessage(textOverride = null) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify({ prompt: text, conversation_id: currentConversationId, messages: conversation })
     });
+    
+    if (!res.ok) {
+       const errData = await res.json().catch(() => ({}));
+       throw new Error(errData.error || `Server responded with ${res.status}`);
+    }
+
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let full = '';
@@ -302,7 +446,8 @@ async function sendMessage(textOverride = null) {
     
     // Auto-update 'Recent Intelligence' (sidebar) on first reply to pick up the auto-generated title
     if (conversation.length <= 2) {
-      loadConversations();
+      console.log("First interaction complete. Refreshing sidebar...");
+      setTimeout(loadConversations, 500); // Small delay to allow DB commit
     }
     
     // Send to Voice TTS if Live Voice is active
@@ -317,9 +462,15 @@ async function sendMessage(textOverride = null) {
       }
     }
   } catch (e) {
-    bubble.innerHTML = '<span style="color:#ff6b6b">Generation failed.</span>';
+    console.error("Chat Error:", e);
+    bubble.innerHTML = `<span style="color:#ff6b6b">Generation failed: ${e.message}</span>`;
   } finally {
     isStreaming = false;
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = 'Send';
+    }
   }
 }
 
@@ -366,30 +517,51 @@ async function initLiveSession() {
     try {
       if (voiceReconnectTimer) clearTimeout(voiceReconnectTimer);
       
-      // Don't fix sample rate here, handle it per chunk in queueAudioChunk
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
-        console.log('Resuming AudioContext...');
         await audioCtx.resume();
       }
       
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
+      
+      // Robust Voice Host Detection
       let voiceHost = host.replace('neuralai-', 'neural-voice-');
-      if (host === 'localhost' || host === '127.0.0.1') voiceHost = `${host}:5001`;
+      if (host === 'localhost' || host === '127.0.0.1') {
+        voiceHost = `${host}:5001`;
+      } else if (!host.includes('neural-voice-')) {
+        const parts = host.split('.');
+        if (parts.length >= 3) {
+          const handle = parts[0].replace('neuralai-', '');
+          voiceHost = `neural-voice-${handle}.zocomputer.io`;
+        }
+      }
 
-      console.log(`Connecting to Voice Service: ${voiceHost}`);
-      if (voiceWS) voiceWS.close();
-      voiceWS = new WebSocket(`${protocol}//${voiceHost}/ws`);
+      console.log(`[Voice] Connecting to: ${voiceHost}`);
+      showToast('Connecting to NeuralVoice Engine...', 'info');
+      
+      if (voiceWS) {
+        voiceWS.onclose = null;
+        voiceWS.close();
+      }
+      
+      try {
+        voiceWS = new WebSocket(`${protocol}//${voiceHost}/ws`);
+      } catch (wsErr) {
+        console.error("[Voice] WebSocket constructor failed:", wsErr);
+        throw new Error("Failed to create connection: " + wsErr.message);
+      }
 
       voiceWS.onopen = () => {
-        console.log('NeuralVoice Live Connected');
+        console.log('[Voice] WebSocket Connected');
+        showToast('NeuralVoice Engine Online', 'success');
         const selectedVoice = document.getElementById('voiceSelection')?.value || userSettings.neural_voice || 'Andrew';
         voiceWS.send(JSON.stringify({ type: 'config', voice: selectedVoice }));
         startMicCapture().then(resolve).catch(reject);
       };
 
       voiceWS.onmessage = async (event) => {
+        console.log("[Voice] Message received:", event.data.substring(0, 100));
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'audio') {
@@ -400,11 +572,9 @@ async function initLiveSession() {
             
             if (data.data) {
               const audioData = base64ToUint8Array(data.data);
-              // Use sampleRate from message if available
               queueAudioChunk(audioData, data.sampleRate || 16000);
             }
           } else if (data.type === 'turn_complete') {
-            // Wait for audio to finish playing before switching back to listening
             const now = audioCtx.currentTime;
             const delay = Math.max(0, (nextPlayTime - now) * 1000);
             setTimeout(() => {
@@ -416,28 +586,29 @@ async function initLiveSession() {
               }
             }, delay);
           } else if (data.type === 'error') {
-            console.error('Live Service Error:', data.message);
+            console.error('[Voice] Service Error:', data.message);
             showToast('Voice Error: ' + data.message, 'error');
           }
         } catch (err) {
-          console.error('WS Handler Error:', err);
+          console.error('[Voice] Handler Error:', err);
         }
       };
 
       voiceWS.onclose = (e) => {
-        console.log('Voice WS Closed:', e.code);
+        console.log(`[Voice] WebSocket Closed (Code: ${e.code}, Reason: ${e.reason})`);
         voiceWS = null;
-        // Auto-reconnect if overlay still open and not closed normally
         if (e.code !== 1000 && document.getElementById('liveVoiceOverlay') && !document.getElementById('liveVoiceOverlay').classList.contains('hidden')) {
-          console.log('Unexpected close, scheduling reconnect...');
+          showToast('Voice connection interrupted. Reconnecting...', 'warning');
           voiceReconnectTimer = setTimeout(initLiveSession, 3000);
         }
       };
 
       voiceWS.onerror = (err) => {
-        console.error('Voice WS Error:', err);
+        console.error('[Voice] WebSocket Error:', err);
+        showToast('NeuralVoice connection failed.', 'error');
       };
     } catch (err) {
+      console.error("[Voice] Initialization failed:", err);
       reject(err);
     }
   });
@@ -462,31 +633,43 @@ async function startMicCapture() {
   }
 
   if (!window.recognition) {
+    console.log("[Voice] Initializing SpeechRecognition instance");
     window.recognition = new SpeechRecognition();
     window.recognition.continuous = true;
-    window.recognition.interimResults = true; // Enable interim for better "hearing" feedback
+    window.recognition.interimResults = true; 
+    window.recognition.lang = 'en-US'; // Set explicit language
     
+    window.recognition.onstart = () => {
+      console.log('[Voice] STT Engine Started');
+      updateLiveStatus('NeuralAI Listening...');
+      showToast('Microphone Active - Start Speaking', 'success');
+      const orb = document.querySelector('.live-orb');
+      if (orb) orb.classList.add('listening');
+    };
+
+    window.recognition.onspeechstart = () => {
+      console.log('[Voice] Speech detected');
+      updateLiveStatus('Hearing voice...');
+    };
+
     window.recognition.onresult = (event) => {
       let finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
           finalTranscript += event.results[i][0].transcript;
         } else {
-          // Provide real-time feedback for "hearing"
           const interim = event.results[i][0].transcript;
+          console.log("[Voice] Interim transcript:", interim);
           updateLiveStatus('Hearing: ' + interim);
         }
       }
 
       if (finalTranscript.trim()) {
         const transcript = finalTranscript.trim();
+        console.log("[Voice] Final transcript:", transcript);
         updateLiveStatus('You: ' + transcript);
-        
-        // If voiceWS is active, we might want to send directly to it
-        // but sendMessage handles the chat UI and model response too.
         sendMessage(transcript);
         
-        // Visual feedback
         const orb = document.querySelector('.live-orb');
         orb?.classList.remove('listening');
         orb?.classList.add('processing');
@@ -494,36 +677,47 @@ async function startMicCapture() {
     };
     
     window.recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
+      console.error("[Voice] STT Error:", event.error);
       if (event.error === 'not-allowed') {
-        showToast('Microphone access denied.', 'error');
+        showToast('Microphone access denied. Check browser settings.', 'error');
         toggleLiveVoice(false);
+      } else if (event.error === 'network') {
+        showToast('STT Network Error.', 'error');
       }
     };
     
     window.recognition.onend = () => {
+      console.log("[Voice] STT Engine Ended");
       const overlay = document.getElementById('liveVoiceOverlay');
       if (overlay && !overlay.classList.contains('hidden')) {
-        console.log('Restarting recognition...');
+        console.log('[Voice] Attempting auto-restart...');
         setTimeout(() => {
-          try { window.recognition.start(); } catch(e) { console.warn('Recognition restart failed:', e); }
-        }, 300);
+          try { 
+            if (overlay && !overlay.classList.contains('hidden')) {
+              window.recognition.start(); 
+            }
+          } catch(e) { console.warn('[Voice] STT Restart failed:', e); }
+        }, 500);
       }
     };
   }
   
-  try { 
-    window.recognition.stop(); // Stop if already running to avoid error
-  } catch(e) {}
+  return new Promise((resolve) => {
+    try { 
+      window.recognition.stop(); 
+    } catch(e) {}
 
-  setTimeout(() => {
-    try {
-      window.recognition.start();
-      updateLiveStatus('NeuralAI Listening...');
-    } catch(e) {
-      console.warn('Initial recognition start failed:', e);
-    }
-  }, 200);
+    setTimeout(() => {
+      try {
+        console.log("[Voice] Triggering STT start");
+        window.recognition.start();
+        resolve();
+      } catch(e) {
+        console.warn('[Voice] Initial start failed:', e);
+        resolve();
+      }
+    }, 400);
+  });
 }
 
 function float32ToInt16(buffer) {
@@ -641,7 +835,7 @@ function handleSearch() {
       fileSearch.value = text;
       filterFiles();
     }
-  } else if (searchMode === "system") {
+  } else if (searchMode === "system" || searchMode === "audit") {
     switchTab('terminal');
     const termInput = document.getElementById("terminalInput");
     if (termInput) {
@@ -672,19 +866,41 @@ function hideHistoryDropdownDelayed() {
 // TERMINAL ENGINE
 // ========================================
 async function initTerm() {
-  if (termSid) return;
+  if (termSid || isInitializingTerm) return;
+  isInitializingTerm = true;
   try {
+    // Clear ALL terminal outputs before connection message to prevent duplicates
+    const el = document.getElementById("terminalOutput");
+    if (el) el.innerHTML = '';
+    const popEl = document.getElementById("popupTerminalOutput");
+    if (popEl) popEl.innerHTML = '';
+
     const res = await fetch("/api/terminal/create", { method: "POST", headers: { "Authorization": `Bearer ${authToken}` } });
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     const data = await res.json();
     if (!data.session_id) throw new Error('No session ID returned');
     termSid = data.session_id;
+
     termOut(`Connected to NeuralAI High-Velocity Console [SID: ${termSid}]`, 'info');
   } catch (err) { termOut(`Failed to establish Neural Uplink: ${err.message}`, 'error'); }
+  finally { isInitializingTerm = false; }
 }
 
-async function executeTerminalCmd() {
-  const input = document.getElementById("terminalInput");
+function toggleTerminalPopup() {
+  const panel = document.getElementById('terminalPanel');
+  if (panel) {
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (isHidden) {
+      initTerm();
+      setTimeout(() => document.getElementById('popupTerminalInput')?.focus(), 100);
+    }
+  }
+}
+
+async function executeTerminalCmd(isPopup = false) {
+  const inputId = isPopup ? "popupTerminalInput" : "terminalInput";
+  const input = document.getElementById(inputId);
   const cmd = input?.value.trim();
   if (!cmd || !termSid) return;
   
@@ -705,26 +921,32 @@ async function executeTerminalCmd() {
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     const data = await res.json();
     termOut(data.output || data.error || 'No output');
-  } catch (err) { termOut(`Neural Uplink Error: ${err.message}`, 'error'); }
+  } catch (err) { termOut(`Terminal Error: ${err.message}`, 'error'); }
 }
 
 function termOut(txt, cls = '') {
-  const el = document.getElementById("terminalOutput");
-  if (!el) return;
-  const div = document.createElement('div');
-  div.className = `term-line ${cls}`;
-  div.innerHTML = txt;
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
+  const targets = ["terminalOutput", "popupTerminalOutput"];
+  targets.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const div = document.createElement('div');
+    div.className = `term-line ${cls}`;
+    div.innerHTML = txt;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+  });
 }
 
 function clearTerm() {
   const el = document.getElementById("terminalOutput");
-  if (el) el.innerHTML = '<div class="term-line info">Console cleared.</div>';
+  if (el) el.innerHTML = '';
+  const popEl = document.getElementById("popupTerminalOutput");
+  if (popEl) popEl.innerHTML = '';
 }
 
 function restartTerm() {
   termSid = null;
+  isInitializingTerm = false;
   clearTerm();
   initTerm();
 }
@@ -759,10 +981,14 @@ async function loadFiles() {
   container.innerHTML = '<div class="loading-shimmer">Scanning NeuralDrive...</div>';
   try {
     const res = await fetch("/api/files", { headers: { "Authorization": `Bearer ${authToken}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     window.neuralFiles = data.files || [];
     renderFiles(window.neuralFiles);
-  } catch { container.innerHTML = "Error accessing NeuralDrive."; }
+  } catch (err) { 
+    console.error("NeuralDrive access error:", err);
+    container.innerHTML = `<div class="error-state">Error accessing NeuralDrive: ${err.message}</div>`; 
+  }
 }
 
 function renderFiles(files) {
@@ -794,6 +1020,72 @@ function filterFiles() {
 function previewFile(folder, filename) {
   const url = `/api/files/${folder}/${filename}`;
   window.open(url, '_blank');
+}
+
+// Upload Logic
+function initUploadListeners() {
+  const uploadBtn = document.getElementById("uploadBtn");
+  const fileInput = document.getElementById("fileInputHidden");
+  const dropZone = document.getElementById("dropZone");
+
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener("click", () => fileInput.click());
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener("change", async (e) => {
+      await handleFileUploads(e.target.files);
+      fileInput.value = ""; // Reset
+    });
+  }
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "#a78bfa";
+      dropZone.style.background = "rgba(167, 139, 250, 0.05)";
+    });
+    dropZone.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "rgba(255, 255, 255, 0.1)";
+      dropZone.style.background = "transparent";
+    });
+    dropZone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "rgba(255, 255, 255, 0.1)";
+      dropZone.style.background = "transparent";
+      if (e.dataTransfer.files.length > 0) {
+        await handleFileUploads(e.dataTransfer.files);
+      }
+    });
+  }
+}
+
+async function handleFileUploads(files) {
+  if (!files || files.length === 0) return;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      showToast(`Uploading ${file.name}...`, 'info');
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${authToken}` },
+        body: formData
+      });
+      if (res.ok) {
+        showToast(`${file.name} uploaded successfully`, 'success');
+      } else {
+        const err = await res.json();
+        showToast(`Failed: ${err.error || 'Upload error'}`, 'error');
+      }
+    } catch (e) {
+      showToast(`Upload failed for ${file.name}`, 'error');
+    }
+  }
+  loadFiles(); // Refresh
 }
 
 // ====================
@@ -830,14 +1122,23 @@ async function saveFullProfile() {
   };
   
   try {
+    showToast('Updating Identity Vault...', 'info');
     const res = await fetch('/api/user/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify(data)
     });
-    if (res.ok) showToast('Identity Vault Updated', 'success');
-    else throw new Error();
-  } catch { showToast('Update failed', 'error'); }
+    if (res.ok) {
+      showToast('Identity Vault Updated Successfully', 'success');
+      await initAuth(); // Refresh UI and greeting
+      loadUserProfile(); // Reload profile fields
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Update failed');
+    }
+  } catch (e) { 
+    showToast(`Vault Update Error: ${e.message}`, 'error'); 
+  }
 }
 
 async function loadSettings() {
@@ -850,19 +1151,52 @@ async function loadSettings() {
       if (sel) sel.value = userSettings.neural_voice;
     }
   } catch {}
+  updateArchitectureStatus();
 }
 
-async function saveVoicePreference() {
-  const voice = document.getElementById('voiceSelection')?.value;
-  if (!voice) return;
+async function updateArchitectureStatus() {
   try {
+    const res = await fetch('/api/status', { headers: { 'Authorization': `Bearer ${authToken}` } });
+    const data = await res.json();
+    const settingDevice = document.getElementById('settingDevice');
+    const versionNode = document.getElementById('settingVersion');
+    if (settingDevice) settingDevice.textContent = data.device || 'CPU (Optimized)';
+    if (versionNode) {
+      versionNode.innerHTML = `<span style="color:#10b981; animation: pulse 2s infinite;">●</span> OTA Synced: ${data.version || 'v5.2.1'} (Rules: ${data.active_rules || 0})`;
+    }
+  } catch {}
+}
+
+// Add periodic updates for Architecture status
+setInterval(updateArchitectureStatus, 30000);
+
+async function saveVoicePreference() {
+  const sel = document.getElementById('voiceSelection');
+  const voice = sel?.value;
+  if (!voice) return;
+  
+  try {
+    showToast(`Switching persona to ${voice}...`, 'info');
     await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify({ neural_voice: voice })
     });
-    showToast('Voice preference saved', 'success');
-  } catch {}
+    
+    // Update local state
+    userSettings.neural_voice = voice;
+    
+    // If Live Session is active, send config update immediately
+    if (voiceWS && voiceWS.readyState === WebSocket.OPEN) {
+      console.log(`[Voice] Pushing live config update: ${voice}`);
+      voiceWS.send(JSON.stringify({ type: 'config', voice: voice }));
+      showToast(`${voice} Voice Active`, 'success');
+    } else {
+      showToast('Persona saved. Start Live Mode to use.', 'success');
+    }
+  } catch (err) {
+    showToast('Failed to save voice preference.', 'error');
+  }
 }
 
 async function loadBio() {
@@ -878,69 +1212,132 @@ async function addMemoryFromTab() {
   const input = document.getElementById('memoryInput');
   const fact = input?.value.trim();
   if (!fact) return;
-  await fetch('/api/memory', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-    body: JSON.stringify({ fact })
-  });
-  input.value = '';
-  loadMemoryList();
-  showToast('Memory stored', 'success');
+  
+  try {
+    showToast('Storing memory...', 'info');
+    const res = await fetch('/api/memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ fact })
+    });
+    if (!res.ok) throw new Error('Failed to save memory');
+    
+    input.value = '';
+    await loadMemoryList();
+    showToast('Memory Cloud Updated', 'success');
+  } catch (err) {
+    showToast('Error storing memory', 'error');
+  }
 }
 
 async function loadMemoryList() {
+  const list = document.getElementById('memoryList');
+  if (!list) return;
+  
   try {
     const res = await fetch('/api/memory', { headers: { 'Authorization': `Bearer ${authToken}` } });
     const data = await res.json();
-    const list = document.getElementById('memoryList');
-    if (!list) return;
-    list.innerHTML = (data.facts || []).map(f => `
-      <div class="memory-item"><span>${escHtml(f.fact)}</span><button onclick="deleteMemoryItem(${f.id})">&times;</button></div>
+    
+    const items = data.facts || [];
+    list.innerHTML = items.map(f => `
+      <div class="memory-item">
+        <span>${escHtml(f.fact)}</span>
+        <button class="delete-btn" onclick="deleteMemoryItem(${f.id})" title="Purge Memory">×</button>
+      </div>
     `).join('') || '<p style="font-size:12px;color:#888;padding:10px;">No dynamic memories stored.</p>';
-  } catch {}
+  } catch (err) {
+    list.innerHTML = '<p style="color:#ff6b6b;padding:10px;">Failed to sync with Memory Cloud.</p>';
+  }
 }
 
 async function deleteMemoryItem(id) {
-  await fetch(`/api/memory/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
-  loadMemoryList();
+  if (!confirm('Purge this memory fact permanently?')) return;
+  try {
+    const res = await fetch(`/api/memory/${id}`, { 
+      method: 'DELETE', 
+      headers: { 'Authorization': `Bearer ${authToken}` } 
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    showToast('Memory Purged', 'success');
+    loadMemoryList();
+  } catch (err) {
+    showToast('Failed to delete memory', 'error');
+  }
 }
 
 async function addRuleFromTab() {
   const input = document.getElementById('ruleInput');
   const rule = input?.value.trim();
   if (!rule) return;
-  await fetch('/api/rules', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-    body: JSON.stringify({ rule })
-  });
-  input.value = '';
-  loadRulesList();
+  
+  try {
+    showToast('Deploying rule...', 'info');
+    const res = await fetch('/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ rule })
+    });
+    if (!res.ok) throw new Error('Failed to save rule');
+    
+    input.value = '';
+    await loadRulesList();
+    showToast('Behavioral Rule Active', 'success');
+  } catch (err) {
+    showToast('Error saving rule', 'error');
+  }
 }
 
 async function loadRulesList() {
+  const list = document.getElementById('rulesList');
+  if (!list) return;
+  
   try {
     const res = await fetch('/api/rules', { headers: { 'Authorization': `Bearer ${authToken}` } });
     const data = await res.json();
-    const list = document.getElementById('rulesList');
-    if (!list) return;
-    list.innerHTML = (data.rules || []).map(r => `
+    
+    const items = data.rules || [];
+    list.innerHTML = items.map(r => `
       <div class="rule-item">
         <span>${escHtml(r.rule)}</span>
-        <button class="rule-toggle ${r.is_active ? 'on' : 'off'}" onclick="toggleRuleItem(${r.id})">${r.is_active ? 'ON' : 'OFF'}</button>\n        <button onclick="deleteRuleItem(${r.id})">&times;</button>
+        <div class="rule-actions">
+          <button class="rule-toggle ${r.active ? 'on' : 'off'}" onclick="toggleRuleItem(${r.id})" title="Toggle Protocol">
+            ${r.active ? 'ON' : 'OFF'}
+          </button>
+          <button class="delete-btn" onclick="deleteRuleItem(${r.id})" title="Decommission Rule">×</button>
+        </div>
       </div>
     `).join('') || '<p style="font-size:12px;color:#888;padding:10px;">No behavioral rules defined.</p>';
-  } catch {}
+  } catch (err) {
+    list.innerHTML = '<p style="color:#ff6b6b;padding:10px;">Failed to sync Behavioral Rules.</p>';
+  }
 }
 
 async function toggleRuleItem(id) {
-  await fetch(`/api/rules/${id}/toggle`, { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` } });
-  loadRulesList();
+  try {
+    const res = await fetch(`/api/rules/${id}/toggle`, { 
+      method: 'POST', 
+      headers: { 'Authorization': `Bearer ${authToken}` } 
+    });
+    if (!res.ok) throw new Error('Toggle failed');
+    loadRulesList();
+  } catch (err) {
+    showToast('Failed to toggle rule', 'error');
+  }
 }
 
 async function deleteRuleItem(id) {
-  await fetch(`/api/rules/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
-  loadRulesList();
+  if (!confirm('Decommission this behavioral protocol?')) return;
+  try {
+    const res = await fetch(`/api/rules/${id}`, { 
+      method: 'DELETE', 
+      headers: { 'Authorization': `Bearer ${authToken}` } 
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    showToast('Rule Decommissioned', 'success');
+    loadRulesList();
+  } catch (err) {
+    showToast('Failed to delete rule', 'error');
+  }
 }
 
 // ========================================
@@ -960,7 +1357,7 @@ function switchTab(tabName) {
 function toggleDarkMode() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
-  localStorage.setItem('neural_theme', isDark ? 'dark' : 'light');
+  window.localStorage.setItem('neural_theme', isDark ? 'dark' : 'light');
 }
 
 function showToast(msg, type = 'info') {
@@ -990,7 +1387,7 @@ function closeOnboarding() {
   const overlay = document.getElementById("onboardingOverlay");
   if (overlay) {
     overlay.classList.remove("visible");
-    localStorage.setItem("neural_onboarded", "true");
+    window.localStorage.setItem("neural_onboarded", "true");
   }
 }
 
@@ -998,44 +1395,71 @@ function closeOnboarding() {
 // INITIALIZATION
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
+  console.log("NeuralAI Core UI Initializing...");
   initAuth();
+  initUploadListeners();
   
-  // Onboarding Check
-  if (!localStorage.getItem("neural_onboarded")) {
-    document.getElementById("onboardingOverlay")?.classList.add("visible");
-  }
-
-  // Theme
-  if (localStorage.getItem('neural_theme') === 'dark' || !localStorage.getItem('neural_theme')) {
-    document.body.classList.add('dark-mode');
-    localStorage.setItem('neural_theme', 'dark');
-  }
-
-  // Listeners
-  document.getElementById('sendBtn')?.addEventListener('click', () => sendMessage());
+  // Wire Experimental Access Modes - Use addEventListener only
+  document.getElementById('maestroSubmit')?.addEventListener('click', handleMaestroAuth);
+  document.getElementById('guestSubmit')?.addEventListener('click', handleGuestAuth);
+  
+  // Wire chat send button and enter key
+  document.getElementById('sendBtn')?.addEventListener('click', () => {
+    console.log("Send button clicked");
+    sendMessage();
+  });
   document.getElementById('chatInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-  
-  // Voice Activation
-  document.getElementById('voiceBtn')?.addEventListener('click', () => toggleLiveVoice(true));
-  document.getElementById('closeLiveBtn')?.addEventListener('click', () => toggleLiveVoice(false));
-  
-  document.getElementById('searchBtn')?.addEventListener('click', handleSearch);
-  document.getElementById('queryInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleSearch();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   });
 
+  // Wire Voice Controls
+  document.getElementById('voiceBtn')?.addEventListener('click', () => {
+    console.log("Voice button clicked");
+    toggleLiveVoice(true);
+  });
+  document.getElementById('closeLiveBtn')?.addEventListener('click', () => {
+    console.log("Close voice button clicked");
+    toggleLiveVoice(false);
+  });
+
+  // Wire Terminal Panel
+  document.getElementById('popupTerminalRun')?.addEventListener('click', () => executeTerminalCmd(true));
+  document.getElementById('popupTerminalInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') executeTerminalCmd(true);
+  });
+  document.getElementById('closeTerminal')?.addEventListener('click', toggleTerminalPopup);
+
+  // Wire search tabs properly to change mode AND execute if query exists
   document.querySelectorAll('.search-tabs .tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.search-tabs .tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
       searchMode = btn.dataset.mode;
+      // Also shift visual focus
+      if (searchMode === 'files') {
+        document.getElementById("queryInput").placeholder = "Search NeuralDrive files...";
+      } else if (searchMode === 'system') {
+        document.getElementById("queryInput").placeholder = "Run system audit or terminal command...";
+      } else {
+        document.getElementById("queryInput").placeholder = "Ask NeuralAI anything...";
+      }
+      
+      const text = document.getElementById("queryInput")?.value.trim();
+      if (text) {
+        handleSearch();
+      }
     });
   });
 
   document.getElementById('authSubmit')?.addEventListener('click', handleAuth);
   document.getElementById('authToggle')?.addEventListener('click', toggleAuthMode);
+  
+  // Wire Experimental Access Modes
+  document.getElementById('maestroSubmit')?.addEventListener('click', handleMaestroAuth);
+  document.getElementById('guestSubmit')?.addEventListener('click', handleGuestAuth);
   
   document.getElementById('terminalInput')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') executeTerminalCmd();
@@ -1088,5 +1512,8 @@ window.showHistoryDropdown = showHistoryDropdown;
 window.hideHistoryDropdownDelayed = hideHistoryDropdownDelayed;
 window.filterFiles = filterFiles;
 window.handleSearch = handleSearch;
+window.sendMessage = sendMessage;
 window.toggleLiveVoice = toggleLiveVoice;
 window.closeOnboarding = closeOnboarding;
+window.toggleTerminalPopup = toggleTerminalPopup;
+window.executeTerminalCmd = executeTerminalCmd;

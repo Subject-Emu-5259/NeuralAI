@@ -98,7 +98,8 @@ class LocalModel:
             from transformers import TextIteratorStreamer
             import threading
             
-            full_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            # Remove redundant wrapping - prompt is already templated by app.py
+            full_prompt = prompt
             inputs = tokenizer(full_prompt, return_tensors="pt")
             streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
             
@@ -120,7 +121,8 @@ class LocalModel:
                 yield ch
             return
         try:
-            full_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            # Consistent with generate_sync_stream
+            full_prompt = prompt
             inputs = tokenizer(full_prompt, return_tensors="pt")
             with torch.no_grad():
                 outputs = model.generate(**inputs, max_new_tokens=max_new_tokens,

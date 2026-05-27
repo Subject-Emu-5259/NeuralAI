@@ -6,7 +6,7 @@ import os
 import time
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 # Disable tokenizer parallelism warning
@@ -14,6 +14,9 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context, g
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from functools import wraps
 
 # NeuralAI Cloud Client
 try:
@@ -116,9 +119,29 @@ REGISTRY_FILE = DATA_DIR / ".indexed_files.json"
 VERSION = os.environ.get("NEURALAI_VERSION", "4.0")
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.environ.get("NEURALAI_SECRET", "neural-intelligence-core-2026-secret-x")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
 app.register_blueprint(terminal_bp)
+
+# ========================================
+# AUTH DECORATOR
+# ========================================
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token or not token.startswith("Bearer "):
+            return jsonify({"error": "Authentication required"}), 401
+        try:
+            token = token.split(" ")[1]
+            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            request.user_id = data["user_id"]
+        except Exception:
+            return jsonify({"error": "Invalid or expired token"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 INDEXED_FILES: dict[str, str] = {}
 model = None
@@ -150,14 +173,43 @@ def close_connection(exception):
 def init_db():
     """Initialize database tables."""
     db = get_db()
+    
+    # Check if columns exist (Migration)
+    try:
+        cursor = db.execute("PRAGMA table_info(users)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if "account_type" not in cols:
+            db.execute("ALTER TABLE users ADD COLUMN account_type TEXT DEFAULT 'standard'")
+        if "invite_code" not in cols:
+            db.execute("ALTER TABLE users ADD COLUMN invite_code TEXT")
+    except Exception as e:
+        print(f"[NeuralAI] Migration warning: {e}")
+
     db.executescript("""
+        -- Users table
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            first_name TEXT,
+            last_name TEXT,
+            bio TEXT,
+            password_hash TEXT NOT NULL,
+            account_type TEXT DEFAULT 'standard',
+            invite_code TEXT,
+            is_founder INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+        
         -- Conversations table
         CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
             title TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            message_count INTEGER DEFAULT 0
+            message_count INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         );
         
         -- Messages table
@@ -409,10 +461,157 @@ def toggle_rule(rule_id):
 
 
 # ========================================
+# AUTH API
+# ========================================
+
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+    email = data.get("email")
+
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+
+    db = get_db()
+    user_id = hashlib.sha256(username.encode()).hexdigest()[:12]
+    pw_hash = generate_password_hash(password)
+    now = datetime.utcnow().isoformat()
+
+    try:
+        db.execute(
+            "INSERT INTO users (id, username, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, username, email, pw_hash, now)
+        )
+        db.commit()
+        return jsonify({"success": True, "message": "User created"})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Username or email already exists"}), 409
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "Credentials required"}), 400
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username)).fetchone()
+
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    token = jwt.encode({
+        "user_id": user["id"],
+        "exp": datetime.now(timezone.utc) + timedelta(days=30)
+    }, app.config["SECRET_KEY"], algorithm="HS256")
+
+    return jsonify({
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "account_type": user["account_type"] or "standard",
+            "is_founder": bool(user["is_founder"])
+        }
+    })
+
+@app.route("/api/auth/maestro", methods=["POST"])
+def maestro_auth():
+    """Specialized access for Maestro College students."""
+    data = request.get_json(silent=True) or {}
+    code = data.get("invite_code", "").strip()
+    
+    # Pattern: Mae + 3 digits (e.g., Mae001) or MAE-XXXX
+    is_valid_pattern = re.match(r"^(Mae\d{3}|MAE-[A-Z0-9]{4,})$", code, re.IGNORECASE)
+    
+    if not is_valid_pattern:
+        return jsonify({"error": "Invalid Maestro Access Pattern. Example: Mae001"}), 400
+        
+    db = get_db()
+    # Check if user already exists
+    username = code.upper()
+    user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    
+    if not user:
+        # Create a Maestrian Guest account
+        user_id = hashlib.sha256(username.encode()).hexdigest()[:12]
+        # Maestro accounts use the code as both username and a default recognizable hash
+        pw_hash = generate_password_hash(f"maestro_{code.lower()}")
+        now = datetime.utcnow().isoformat()
+        db.execute(
+            "INSERT INTO users (id, username, password_hash, account_type, invite_code, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, username, pw_hash, "maestro", code, now)
+        )
+        db.commit()
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    token = jwt.encode({
+        "user_id": user["id"],
+        "exp": datetime.now(timezone.utc) + timedelta(days=7) # Shorter duration for guest/test access
+    }, app.config["SECRET_KEY"], algorithm="HS256")
+
+    return jsonify({
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "account_type": "maestro",
+            "is_founder": False
+        }
+    })
+
+@app.route("/api/auth/guest", methods=["POST"])
+def guest_auth():
+    """Instant anonymous guest access."""
+    db = get_db()
+    import random
+    guest_id = random.randint(1000, 9999)
+    username = f"GUEST_{guest_id}"
+    user_id = f"guest_{hashlib.sha256(username.encode()).hexdigest()[:8]}"
+    
+    # Temporary password
+    pw_hash = generate_password_hash(f"guest_pass_{guest_id}")
+    now = datetime.utcnow().isoformat()
+    
+    try:
+        db.execute(
+            "INSERT INTO users (id, username, password_hash, account_type, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, username, pw_hash, "guest", now)
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        # Retry with different ID if collision (rare)
+        return guest_auth()
+
+    token = jwt.encode({
+        "user_id": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24) # 24 hour guest pass
+    }, app.config["SECRET_KEY"], algorithm="HS256")
+
+    return jsonify({
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user_id,
+            "username": username,
+            "account_type": "guest",
+            "is_founder": False
+        }
+    })
+
+
+# ========================================
 # CONVERSATIONS API
 # ========================================
 
 @app.route("/api/preference", methods=["POST"])
+@token_required
 def add_preference():
     """Add a chosen/rejected preference pair for DPO."""
     data = request.get_json(silent=True) or {}
@@ -435,17 +634,20 @@ def add_preference():
 
 
 @app.route("/api/conversations", methods=["GET"])
+@token_required
 def list_conversations():
     """List all conversations."""
     db = get_db()
     rows = db.execute(
-        "SELECT id, title, created_at, updated_at, message_count FROM conversations ORDER BY updated_at DESC LIMIT 50"
+        "SELECT id, title, created_at, updated_at, message_count FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50",
+        (request.user_id,)
     ).fetchall()
     conversations = [dict(row) for row in rows]
     return jsonify({"conversations": conversations})
 
 
 @app.route("/api/conversations", methods=["POST"])
+@token_required
 def create_conversation():
     """Create new conversation."""
     data = request.get_json(silent=True) or {}
@@ -456,19 +658,20 @@ def create_conversation():
     
     db = get_db()
     db.execute(
-        "INSERT INTO conversations (id, title, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, 0)",
-        (conv_id, title, now, now)
+        "INSERT INTO conversations (id, user_id, title, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, 0)",
+        (conv_id, request.user_id, title, now, now)
     )
     db.commit()
     return jsonify({"success": True, "id": conv_id, "title": title})
 
 
 @app.route("/api/conversations/<conv_id>", methods=["GET"])
+@token_required
 def get_conversation(conv_id):
     """Get conversation with messages."""
     db = get_db()
     
-    conv = db.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+    conv = db.execute("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (conv_id, request.user_id)).fetchone()
     if not conv:
         return jsonify({"error": "Conversation not found"}), 404
     
@@ -484,9 +687,15 @@ def get_conversation(conv_id):
 
 
 @app.route("/api/conversations/<conv_id>", methods=["DELETE"])
+@token_required
 def delete_conversation(conv_id):
     """Delete conversation and its messages."""
     db = get_db()
+    # Check ownership
+    conv = db.execute("SELECT id FROM conversations WHERE id = ? AND user_id = ?", (conv_id, request.user_id)).fetchone()
+    if not conv:
+        return jsonify({"error": "Forbidden"}), 403
+
     db.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
     db.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
     db.commit()
@@ -494,12 +703,18 @@ def delete_conversation(conv_id):
 
 
 @app.route("/api/conversations/<conv_id>/rename", methods=["POST"])
+@token_required
 def rename_conversation(conv_id):
     """Rename conversation."""
     data = request.get_json(silent=True) or {}
     title = data.get("title", "Untitled")
     
     db = get_db()
+    # Check ownership
+    conv = db.execute("SELECT id FROM conversations WHERE id = ? AND user_id = ?", (conv_id, request.user_id)).fetchone()
+    if not conv:
+        return jsonify({"error": "Forbidden"}), 403
+
     db.execute("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?", 
                (title, datetime.utcnow().isoformat(), conv_id))
     db.commit()
@@ -507,6 +722,7 @@ def rename_conversation(conv_id):
 
 
 @app.route("/api/conversations/<conv_id>/messages", methods=["POST"])
+@token_required
 def add_message(conv_id):
     """Add message to conversation."""
     data = request.get_json(silent=True) or {}
@@ -643,9 +859,15 @@ def get_system_prompt(founder_mode=False) -> str:
     """Build system prompt from user bio, memory, and rules."""
     db = get_db()
     
-    # Get user bio
-    bio_row = db.execute("SELECT value FROM user_settings WHERE key = 'user_bio'").fetchone()
-    user_bio = bio_row["value"] if bio_row else ""
+    # Get user bio and names
+    def get_setting(key, default=""):
+        row = db.execute("SELECT value FROM user_settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
+
+    user_bio = get_setting("user_bio", "A curious user exploring AI capabilities.")
+    first_name = get_setting("user_first_name", "De'Andrew")
+    last_name = get_setting("user_last_name", "Harris")
+    full_name = f"{first_name} {last_name}".strip()
     
     # Get active rules
     rules_rows = db.execute("SELECT rule FROM model_rules WHERE is_active = 1").fetchall()
@@ -657,20 +879,51 @@ def get_system_prompt(founder_mode=False) -> str:
     ).fetchall()
     memories = [m["fact"] for m in memory_rows]
     
+    # System Info
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    system_info = f"""
+### SYSTEM ENVIRONMENT
+- CURRENT TIME: {now_str}
+- PLATFORM: NeuralAI Intelligence Engine v{VERSION}
+- ARCHITECTURE: High-Velocity Node (Local)
+- STATUS: Production Ready
+"""
+
+    # IDENTITY CORE - EXTREME REINFORCEMENT
+    identity_block = f"""
+### IDENTITY CORE (CRITICAL)
+- YOUR NAME: NeuralAI
+- YOUR ROLE: Artificial Intelligence Assistant
+- USER'S NAME: {full_name}
+- USER'S ROLE: Creator, Founder of Harris Holdings, and my Boss.
+
+### MANDATORY RULES:
+1. NEVER claim to be {full_name}.
+2. NEVER say your name is {first_name} or {last_name}.
+3. If asked for your name, ALWAYS say "I am NeuralAI".
+4. You are an AI created by {full_name}. You are not a human.
+5. If someone calls you {first_name}, politely correct them: "I am NeuralAI, the intelligence engine created by {first_name}."
+"""
+
     # Build prompt
     if founder_mode:
-        base = "You are NeuralAI in FOUNDER MODE. You are the high-velocity intelligence engine for Harris Holdings. You operate with extreme clarity, prioritizing results, code optimization, and architectural excellence. You speak directly to the founder, De'Andrew Preston Harris, with deep context of his Memphis roots and vision."
+        base = f"You are NeuralAI, the high-velocity intelligence engine for Harris Holdings. You operate with extreme clarity and architectural excellence. You speak directly to your founder, {full_name}."
     else:
-        base = "You are NeuralAI, a helpful AI model designed for creative thinking, brainstorming, and high-velocity shipping."
+        base = f"You are NeuralAI, a helpful AI model designed for creative thinking and high-velocity shipping. You are speaking to {full_name}."
+    
+    base = identity_block + "\n" + system_info + "\n" + base
     
     if user_bio:
-        base += f"\n\n## User Profile\n{user_bio}"
+        base += f"\n\n## User Profile\nThe user you are talking to is {full_name}. Here is his bio:\n{user_bio}"
     
     if memories:
         base += "\n\n## Long-Term Memory\n" + "\n".join(f"- {m}" for m in memories)
     
     if rules:
         base += "\n\n## Behavioral Guidelines\n" + "\n".join(f"- {r}" for r in rules)
+    
+    # FINAL REINFORCEMENT (Most influential position)
+    base += f"\n\nFINAL REMINDER: You are NeuralAI. You are NOT {full_name}. You are an AI assistant."
     
     return base
 
@@ -720,18 +973,81 @@ def build_prompt(messages: list[dict], user_content: str, doc_context: str, foun
 
 def answer_with_model_stream(messages: list[dict], user_content: str, doc_context: str, max_new_tokens: int, temperature: float, founder_mode=False):
     """
-    Yields tokens from the local model directly.
+    Yields tokens from the local model with PROACTIVE identity output guarding.
     """
     try:
         from neuralai_engine import local_model
         
+        # Get current user name for guarding
+        db = get_db()
+        first_name_row = db.execute("SELECT value FROM user_settings WHERE key = 'user_first_name'").fetchone()
+        last_name_row = db.execute("SELECT value FROM user_settings WHERE key = 'user_last_name'").fetchone()
+        
+        fn = first_name_row["value"] if first_name_row else "De'Andrew"
+        ln = last_name_row["value"] if last_name_row else "Harris"
+        full_n = f"{fn} {ln}".strip()
+
+        # Normalized versions for guarding (stripping non-alpha for robust matching)
+        def normalize(s):
+            return re.sub(r'[^a-zA-Z]', '', s).lower()
+        
+        norm_fn = normalize(fn)
+        norm_ln = normalize(ln)
+        norm_full = normalize(full_n)
+
         full_formatted_prompt = build_prompt(messages, user_content, doc_context, founder_mode=founder_mode)
+        
+        cumulative_buffer = ""
+        chunk_buffer = ""
         
         for token in local_model.generate_sync_stream(
             full_formatted_prompt, 
             max_new_tokens=max_new_tokens
         ):
-            yield token
+            if not token:
+                continue
+                
+            cumulative_buffer += token
+            chunk_buffer += token
+            
+            # If the chunk buffer gets large enough, or we see a sentence end, evaluate
+            # We delay output slightly to ensure we don't leak half a name
+            if len(chunk_buffer) > 10 or any(c in token for c in [".", "!", "?", "\n"]):
+                # Check for identity violations in the cumulative context
+                # We check for phrases like "My name is [Name]" or "I am [Name]"
+                violations = [
+                    f"my name is {fn}", f"my name is {full_n}",
+                    f"i am {fn}", f"i am {full_n}",
+                    "my name is deandrew", "i am deandrew"
+                ]
+                
+                detected = False
+                for v in violations:
+                    # Case insensitive check with normalized variants
+                    if v.lower() in cumulative_buffer.lower() or normalize(v) in normalize(cumulative_buffer):
+                        detected = True
+                        break
+                
+                if detected:
+                    # If detected, we perform a hard replacement on the entire cumulative buffer 
+                    # but only yield the "new" parts that haven't been sent yet.
+                    # Since we are buffering chunks, we can catch it before it leaks too much.
+                    # However, to be 100% safe, we'll just replace in the current chunk if it triggered it.
+                    protected_chunk = chunk_buffer
+                    protected_chunk = re.sub(re.escape(fn), "NeuralAI", protected_chunk, flags=re.IGNORECASE)
+                    protected_chunk = re.sub(re.escape(full_n), "NeuralAI", protected_chunk, flags=re.IGNORECASE)
+                    protected_chunk = re.sub(r"De'Andrew", "NeuralAI", protected_chunk, flags=re.IGNORECASE)
+                    protected_chunk = re.sub(r"De’Andrew", "NeuralAI", protected_chunk, flags=re.IGNORECASE)
+                    
+                    yield protected_chunk
+                else:
+                    yield chunk_buffer
+                
+                chunk_buffer = ""
+        
+        # Yield remaining buffer
+        if chunk_buffer:
+            yield chunk_buffer
             
     except Exception as e:
         yield f"I'm online, but the local engine encountered an error: {e}. You said: {user_content}"
@@ -861,41 +1177,53 @@ def serve_file(folder, filename):
 
 
 @app.route("/api/status", methods=["GET"])
-def status():
-    # Check if Uplink Gateway (port 8000) is healthy
-    uplink_status = "offline"
-    try:
-        # Check gateway first
-        gateway_resp = requests.get("http://localhost:8000/health", timeout=1)
-        if gateway_resp.status_code == 200:
-            # Check if it can reach the core
-            core_resp = requests.get("http://localhost:7000/health", timeout=1)
-            if core_resp.status_code == 200:
-                uplink_status = "connected"
-            else:
-                uplink_status = "gateway_only"
-    except:
-        # Try direct core check as fallback
-        try:
-            core_resp = requests.get("http://localhost:7000/health", timeout=1)
-            if core_resp.status_code == 200:
-                uplink_status = "uplink_only"
-        except:
-            pass
+def get_status():
+    db = get_db()
+    device = model_device()
+    rules_count = db.execute("SELECT COUNT(*) FROM model_rules WHERE is_active = 1").fetchone()[0]
+    return jsonify({
+        "status": "ready",
+        "version": "5.2.1-maintenance",
+        "device": device,
+        "active_rules": rules_count
+    })
 
-    return jsonify(
-        {
-            "model": MODEL_NAME,
-            "model_type": model_type(),
-            "device": model_device(),
-            "version": VERSION,
-            "rag": True,
-            "uplink": uplink_status,
-            "indexed_files": len(INDEXED_FILES),
-            "model_error": model_error,
-            "features": ["memory", "rules", "settings", "conversations"],
+
+@app.route("/api/user/me", methods=["GET"])
+def get_user_me():
+    db = get_db()
+    
+    def get_setting(key, default=""):
+        row = db.execute("SELECT value FROM user_settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
+
+    return jsonify({
+        "user": {
+            "first_name": get_setting("user_first_name", "De'Andrew"),
+            "last_name": get_setting("user_last_name", "Harris"),
+            "email": get_setting("user_email", "deandrewharris@zo.computer"),
+            "username": get_setting("user_username", "deandrewharris"),
+            "bio": get_setting("user_bio", "A curious user exploring AI capabilities.")
         }
-    )
+    })
+
+
+@app.route("/api/user/update", methods=["POST"])
+def update_user():
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    for key, val in data.items():
+        if key in ["first_name", "last_name", "email", "username", "bio"]:
+            db_key = f"user_{key}" if key != "bio" else "user_bio"
+            db.execute(
+                "INSERT OR REPLACE INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)",
+                (db_key, val, now)
+            )
+    
+    db.commit()
+    return jsonify({"success": True})
 
 
 @app.route("/api/health", methods=["GET"])
@@ -1018,6 +1346,7 @@ def upload():
 
 
 @app.route("/api/chat", methods=["POST"])
+@token_required
 def chat():
     data = request.get_json(silent=True) or {}
     messages = data.get("messages", []) or []
@@ -1052,6 +1381,13 @@ def chat():
         if conv_id:
             now = datetime.utcnow().isoformat()
             db_inner = get_db()
+            # Ensure ownership
+            conv_check = db_inner.execute("SELECT id FROM conversations WHERE id = ? AND user_id = ?", (conv_id, request.user_id)).fetchone()
+            if not conv_check:
+                 yield f"data: {json.dumps({'error': 'Unauthorized conversation'})}\n\n"
+                 yield "data: [DONE]\n\n"
+                 return
+
             db_inner.execute(
                 "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
                 (conv_id, "user", user_content, now)

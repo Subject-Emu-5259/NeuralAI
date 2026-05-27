@@ -1005,10 +1005,29 @@ function renderFiles(files) {
         <div class="file-name">${f.name}</div>
       </div>
       <div class="file-actions">
-        <button class="file-action-btn" onclick="event.stopPropagation(); window.open('/api/files/${f.type}/${f.name}?token=' + (localStorage.getItem('token') || ''), '_blank')">⬇️</button>
+        <button class="file-action-btn" onclick="event.stopPropagation(); window.open('/api/files/${f.type}/${f.name}?token=' + (localStorage.getItem('neural_token') || ''), '_blank')">⬇️</button>
+        <button class="file-action-btn delete" onclick="event.stopPropagation(); deleteNeuralFile('${f.type}', '${f.name}')">🗑️</button>
       </div>
     </div>
   `).join('');
+}
+
+async function deleteNeuralFile(folder, filename) {
+  if (!confirm(`Delete ${filename}?`)) return;
+  try {
+    const res = await fetch(`/api/files/${folder}/${filename}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      showToast(`File ${filename} deleted`, 'success');
+      loadFiles(); // refresh list
+    } else {
+      showToast(`Failed to delete ${filename}`, 'error');
+    }
+  } catch (err) {
+    showToast(`Error deleting file: ${err.message}`, 'error');
+  }
 }
 
 function filterFiles() {
@@ -1018,7 +1037,7 @@ function filterFiles() {
 }
 
 function previewFile(folder, filename) {
-  const url = `/api/files/${folder}/${filename}?token=${localStorage.getItem('token') || ''}`;
+  const url = `/api/files/${folder}/${filename}?token=${localStorage.getItem('neural_token') || ''}`;
   window.open(url, '_blank');
 }
 
@@ -1502,6 +1521,7 @@ window.addRuleFromTab = addRuleFromTab;
 window.deleteRuleItem = deleteRuleItem;
 window.toggleRuleItem = toggleRuleItem;
 window.previewFile = previewFile;
+window.deleteNeuralFile = deleteNeuralFile;
 window.clearTerm = clearTerm;
 window.restartTerm = restartTerm;
 window.toggleHistory = toggleHistory;

@@ -5,6 +5,7 @@ import base64
 import asyncio
 import logging
 import httpx
+import traceback
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
@@ -43,6 +44,16 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Client connected via WebSocket")
     
+    # Check for keys on connection
+    g_key = os.environ.get("GEMINI_API_KEY")
+    e_key = os.environ.get("ELEVENLABS_API_KEY")
+    
+    if not g_key and not e_key:
+        logger.error("Connection attempt failed: No API keys found in environment")
+        await websocket.send_json({"type": "error", "message": "NeuralVoice Server Error: AI Engine Credentials Missing."})
+        await websocket.close()
+        return
+
     # Updated Voice Map with High-Quality v2 compatible IDs
     voice_map = {
         "Alexa": {"gemini": "Aoede", "eleven": "Xb7hH8MSUJpSbSDYk0k2"},
@@ -87,14 +98,20 @@ async def websocket_endpoint(websocket: WebSocket):
                         logger.info(f"TTS Request (ElevenLabs): {text[:50]}...")
                         try:
                             # Use PCM 22.05kHz (standard for non-pro tiers)
+                            # Force Turbo v2.5 for lower latency and better stability
                             async with client.stream(
                                 "POST",
                                 f"https://api.elevenlabs.io/v1/text-to-speech/{current_eleven_voice}?output_format=pcm_22050",
                                 headers={"xi-api-key": ELEVENLABS_API_KEY},
                                 json={
                                     "text": text,
-                                    "model_id": "eleven_multilingual_v2",
-                                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+                                    "model_id": "eleven_turbo_v2_5",
+                                    "voice_settings": {
+                                        "stability": 0.4,
+                                        "similarity_boost": 0.8,
+                                        "style": 0.5,
+                                        "use_speaker_boost": True
+                                    }
                                 }
                             ) as response:
                                 if response.status_code == 200:
@@ -123,68 +140,71 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # GEMINI LIVE MODE
         elif GEMINI_API_KEY:
-            client = genai.Client(api_key=GEMINI_API_KEY, http_options={'api_version': 'v1alpha'})
-            
-            config = {
-                "response_modalities": ["AUDIO"],
-                "speech_config": {
-                    "voice_config": {
-                        "prebuilt_voice_config": {
-                            "voice_name": current_voice
+            logger.info(f"Starting Gemini Live Mode with model: {MODEL_ID}")
+            try:
+                client = genai.Client(api_key=GEMINI_API_KEY, http_options={'api_version': 'v1alpha'})
+                
+                config = {
+                    "response_modalities": ["AUDIO"],
+                    "speech_config": {
+                        "voice_config": {
+                            "prebuilt_voice_config": {
+                                "voice_name": current_voice
+                            }
                         }
                     }
                 }
-            }
-            
-            async with client.aio.live.connect(model=MODEL_ID, config=config) as session:
-                logger.info(f"Connected to Gemini Live API with voice: {current_voice}")
                 
-                async def receive_from_gemini():
-                    try:
-                        async for message in session:
-                            if message.server_content:
-                                model_turn = message.server_content.model_turn
-                                if model_turn:
-                                    for part in model_turn.parts:
-                                        if part.inline_data:
-                                            audio_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
-                                            await websocket.send_json({"type": "audio", "data": audio_base64, "sampleRate": 16000})
-                                
-                                if message.server_content.turn_complete:
-                                    await websocket.send_json({"type": "turn_complete"})
+                async with client.aio.live.connect(model=MODEL_ID, config=config) as session:
+                    logger.info(f"Connected to Gemini Live API with voice: {current_voice}")
+                    
+                    async def receive_from_gemini():
+                        try:
+                            async for message in session:
+                                if message.server_content:
+                                    model_turn = message.server_content.model_turn
+                                    if model_turn:
+                                        for part in model_turn.parts:
+                                            if part.inline_data:
+                                                audio_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
+                                                await websocket.send_json({"type": "audio", "data": audio_base64, "sampleRate": 16000})
                                     
-                            if message.tool_call:
-                                logger.info(f"Tool Call: {message.tool_call}")
-                    except Exception as e:
-                        logger.error(f"Error receiving from Gemini: {e}")
-                        await websocket.send_json({"type": "error", "message": str(e)})
+                                    if message.server_content.turn_complete:
+                                        await websocket.send_json({"type": "turn_complete"})
+                                        
+                                if message.tool_call:
+                                    logger.info(f"Tool Call: {message.tool_call}")
+                        except Exception as e:
+                            logger.error(f"Error receiving from Gemini: {e}")
+                            await websocket.send_json({"type": "error", "message": f"Gemini stream error: {str(e)}"})
 
-                async def receive_from_client():
-                    try:
-                        while True:
-                            data = await websocket.receive_json()
-                            if data.get("type") == "audio":
-                                audio_bytes = base64.b64decode(data["data"])
-                                await session.send(
-                                    input=types.LiveClientContent(
-                                        parts=[types.Part(inline_data=types.Blob(data=audio_bytes, mime_type="audio/pcm"))]
+                    async def receive_from_client():
+                        try:
+                            while True:
+                                data = await websocket.receive_json()
+                                if data.get("type") == "audio":
+                                    audio_bytes = base64.b64decode(data["data"])
+                                    await session.send(
+                                        input=types.LiveClientContent(
+                                            parts=[types.Part(inline_data=types.Blob(data=audio_bytes, mime_type="audio/pcm"))]
+                                        )
                                     )
-                                )
-                            elif data.get("type") == "text":
-                                await session.send(
-                                    input=types.LiveClientContent(
-                                        parts=[types.Part(text=data["data"])]
+                                elif data.get("type") == "text":
+                                    await session.send(
+                                        input=types.LiveClientContent(
+                                            parts=[types.Part(text=data["data"])]
+                                        )
                                     )
-                                )
-                            elif data.get("type") == "config":
-                                # Handle mid-session voice change if needed
-                                pass
-                    except WebSocketDisconnect:
-                        logger.info("Client disconnected")
-                    except Exception as e:
-                        logger.error(f"Error receiving from client: {e}")
+                        except WebSocketDisconnect:
+                            logger.info("Client disconnected")
+                        except Exception as e:
+                            logger.error(f"Error receiving from client: {e}")
 
-                await asyncio.gather(receive_from_gemini(), receive_from_client())
+                    await asyncio.gather(receive_from_gemini(), receive_from_client())
+            except Exception as e:
+                logger.error(f"Gemini Live Connection Failed: {e}")
+                logger.error(traceback.format_exc())
+                await websocket.send_json({"type": "error", "message": f"AI Engine Connection Failed: {str(e)}"})
 
         else:
             logger.error("No valid API keys (GEMINI or ELEVENLABS) found")

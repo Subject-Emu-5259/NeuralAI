@@ -151,15 +151,17 @@ def token_required(f):
     def decorated(*args, **kwargs):
         token = request.headers.get("Authorization")
         if not token:
+            token = request.args.get("token")
+        if not token:
             request.user_id = "guest"
-            return f(*args, **kwargs)
+            return f(request.user_id, *args, **kwargs)
         try:
             token = token.replace("Bearer ", "")
             payload = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
             request.user_id = payload["user_id"]
         except Exception as e:
             return jsonify({"error": "Invalid token"}), 401
-        return f(*args, **kwargs)
+        return f(request.user_id, *args, **kwargs)
     return decorated
 
 
@@ -463,7 +465,7 @@ def manage_memory(current_user):
             db.commit()
             return jsonify({"success": True})
         
-        rows = db.execute("SELECT fact, created_at FROM memory_facts WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        rows = db.execute("SELECT id, fact, created_at FROM memory_facts WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
         facts = [dict(row) for row in rows]
         return jsonify({"success": True, "facts": facts})
     finally:
@@ -484,9 +486,45 @@ def manage_rules(current_user):
             db.commit()
             return jsonify({"success": True})
         
-        rows = db.execute("SELECT rule, active, created_at FROM active_rules WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        rows = db.execute("SELECT id, rule, active, created_at FROM active_rules WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
         rules = [dict(row) for row in rows]
         return jsonify({"success": True, "rules": rules})
+    finally:
+        db.close()
+
+@app.route("/api/memory/<int:id>", methods=["DELETE"])
+@token_required
+def delete_memory(current_user, id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM memory_facts WHERE id = ? AND user_id = ?", (id, current_user))
+        db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+@app.route("/api/rules/<int:id>", methods=["DELETE"])
+@token_required
+def delete_rule(current_user, id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user))
+        db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+@app.route("/api/rules/<int:id>/toggle", methods=["POST"])
+@token_required
+def toggle_rule(current_user, id):
+    db = get_db()
+    try:
+        row = db.execute("SELECT active FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user)).fetchone()
+        if row:
+            new_status = 0 if row["active"] else 1
+            db.execute("UPDATE active_rules SET active = ? WHERE id = ? AND user_id = ?", (new_status, id, current_user))
+            db.commit()
+        return jsonify({"success": True})
     finally:
         db.close()
 
@@ -658,8 +696,16 @@ def read_terminal(current_user, sid):
 def list_files(current_user):
     user_uploads = UPLOADS_DIR / current_user
     user_uploads.mkdir(parents=True, exist_ok=True)
-    files = sorted([f.name for f in user_uploads.iterdir() if f.is_file()])
+    files = sorted([{"name": f.name, "type": "uploads"} for f in user_uploads.iterdir() if f.is_file()], key=lambda x: x["name"])
     return jsonify({"success": True, "files": files})
+
+@app.route("/api/files/<folder>/<path:filename>", methods=["GET"])
+@token_required
+def serve_file(current_user, folder, filename):
+    # Ensure users can only access their own uploads
+    # Right now, folder might just be 'uploads', but we serve from UPLOADS_DIR / current_user
+    user_uploads = UPLOADS_DIR / current_user
+    return send_from_directory(user_uploads, filename)
 
 @app.route("/static/generated/<path:filename>")
 def serve_generated(filename):

@@ -1005,7 +1005,7 @@ function renderFiles(files) {
         <div class="file-name">${f.name}</div>
       </div>
       <div class="file-actions">
-        <button class="file-action-btn" onclick="event.stopPropagation(); window.open('/api/files/${f.type}/${f.name}', '_blank')">⬇️</button>
+        <button class="file-action-btn" onclick="event.stopPropagation(); window.open('/api/files/${f.type}/${f.name}?token=' + (localStorage.getItem('token') || ''), '_blank')">⬇️</button>
       </div>
     </div>
   `).join('');
@@ -1018,7 +1018,7 @@ function filterFiles() {
 }
 
 function previewFile(folder, filename) {
-  const url = `/api/files/${folder}/${filename}`;
+  const url = `/api/files/${folder}/${filename}?token=${localStorage.getItem('token') || ''}`;
   window.open(url, '_blank');
 }
 

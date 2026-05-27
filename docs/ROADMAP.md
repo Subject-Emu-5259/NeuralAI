@@ -8,19 +8,29 @@
 ## ✅ Completed Milestones (NeuralAI Legacy)
 
 ### Phase 0: Core System ✓
+
 - [x] SmolLM2-360M base model fine-tuned with QLoRA
+
 - [x] Chat streaming (SSE) working
+
 - [x] Web UI deployed (NeuralAI → NeuralAI v1.0)
-- [x] Unified Service Migration: Consolidated Model + UI + Terminal into `neural_core_service.py`
+
+- [x] Unified Service Migration: Consolidated Model + UI + Terminal into `file neural_core_service.py`
+
 - [x] Fixed Chat streaming and Terminal consistency
 
 ### Phase 1: Tool Ecosystem ✓
+
 - [x] Code Execution Sandbox, File Manager, Web Fetcher, DB Connector, Git Assistant
+
 - [x] Tool detection and routing in chat
 
 ### Phase 2: DPO Alignment ✓
+
 - [x] DPO training pipeline implemented
+
 - [x] Preference dataset expanded to 244 pairs (v12.0)
+
 - [x] Memphis Culture & Founder Context integration
 
 ---
@@ -28,60 +38,60 @@
 ## 🏗️ Phase 3: NeuralAI Evolution (In Progress)
 
 ### 1. Workstation Orchestration
+
 - [x] Establish distinction: NeuralAI (Model) vs. NeuralAI (Hub)
+
 - [x] UI Overhaul: Added "Workstation Dashboard" tab with project/model/shell status
+
 - [x] Robust Multi-Turn Context Support (10-message sliding window)
+
 - [x] Integrated Multi-Modal Speech-to-Speech (Gemini Live + ElevenLabs Fallback)
+
 - [ ] Transition UI from Chat-Only to Multi-Panel Workstation (Expand dashboard features)
+
 - [ ] Implement System-Wide Context Layer
+
 - [ ] Add "Vibe Stack" Workflow Registry
 
 ### 2. Neural Knowledge Graph
+
 - [ ] Implement Persistent Memory (Graph-based)
+
 - [ ] Automate Infrastructure Learning
-- [ ] Sync with Zo Supermemory
+
+- [ ] Sync with Supermemory
 
 ---
 
 ## 📊 System Status
-- **Main Service:** **READY** (Unified `neural_core_service.py`)
+
+- **Main Service:** **READY** (Unified `file neural_core_service.py`)
 - **Voice Service:** **READY** (ElevenLabs v2 Migrated)
 - **Model:** SmolLM2-360M-Instruct + DPO v13.0
 - **Context:** System-wide (Expanding)
-
 
 ---
 
 ## 🎯 Next Steps (Priority Order)
 
-### 1. GPU Deployment (Blocked - No GPU on current Zo)
-**Goal:** 10x faster inference
+### 1. Training Data Expansion
 
-| Metric | CPU (Current) | GPU (Target) |
-| --- | --- | --- |
-| Time to first token | 2-3 sec | 0.1-0.3 sec |
-| Tokens/sec | 5-10 | 50-100 |
-| Response (100 tokens) | 10-20 sec | 1-2 sec |
-
-**Options:**
-- Request GPU from Zo support
-- Use Google Colab for training/inference
-- Deploy to cloud GPU (RunPod, Lambda Labs)
-
-### 2. Training Data Expansion
 **Status:** In progress (404 → target 1000+)
 
 **Categories to expand:**
+
 - Advanced coding: +100 samples
 - API design: +50 samples
 - DevOps commands: +50 samples
 - Multi-turn reasoning: +50 samples
 - Tool chaining: +50 samples
 
-### 3. Evaluation Suite
+### 2. Evaluation Suite
+
 **Status:** Created, pending execution
 
 **Benchmarks:**
+
 - Code correctness: Generated code runs
 - Response helpfulness: Quality scoring
 - Safety: Refuses harmful requests
@@ -89,9 +99,47 @@
 
 ---
 
+## 🚀 Future Phases (The Agentic Horizon)
+
+### Phase 4: Agentic Autonomy & Computer Use
+
+**Goal:** Transition from "Assistant" to "Operator"
+
+- [ ] **Browser Agent Integration**: Implement autonomous web navigation and interaction (Computer Use).
+
+- [ ] **Multi-Agent Orchestration**: Ability to spawn and manage specialized sub-agents for parallel task execution.
+
+- [ ] **Long-Horizon Planning**: Implement hierarchical planning for tasks requiring 10+ steps.
+
+- [ ] **Third-Party App Integration**: Direct agentic control over productivity tools (Calendar, Email, CRM).
+
+### Phase 5: Universal Knowledge Integration (The "World-Brain" Training)
+
+**Goal:** Massive expansion of general-world intelligence and cultural context.
+
+- [ ] **Natural World**: Plants, animals, creatures, ecosystems, and biology.
+
+- [ ] **Humanity & Culture**: History, religions, beliefs, sociology, and anthropology.
+
+- [ ] **The Arts**: Music theory, cinematic history, fine arts, and literature.
+
+- [ ] **Global Systems**: Geography, geopolitics, economics, and planetary sciences.
+
+### Phase 6: Model Capability Upgrades
+
+**Goal:** Integration of frontier reasoning and multimodal capabilities.
+
+- [ ] **Deep Reasoning Integration**: Implement "Think" modes for complex mathematical and logical deduction.
+
+- [ ] **Native Multimodal Understanding**: Unified processing of video, audio, and images in a single context window.
+
+- [ ] **Test-Time Compute Optimization**: Optimize inference to allow the model to "think longer" for harder problems.
+
+---
+
 ## 📊 Data Files
 
-```
+```markdown
 data/
 ├── train.jsonl              # 347 original samples
 ├── train_v3.jsonl           # 404 samples (latest)
@@ -102,7 +150,7 @@ data/
 
 ## 📁 Project Structure
 
-```
+```markdown
 NeuralAI/
 ├── checkpoints/final_model/    # LoRA adapter
 ├── data/                       # Training data
@@ -150,6 +198,7 @@ python3 training/train_dpo.py
 ---
 
 **Next Session Goals:**
+
 1. Run evaluation benchmarks
 2. Expand training data to 1000+ samples
 3. Request GPU or prepare Colab notebook for DPO training

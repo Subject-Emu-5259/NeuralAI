@@ -1,18 +1,18 @@
 # 🧠 NeuralAI: The Generative AI Engine
 
 <div align="center">
-  <img src="neuralai_ui.png" alt="NeuralAI Logo" width="400" />
+  <img src="neuralai_banner.svg" alt="NeuralAI - Your AI. On your hardware. In your browser." width="100%" max-width="1200" />
 </div>
 
 **The High-Velocity Model for Your Entire Vibe Stack**
 
-NeuralAI is the central intelligence engine developed for **Harris Holdings**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ecosystem designed for creative thinking, code optimization, and system architecture.
+NeuralAI is the central intelligence engine developed for **Harris Holdings**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ecosystem that runs entirely on local hardware. Built with precision, performance, and privacy in mind.
 
 ---
 
 ## 🌟 Vision & Manifesto
 
-NeuralAI doesn't just predict text; it *operates the work*. The core mission is to create a multimodal generative system that bridges the gap between raw idea and execution. By fusing autoregressive reasoning with generative diffusion and real-time environment interaction, NeuralAI serves as a proactive intelligence partner rather than a passive chatbot.
+NeuralAI doesn't just predict text; it *operates the work*. The core mission is to create a multimodal generative system that bridges the gap between raw idea and execution. By fusing autoregressive language modeling with real-time terminal access, file I/O, and voice synthesis, NeuralAI becomes your operational AI—not just your chatbot.
 
 Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkansas, NeuralAI represents a forward-thinking approach to personal, private AI computing.
 
@@ -112,7 +112,7 @@ dpo_config = DPOConfig(
 **De'Andrew Preston Harris** (D. Harris / Dre)
 *Founder, Harris Holdings & Architect of NeuralAI*
 
-A dedicated software engineer, thinker, and builder from West Memphis, AR. De'Andrew is currently pursuing an AAS in AI Software Engineering at Maestro College. NeuralAI is the culmination of his drive to push the boundaries of accessible, deeply personalized artificial intelligence.
+A dedicated software engineer, thinker, and builder from West Memphis, AR. De'Andrew is currently pursuing an AAS in AI Software Engineering at Maestro College. NeuralAI is the culmination of his vision to democratize powerful, private AI computing for creators, engineers, and thinkers everywhere.
 
 *   **Location:** Memphis, TN / West Memphis, AR
 *   **Vision:** Building the future of private, high-performance generative AI.

@@ -50,6 +50,8 @@ Example: <tool>image_gen: a neon cyber-Pegasus</tool>
 """
 
 app = Flask(__name__, static_folder=os.path.join(STATIC_PATH, "static"), template_folder=os.path.join(STATIC_PATH, "templates"))
+app.static_url_path = '/static'
+app.static_folder = os.path.join(STATIC_PATH, "static")
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
 # NeuralDrive Integration
@@ -178,7 +180,8 @@ def load_model():
         # Priority: DPO Model -> Base Model with Adapter
         load_path = None
         
-        if Path(DPO_MODEL_PATH).exists() and (Path(DPO_MODEL_PATH) / "model.safetensors").exists():
+        # Check if DPO model exists
+        if Path(DPO_MODEL_PATH).exists() and any(Path(DPO_MODEL_PATH).glob("*.safetensors")):
             load_path = DPO_MODEL_PATH
             is_dpo = True
             
@@ -193,11 +196,12 @@ def load_model():
             
             # Check for LoRA adapter (v2_model)
             adapter_path = Path(MODEL_PATH)
-            has_adapter = any((adapter_path / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
-            if adapter_path.exists() and has_adapter:
+            has_adapter = adapter_path.exists() and any(adapter_path.glob("adapter_model.*"))
+            if has_adapter:
                 print(f"[NeuralAI] Applying LoRA Adapter from {adapter_path}...")
                 model = PeftModel.from_pretrained(base_model, str(adapter_path))
             else:
+                print(f"[NeuralAI] No adapter found, using base model.")
                 model = base_model
 
         tokenizer.pad_token = tokenizer.eos_token
@@ -326,20 +330,8 @@ def status():
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": "running",
-        "version": "6.1.0-stable"
+        "version": "7.0.0-stable"
     })
-
-@app.route("/privacy")
-def privacy():
-    return render_template("privacy.html")
-
-@app.route("/terms")
-def terms():
-    return render_template("terms.html")
-
-@app.route("/favicon.ico")
-def favicon():
-    return send_from_directory(os.path.join(STATIC_PATH, "static"), "favicon.png", mimetype='image/png')
 
 @app.route("/api/user/me", methods=["GET"])
 @token_required
@@ -395,15 +387,12 @@ def signup():
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
-    # Better extraction for robustness
     identity = (data.get("username") or data.get("email") or "").strip()
     password = data.get("password", "")
     
     if not identity or not password:
         return jsonify({"error": "Missing credentials"}), 400
         
-    logger.info(f"Login attempt for identity: {identity}")
-    
     db = get_db()
     try:
         user = db.execute("SELECT * FROM users WHERE username = ? OR email = ?", (identity, identity)).fetchone()
@@ -414,171 +403,13 @@ def login():
                 "exp": datetime.now(timezone.utc) + timedelta(days=30)
             }, app.config["SECRET_KEY"], algorithm="HS256")
             
-            logger.info(f"Login successful for user: {user['username']}")
             return jsonify({
                 "success": True, 
                 "token": token, 
                 "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}
             })
         
-        logger.warning(f"Login failed for identity: {identity}")
         return jsonify({"error": "Invalid credentials"}), 401
-    finally:
-        db.close()
-
-@app.route("/api/auth/guest", methods=["POST"])
-def auth_guest():
-    import os
-    guest_id = f"guest_{os.urandom(4).hex()}"
-    token = jwt.encode({"user_id": guest_id, "role": "guest"}, app.config["SECRET_KEY"], algorithm="HS256")
-    return jsonify({"token": token, "user": {"username": f"Guest_{os.urandom(2).hex()}", "role": "guest"}})
-
-@app.route("/api/auth/maestro", methods=["POST"])
-def auth_maestro():
-    import os
-    data = request.json or {}
-    code = data.get("invite_code", "").strip()
-    if not code:
-        return jsonify({"error": "Invite code required"}), 400
-    user_id = f"maestro_{os.urandom(4).hex()}"
-    token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
-    return jsonify({"token": token, "user": {"username": f"Maestro_{code[:4]}", "role": "maestro"}})
-
-
-@app.route("/api/settings", methods=["GET", "POST"])
-@token_required
-def manage_settings(current_user):
-    db = get_db()
-    try:
-        if request.method == "POST":
-            data = request.get_json() or {}
-            now = datetime.now(timezone.utc).isoformat()
-            for k, v in data.items():
-                db.execute("INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
-                           (current_user, k, str(v), now))
-            db.commit()
-            return jsonify({"success": True})
-        
-        rows = db.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (current_user,)).fetchall()
-        settings = {row["key"]: row["value"] for row in rows}
-        return jsonify({"success": True, "settings": settings})
-    finally:
-        db.close()
-
-@app.route("/api/memory", methods=["GET", "POST"])
-@token_required
-def manage_memory(current_user):
-    db = get_db()
-    try:
-        if request.method == "POST":
-            data = request.get_json() or {}
-            fact = data.get("fact")
-            if not fact: return jsonify({"error": "Missing fact"}), 400
-            now = datetime.now(timezone.utc).isoformat()
-            db.execute("INSERT INTO memory_facts (fact, user_id, created_at) VALUES (?, ?, ?)",
-                       (fact, current_user, now))
-            db.commit()
-            return jsonify({"success": True})
-        
-        rows = db.execute("SELECT id, fact, created_at FROM memory_facts WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
-        facts = [dict(row) for row in rows]
-        return jsonify({"success": True, "facts": facts})
-    finally:
-        db.close()
-
-@app.route("/api/rules", methods=["GET", "POST"])
-@token_required
-def manage_rules(current_user):
-    db = get_db()
-    try:
-        if request.method == "POST":
-            data = request.get_json() or {}
-            rule = data.get("rule")
-            if not rule: return jsonify({"error": "Missing rule"}), 400
-            now = datetime.now(timezone.utc).isoformat()
-            db.execute("INSERT INTO active_rules (rule, user_id, created_at) VALUES (?, ?, ?)",
-                       (rule, current_user, now))
-            db.commit()
-            return jsonify({"success": True})
-        
-        rows = db.execute("SELECT id, rule, active, created_at FROM active_rules WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
-        rules = [dict(row) for row in rows]
-        return jsonify({"success": True, "rules": rules})
-    finally:
-        db.close()
-
-@app.route("/api/memory/<int:id>", methods=["DELETE"])
-@token_required
-def delete_memory(current_user, id):
-    db = get_db()
-    try:
-        db.execute("DELETE FROM memory_facts WHERE id = ? AND user_id = ?", (id, current_user))
-        db.commit()
-        return jsonify({"success": True})
-    finally:
-        db.close()
-
-@app.route("/api/rules/<int:id>", methods=["DELETE"])
-@token_required
-def delete_rule(current_user, id):
-    db = get_db()
-    try:
-        db.execute("DELETE FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user))
-        db.commit()
-        return jsonify({"success": True})
-    finally:
-        db.close()
-
-@app.route("/api/rules/<int:id>/toggle", methods=["POST"])
-@token_required
-def toggle_rule(current_user, id):
-    db = get_db()
-    try:
-        row = db.execute("SELECT active FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user)).fetchone()
-        if row:
-            new_status = 0 if row["active"] else 1
-            db.execute("UPDATE active_rules SET active = ? WHERE id = ? AND user_id = ?", (new_status, id, current_user))
-            db.commit()
-        return jsonify({"success": True})
-    finally:
-        db.close()
-
-@app.route("/api/conversations", methods=["GET", "POST"])
-@token_required
-def manage_convs(current_user):
-    db = get_db()
-    try:
-        if request.method == "POST":
-            data = request.get_json() or {}
-            cid = str(uuid.uuid4().hex[:8])
-            now = datetime.now(timezone.utc).isoformat()
-            db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                       (cid, current_user, data.get("title", "New Chat"), now, now))
-            db.commit()
-            return jsonify({"success": True, "id": cid})
-        
-        rows = db.execute("SELECT id, title, updated_at FROM conversations WHERE user_id = ? ORDER BY updated_at DESC", (current_user,)).fetchall()
-        convs = [dict(row) for row in rows]
-        return jsonify(convs)
-    finally:
-        db.close()
-
-@app.route("/api/conversations/<cid>", methods=["GET", "DELETE"])
-@token_required
-def conv_detail(current_user, cid):
-    db = get_db()
-    try:
-        if request.method == "DELETE":
-            db.execute("DELETE FROM messages WHERE conversation_id = ?", (cid,))
-            db.execute("DELETE FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user))
-            db.commit()
-            return jsonify({"success": True})
-        
-        conv = db.execute("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user)).fetchone()
-        if not conv: return jsonify({"error": "Not found"}), 404
-        
-        msgs = db.execute("SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC", (cid,)).fetchall()
-        return jsonify({**dict(conv), "messages": [dict(m) for m in msgs]})
     finally:
         db.close()
 
@@ -608,7 +439,7 @@ def chat(current_user):
     
     if user and user["is_founder"]:
         system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
-FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
+FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of NeuralLabs.
 STRICT BOUNDARY: You are the AI. Dre is your human creator. 
 NEVER say "I am DeAndrew" or "I am Dre". 
 If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
@@ -624,7 +455,6 @@ Active Protocols: {active_rules}
     for m in history[-10:]:
         messages.append({"role": m["role"], "content": m["content"]})
     
-    # Append current user prompt if not already in history
     if not history or history[-1]["content"] != prompt:
         messages.append({"role": "user", "content": prompt})
 
@@ -672,110 +502,6 @@ Active Protocols: {active_rules}
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
-
-@app.route("/api/chat/json", methods=["POST"])
-@token_required
-def chat_json(current_user):
-    data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "")
-    history = data.get("messages", [])
-    temperature = float(data.get("temperature", 0.7))
-    max_tokens = int(data.get("max_tokens", 512))
-    
-    # Intent detection for image requests
-    if any(k in prompt.lower() for k in ["generate", "image", "draw", "picture", "photo"]):
-        return jsonify({"output": process_tool_calls(f"<tool>image_gen: {prompt}</tool>", current_user), "status": "success"})
-
-    # Fetch user context
-    db = get_db()
-    user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
-    mem_rows = db.execute("SELECT fact FROM memory_facts WHERE user_id = ?", (current_user,)).fetchall()
-    rule_rows = db.execute("SELECT rule FROM active_rules WHERE user_id = ? AND active = 1", (current_user,)).fetchall()
-    db.close()
-    
-    mem_facts = [row["fact"] for row in mem_rows]
-    active_rules = [row["rule"] for row in rule_rows]
-    
-    if user and user["is_founder"]:
-        system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
-FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
-STRICT BOUNDARY: You are the AI. Dre is your human creator. 
-NEVER say "I am DeAndrew" or "I am Dre". 
-If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
-TONE: Brilliant, professional, collaborative, and mission-aligned.
-Dynamic Memory: {mem_facts}
-Active Protocols: {active_rules}
-{TOOL_INSTRUCTIONS}"""
-    else:
-        system_content = f"You are NeuralAI, a high-performance AI engine.\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
-
-    # Build messages list
-    messages = [{"role": "system", "content": system_content}]
-    for m in history[-10:]:
-        messages.append({"role": m["role"], "content": m["content"]})
-    
-    if not history or history[-1]["content"] != prompt:
-        messages.append({"role": "user", "content": prompt})
-
-    full_response = ""
-    for chunk in generate_response_stream(messages, max_tokens, temperature):
-        full_response += chunk
-    
-    # Process tools in the full response if any
-    tool_results = process_tool_calls(full_response, current_user)
-    if tool_results:
-        full_response += tool_results
-
-    return jsonify({"output": full_response, "status": "success"})
-
-# ====================
-# TERMINAL API
-# ====================
-@app.route("/api/terminal/create", methods=["POST"])
-@token_required
-def create_terminal(current_user):
-    sid = uuid.uuid4().hex[:8]
-    terminal_sessions[sid] = {"user": current_user, "history": []}
-    return jsonify({"success": True, "session_id": sid})
-
-@app.route("/api/terminal/<sid>/send", methods=["POST"])
-@token_required
-def send_terminal(current_user, sid):
-    if sid not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    
-    cmd = request.json.get("command", "")
-    try:
-        # Run command safely
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
-        output = result.stdout + result.stderr
-        terminal_sessions[sid]["history"].append({"cmd": cmd, "out": output})
-        return jsonify({"success": True, "output": output})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
-@app.route("/api/terminal/<sid>/read", methods=["GET"])
-@token_required
-def read_terminal(current_user, sid):
-    if sid not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    return jsonify({"success": True, "history": terminal_sessions[sid]["history"]})
-
-@app.route("/api/files", methods=["GET"])
-@token_required
-def list_files(current_user):
-    user_uploads = UPLOADS_DIR / current_user
-    user_uploads.mkdir(parents=True, exist_ok=True)
-    files = sorted([{"name": f.name, "type": "uploads"} for f in user_uploads.iterdir() if f.is_file()], key=lambda x: x["name"])
-    return jsonify({"success": True, "files": files})
-
-@app.route("/api/files/<folder>/<path:filename>", methods=["GET"])
-@token_required
-def serve_file(current_user, folder, filename):
-    # Ensure users can only access their own uploads
-    # Right now, folder might just be 'uploads', but we serve from UPLOADS_DIR / current_user
-    user_uploads = UPLOADS_DIR / current_user
-    return send_from_directory(user_uploads, filename)
 
 @app.route("/static/generated/<path:filename>")
 def serve_generated(filename):

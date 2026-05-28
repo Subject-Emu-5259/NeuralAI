@@ -174,5 +174,5 @@ The standalone software implementation of this core is **NeuralLabs**:
 👉 [https://github.com/Subject-Emu-5259/NeuralLabs](https://github.com/Subject-Emu-5259/NeuralLabs)
 
 **Software Downloads**:
-The latest beta builds of NeuralLabs are available at:
-👉 [https://zo.pub/deandrewharris/neuralnexus-beta](https://zo.pub/deandrewharris/neurallabs-beta) (Legacy URL)
+The latest beta builds (v0.1-Beta) of NeuralLabs are available at:
+👉 **[https://zo.pub/deandrewharris/neurallabs-beta](https://zo.pub/deandrewharris/neurallabs-beta)**

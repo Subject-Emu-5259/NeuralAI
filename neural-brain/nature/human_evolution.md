@@ -1,26 +1,25 @@
-# 🐒 Human Evolution: The Journey to Homo Sapiens
+# 🧬 Neural-Brain: Human Evolution & Migration
 
-This asset maps the biological and behavioral trajectory of the hominin lineage, from early divergence to modern humans.
+The history of *Homo sapiens* is a narrative of resilience, migration, and the unique development of "Symbolic Culture."
 
-## 🕰️ The Evolutionary Timeline
+## ⏳ Evolutionary Timeline
 
-### 1. The Early Divergence (c. 8–6 Million Years Ago)
-- **The Split**: Hominin lineages diverged from the common ancestor shared with chimpanzees (Pan).
-- **Key Driver**: Adaptation to changing African landscapes, shifting from dense forests to mosaic environments.
+### 1. Early Origins (7M - 2M years ago)
+- **Sahelanthropus & Australopithecus**: The transition to bipedalism in Africa.
+- **Homo habilis**: The first tool-makers.
 
-### 2. The Australopithecines (c. 4–2 Million Years Ago)
-*The Dawn of Bipedalism*
-- **Representative**: *Australopithecus afarensis* (e.g., "Lucy").
-- **Milestone**: Transition to obligate bipedalism (walking upright).
-- **Traits**: Small brain size (ape-like) but a pelvis and spinal structure adapted for walking.
+### 2. The Age of Homo erectus (1.7M - 130k years ago)
+- The first species to leave Africa, adapting to diverse environments in Europe and Asia.
+- Development of controlled fire and more advanced Acheulean tools.
 
-### 3. The Emergence of the Genus Homo (c. 2.5 Million Years Ago)
-*The Brain Expansion*
-- **Key Change**: Rapid increase in cranial capacity and refinement of dentition.
-- **Behavioral Leap**: Emergence of the first stone tools (Oldowan industry) and more complex foraging strategies.
-- **Key Taxa**: *Homo habilis* ("Handy Man") and *Homo erectus* (the first to migrate out of Africa).
+### 3. The Arrival of Homo sapiens (300k years ago - Present)
+- Emergence in Africa (~315,000 years ago).
+- **The Great Migration**: Approximately 100,000 years ago, *H. sapiens* began a global journey, interbreeding with Neanderthals and Denisovans before eventually becoming the sole surviving hominin.
 
-### 4. The Rise of Modern Humans (c. 300,000 Years Ago – Present)
-- **Homo sapiens**: Characterized by a high brain-to-body ratio, distinct cranial morphology, and advanced symbolic culture.
-- **Interbreeding**: Evidence of gene exchange with other hominins (Neanderthals and Denisovans).
-- **Cognitive Revolution**: The development of complex language, art, and large-scale social organization.
+## 🌍 Migration Drivers
+- **Climate Shifts**: Changing landscapes and resource availability.
+- **Technological Innovation**: Tools and culture allowed for survival in extreme environments (e.g., the Arctic).
+- **Symbolic Thought**: The ability to share complex ideas and plan for the future.
+
+## 🧠 Evolutionary Psychology in AI
+Understanding the "Ancestral Brain" is critical for NeuralAI to model human behavior, bias, and social dynamics. We integrate these evolutionary milestones to ground the AI's understanding of human nature.

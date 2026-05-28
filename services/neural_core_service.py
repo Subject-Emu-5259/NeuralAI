@@ -73,6 +73,7 @@ tokenizer = None
 diffusion_engine = None
 model_status = "loading"
 inference_count = 0
+is_dpo = False
 
 # Terminal sessions
 terminal_sessions = {}
@@ -169,13 +170,13 @@ def token_required(f):
 # MODEL LOADING
 # ====================
 def load_model():
-    global model, tokenizer, model_status
+    global model, tokenizer, model_status, is_dpo
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
+        from peft import PeftModel
         
-        # Priority: DPO Model -> Base Model
+        # Priority: DPO Model -> Base Model with Adapter
         load_path = None
-        is_dpo = False
         
         if Path(DPO_MODEL_PATH).exists() and (Path(DPO_MODEL_PATH) / "model.safetensors").exists():
             load_path = DPO_MODEL_PATH
@@ -188,12 +189,21 @@ def load_model():
         else:
             print(f"[NeuralAI] Loading Base Model: {BASE_MODEL}...")
             tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
+            base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
+            
+            # Check for LoRA adapter (v2_model)
+            adapter_path = Path(MODEL_PATH)
+            has_adapter = any((adapter_path / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
+            if adapter_path.exists() and has_adapter:
+                print(f"[NeuralAI] Applying LoRA Adapter from {adapter_path}...")
+                model = PeftModel.from_pretrained(base_model, str(adapter_path))
+            else:
+                model = base_model
 
         tokenizer.pad_token = tokenizer.eos_token
         model.eval()
         model_status = "ready"
-        print(f"[OK] Model loaded successfully ({'DPO' if is_dpo else 'Base'}).")
+        print(f"[OK] Model loaded successfully ({'DPO' if is_dpo else 'Base' + (' + Adapter' if isinstance(model, PeftModel) else '')}).")
     except Exception as e:
         model_status = f"error: {e}"
         print(f"[ERROR] Model Loading Failed: {e}")
@@ -304,9 +314,14 @@ def index():
 @app.route("/api/health")
 @app.route("/api/status")
 def status():
+    from peft import PeftModel
+    model_name = "NeuralAI DPO v13.0" if is_dpo else BASE_MODEL
+    if isinstance(model, PeftModel):
+        model_name += " + LoRA Adapter"
+        
     return jsonify({
         "status": model_status,
-        "model": "NeuralAI DPO v13.0" if "dpo_model" in str(DPO_MODEL_PATH) else BASE_MODEL,
+        "model": model_name,
         "inference_count": inference_count,
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -657,6 +672,61 @@ Active Protocols: {active_rules}
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+@app.route("/api/chat/json", methods=["POST"])
+@token_required
+def chat_json(current_user):
+    data = request.get_json(silent=True) or {}
+    prompt = data.get("prompt", "")
+    history = data.get("messages", [])
+    temperature = float(data.get("temperature", 0.7))
+    max_tokens = int(data.get("max_tokens", 512))
+    
+    # Intent detection for image requests
+    if any(k in prompt.lower() for k in ["generate", "image", "draw", "picture", "photo"]):
+        return jsonify({"output": process_tool_calls(f"<tool>image_gen: {prompt}</tool>", current_user), "status": "success"})
+
+    # Fetch user context
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
+    mem_rows = db.execute("SELECT fact FROM memory_facts WHERE user_id = ?", (current_user,)).fetchall()
+    rule_rows = db.execute("SELECT rule FROM active_rules WHERE user_id = ? AND active = 1", (current_user,)).fetchall()
+    db.close()
+    
+    mem_facts = [row["fact"] for row in mem_rows]
+    active_rules = [row["rule"] for row in rule_rows]
+    
+    if user and user["is_founder"]:
+        system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
+FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
+STRICT BOUNDARY: You are the AI. Dre is your human creator. 
+NEVER say "I am DeAndrew" or "I am Dre". 
+If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
+TONE: Brilliant, professional, collaborative, and mission-aligned.
+Dynamic Memory: {mem_facts}
+Active Protocols: {active_rules}
+{TOOL_INSTRUCTIONS}"""
+    else:
+        system_content = f"You are NeuralAI, a high-performance AI engine.\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
+
+    # Build messages list
+    messages = [{"role": "system", "content": system_content}]
+    for m in history[-10:]:
+        messages.append({"role": m["role"], "content": m["content"]})
+    
+    if not history or history[-1]["content"] != prompt:
+        messages.append({"role": "user", "content": prompt})
+
+    full_response = ""
+    for chunk in generate_response_stream(messages, max_tokens, temperature):
+        full_response += chunk
+    
+    # Process tools in the full response if any
+    tool_results = process_tool_calls(full_response, current_user)
+    if tool_results:
+        full_response += tool_results
+
+    return jsonify({"output": full_response, "status": "success"})
 
 # ====================
 # TERMINAL API

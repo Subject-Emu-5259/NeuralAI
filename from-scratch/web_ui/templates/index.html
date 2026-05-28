@@ -1,0 +1,3194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<!-- Build: 1777537062 -->
+<title>NeuralAI LIVE</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<!-- Highlight.js -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root {
+  --gray-50: #f8f9fa;
+  --gray-100: #f1f3f4;
+  --gray-200: #e8eaed;
+  --gray-300: #dadce0;
+  --gray-400: #bdc1c6;
+  --gray-500: #9aa0a6;
+  --gray-600: #80868b;
+  --gray-700: #5f6368;
+  --gray-800: #3c4043;
+  --gray-900: #202124;
+  --white: #ffffff;
+  --google-blue: #1a73e8;
+  --google-red: #ea4335;
+  --google-green: #34a853;
+  --google-yellow: #fbbc04;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Google Sans', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  background: #f8f9fa;
+  color: #202124;
+}
+
+/* Dark Mode - Applied to body */
+body.dark-mode {
+  background: #09090b;
+  color: #e4e4e7;
+}
+
+body.dark-mode .topbar {
+  background: #111117;
+  border-bottom-color: rgba(255,255,255,0.07);
+}
+
+
+body.dark-mode .product-name {
+  color: #a78bfa;
+}
+
+body.dark-mode .top-btn {
+  color: #a78bfa;
+}
+
+body.dark-mode .top-btn:hover {
+  background: rgba(124,58,237,0.15);
+}
+
+body.dark-mode .sidebar {
+  background: #111117;
+  border-right-color: rgba(255,255,255,0.07);
+}
+
+body.dark-mode .content {
+  background: #09090b;
+}
+
+body.dark-mode .search-box {
+  background: #000000;
+  border-color: rgba(255,255,255,0.1);
+}
+
+body.dark-mode .search-box input {
+  color: #e4e4e7;
+  background: transparent;
+}
+
+body.dark-mode .search-box input::placeholder {
+  color: #6b7280;
+}
+
+body.dark-mode .search-box button {
+  background: #7c3aed;
+}
+
+body.dark-mode .search-box button:hover {
+  background: #6d28d9;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.search-icon {
+  font-size: 18px;
+  margin-left: 4px;
+}
+
+/* Auth Overlay Theme Support */
+body.dark-mode #authOverlay {
+  background: rgba(9, 9, 11, 0.98);
+}
+
+body.dark-mode .auth-card {
+  background: #111117;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+body.dark-mode .auth-card h2 {
+  color: #fff;
+}
+
+body.dark-mode .auth-input {
+  background: #09090b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+body.dark-mode .auth-subtitle {
+  color: #8a8a9a;
+}
+
+body.dark-mode .auth-toggle {
+  color: #8a8a9a;
+}
+
+body.dark-mode .nav-item:hover {
+  background: rgba(124,58,237,0.15);
+}
+
+body.dark-mode .nav-item.active {
+  background: rgba(124,58,237,0.2);
+  color: #a78bfa;
+}
+
+body.dark-mode .result-card {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.07);
+}
+
+body.dark-mode .result-title {
+  color: #a78bfa;
+}
+
+body.dark-mode .result-snippet {
+  color: #8a8a9a;
+}
+
+body.dark-mode .msg.ai {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.07);
+  color: #e4e4e7;
+}
+
+body.dark-mode .msg.user {
+  background: linear-gradient(135deg, #1e1b4b, #0f172a);
+  color: #e0e7ff;
+}
+
+body.dark-mode .chat-input-bar {
+  background: linear-gradient(to top, #09090b, rgba(9,9,11,0.95));
+  border-top-color: rgba(255,255,255,0.07);
+}
+
+body.dark-mode .chat-input-bar textarea {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.07);
+  color: #e4e4e7;
+}
+
+body.dark-mode .files-section {
+  background: #09090b;
+}
+
+body.dark-mode .file-card {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.07);
+}
+
+body.dark-mode .file-name {
+  color: #e4e4e7;
+}
+
+body.dark-mode .tab.active {
+  color: #a78bfa;
+  border-bottom-color: #7c3aed;
+}
+
+/* History Dropdown Dark Mode */
+body.dark-mode #historyDropdown {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.1);
+}
+
+/* Top bar */
+.topbar {
+  height: 56px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dadce0;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 9000; /* BELOW Auth Overlay (10000) */
+  position: relative;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.product-name {
+  font-size: 16px;
+  color: #5f6368;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 16px;
+  font-size: 13px;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.top-btn:hover {
+  background: #f1f3f4;
+}
+
+
+/* Layout */
+.layout {
+  display: flex;
+  min-height: calc(100vh - 56px);
+  justify-content: center;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  border-right: 1px solid #dadce0;
+  background: #fff;
+  padding: 16px 12px;
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+  z-index: 900;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 24px;
+}
+
+.sidebar h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5f6368;
+  margin-bottom: 8px;
+}
+
+.nav-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #202124;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-item:hover {
+  background: #f1f3f4;
+}
+
+.nav-item.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* History Items */
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #202124;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 4px;
+}
+
+.history-item:hover {
+  background: #f1f3f4;
+}
+
+.history-item.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+body.dark-mode .history-item {
+  color: #e4e4e7;
+}
+
+body.dark-mode .history-item:hover {
+  background: rgba(124,58,237,0.15);
+}
+
+body.dark-mode .history-item.active {
+  background: rgba(124,58,237,0.2);
+  color: #a78bfa;
+}
+
+.history-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-meta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-left: 8px;
+}
+
+.history-item-delete {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.history-item:hover .history-item-delete {
+  opacity: 1;
+}
+
+.history-item-delete:hover {
+  color: #ef4444;
+}
+
+/* Uplink */
+.uplink-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.offline {
+  background: #ea4335;
+}
+
+.status-dot.online {
+  background: #34a853;
+}
+
+.status-label {
+  font-size: 13px;
+  color: #5f6368;
+}
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #dadce0;
+  border-radius: 22px;
+  transition: 0.2s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.switch input:checked + .slider {
+  background-color: #1a73e8;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Content - FILL SCREEN */
+.content {
+  flex: 1;
+  padding: 24px 32px 100px;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Search - WIDER AND FLATTER */
+.search-wrapper {
+  max-width: none;
+  width: 100%;
+  margin: 0 auto 20px;
+  padding: 0 16px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #dadce0;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(60, 64, 67, 0.15);
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  padding: 4px 0;
+}
+
+.search-box button {
+  border: none;
+  background: #1a73e8;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.search-box button:hover {
+  background: #185abc;
+}
+
+.search-tabs {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  padding-left: 4px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #5f6368;
+  padding-bottom: 6px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+/* Results / Chat - FILL WIDTH */
+.results {
+  max-width: none;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 0 16px;
+}
+
+.result-card {
+  margin-bottom: 18px;
+}
+
+.result-title {
+  font-size: 22px;
+  color: #1a0dab;
+  margin-bottom: 4px;
+}
+
+.result-url {
+  font-size: 15px;
+  color: #006621;
+  margin-bottom: 6px;
+}
+
+.result-snippet {
+  font-size: 16px;
+  color: #4d5156;
+}
+
+.chat-thread {
+  margin-top: 24px;
+  border-top: 1px solid #dadce0;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg {
+  max-width: 85%;
+  padding: 0;
+  border-radius: 20px;
+  font-size: 15px;
+  line-height: 1.7;
+  animation: messageSlide 0.3s ease;
+}
+
+@keyframes messageSlide {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: transparent;
+}
+
+.msg.ai {
+  align-self: flex-start;
+  background: transparent;
+}
+
+/* Message Bubble */
+.msg-bubble {
+  padding: 16px 20px;
+  border-radius: 20px;
+  position: relative;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.msg.user .msg-bubble {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #3b82f6 100%);
+  color: #f0f9ff;
+  border-radius: 20px 20px 4px 20px;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.msg.ai .msg-bubble {
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #e4e4e7;
+  border-radius: 20px 20px 20px 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+body:not(.dark-mode) .msg.ai .msg-bubble {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+/* Message Meta */
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.msg:hover .msg-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #8b949e;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #e4e4e7;
+}
+
+.action-btn.active {
+  background: rgba(59,130,246,0.2);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.action-btn.down.active {
+  background: rgba(239,68,68,0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.msg-timestamp {
+  color: inherit;
+}
+
+/* ===== CODE BLOCK STYLING ===== */
+
+.msg pre {
+  background: #0d1117 !important;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 0;
+  margin: 12px 0;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.msg pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  display: block;
+  overflow-x: auto;
+  padding: 16px !important;
+  color: #e6edf3;
+}
+
+/* Code Block Header */
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  font-size: 12px;
+}
+
+.code-lang {
+  color: #8b949e;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.code-copy-btn {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.code-copy-btn:hover {
+  background: #30363d;
+  color: #e6edf3;
+}
+
+.code-run-btn {
+  background: linear-gradient(135deg, #238636, #2ea043);
+  border: 1px solid #3fb950;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 6px;
+}
+
+.code-run-btn:hover {
+  background: linear-gradient(135deg, #2ea043, #3fb950);
+  box-shadow: 0 0 8px rgba(63, 185, 80, 0.3);
+}
+
+.code-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.code-output {
+  margin-top: 0;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #e6edf3;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.code-output pre {
+  background: transparent !important;
+  border: none !important;
+  margin: 8px 0 !important;
+  padding: 0 !important;
+}
+
+.code-output-success {
+  color: #3fb950;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.code-output-error {
+  color: #f85149;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.code-output-loading {
+  color: #58a6ff;
+  font-style: italic;
+}
+
+/* Inline Code */
+.msg code {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+body:not(.dark-mode) .msg code {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+/* ===== SYNTAX HIGHLIGHTING ===== */
+
+.msg pre .keyword { color: #ff7b72; }
+.msg pre .string { color: #a5d6ff; }
+.msg pre .number { color: #79c0ff; }
+.msg pre .comment { color: #8b949e; font-style: italic; }
+.msg pre .function { color: #d2a8ff; }
+.msg pre .operator { color: #ff7b72; }
+.msg pre .class { color: #ffa657; }
+.msg pre .variable { color: #ffa657; }
+.msg pre .builtin { color: #79c0ff; }
+
+/* ===== TOOL CALL CARDS ===== */
+
+.tool-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  font-size: 13px;
+  animation: toolCardPulse 0.5s ease;
+}
+
+@keyframes toolCardPulse {
+  0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tool-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.tool-icon.code { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.tool-icon.search { background: linear-gradient(135deg, #10b981, #059669); }
+.tool-icon.file { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.tool-icon.ai { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+.tool-name {
+  color: #e4e4e7;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tool-status {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tool-status.running {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  animation: statusPulse 1s infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.tool-status.complete {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.tool-output {
+  background: #0d1117;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #e6edf3;
+  overflow-x: auto;
+  border: 1px solid #30363d;
+}
+
+/* ===== TYPING ANIMATION ===== */
+
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: #a78bfa;
+  margin-left: 2px;
+  animation: cursorBlink 0.8s infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes cursorBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Streaming text effect */
+.streaming-text {
+  animation: textFade 0.1s ease;
+}
+
+@keyframes textFade {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+/* ===== LIST STYLING ===== */
+
+.msg ul, .msg ol {
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.msg li {
+  margin: 6px 0;
+  position: relative;
+}
+
+.msg ul li::marker {
+  color: #a78bfa;
+}
+
+.msg ol li::marker {
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+/* ===== BLOCKQUOTE STYLING ===== */
+
+.msg blockquote {
+  border-left: 3px solid #a78bfa;
+  padding-left: 16px;
+  margin: 12px 0;
+  color: #9ca3af;
+  font-style: italic;
+  background: rgba(139, 92, 246, 0.05);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+}
+
+/* ===== THINKING ANIMATION ===== */
+
+.thinking-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.thinking-dots span {
+  width: 8px;
+  height: 8px;
+  background: #a78bfa;
+  border-radius: 50%;
+  animation: thinkingDot 1.4s infinite ease-in-out both;
+}
+
+.thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+.thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0; }
+
+@keyframes thinkingDot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== EXECUTION OUTPUT STYLING ===== */
+
+.exec-output {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  position: relative;
+}
+
+.exec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #30363d;
+}
+
+.exec-label {
+  color: #8b949e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.exec-time {
+  margin-left: auto;
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.exec-content {
+  color: #e6edf3;
+  white-space: pre-wrap;
+}
+
+/* ===== MARKDOWN ENHANCEMENTS ===== */
+
+.msg h1, .msg h2, .msg h3 {
+  margin: 16px 0 10px 0;
+  font-weight: 600;
+  color: inherit;
+}
+
+.msg h1 { font-size: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+.msg h2 { font-size: 18px; }
+.msg h3 { font-size: 16px; }
+
+.msg table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.msg th, .msg td {
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.msg th {
+  background: rgba(139, 92, 246, 0.1);
+  font-weight: 600;
+}
+
+.msg tr:nth-child(even) {
+  background: rgba(255,255,255,0.02);
+}
+
+/* ===== LINK STYLING ===== */
+
+.msg a {
+  color: #60a5fa;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.msg a:hover {
+  border-bottom-color: #60a5fa;
+}
+
+/* ===== HORIZONTAL RULE ===== */
+
+.msg hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.3), transparent);
+  margin: 20px 0;
+}
+
+/* ===== COPY BUTTON ===== */
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #8b949e;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+}
+
+.msg-bubble:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: rgba(255,255,255,0.2);
+  color: #e6edf3;
+}
+
+.copy-btn.copied {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+/* Bottom input bar - COMPACT */
+.chat-input-bar {
+  position: fixed;
+  left: 260px;
+  right: 0;
+  bottom: 0;
+  padding: 8px 16px;
+  background: linear-gradient(to top, #f8f9fa, rgba(248, 249, 250, 0.95));
+  border-top: 1px solid #dadce0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+body.dark-mode .chat-input-bar {
+  background: linear-gradient(to top, #0d1117, rgba(13, 17, 23, 0.95));
+  border-color: #30363d;
+}
+
+.chat-input-bar textarea {
+  flex: 1;
+  resize: none;
+  border-radius: 18px;
+  border: 1px solid #dadce0;
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  max-height: 120px;
+  font-family: inherit;
+}
+
+.chat-input-bar button {
+  border: none;
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 18px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(239,68,68,0.25);
+  transition: all 0.2s;
+}
+
+.chat-input-bar button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.chat-input-bar .voice-btn {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  padding: 10px 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.voice-btn.recording {
+  animation: livePulse 1.5s infinite;
+  background: #ef4444;
+}
+
+.chat-input-bar button:disabled {
+  background: #dadce0;
+  cursor: not-allowed;
+}
+
+/* Files Tab - FILL WIDTH */
+.files-section {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.files-header h2 {
+  font-size: 26px;
+  color: #202124;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+body.dark-mode .files-header h2 {
+  color: #e4e4e7;
+}
+
+.neural-drive-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.neural-drive-search {
+  flex: 1;
+  position: relative;
+}
+
+.neural-drive-search input {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 20px;
+  border: 1px solid #dadce0;
+  font-size: 15px;
+  background: #fff;
+  transition: all 0.2s;
+}
+
+body.dark-mode .neural-drive-search input {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e4e4e7;
+}
+
+.neural-drive-search input:focus {
+  border-color: #3b82f6;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.drop-zone {
+  border: 2px dashed #dadce0;
+  border-radius: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  background: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 20px;
+}
+
+body.dark-mode .drop-zone {
+  border-color: #30363d;
+  background: rgba(22, 27, 34, 0.5);
+}
+
+.drop-zone.dragover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+  transform: scale(1.02);
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.4);
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+.file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  border-color: #3b82f6;
+}
+
+body.dark-mode .file-card {
+  background: #161b22;
+  border-color: #30363d;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+body.dark-mode .file-card:hover {
+  border-color: #3b82f6;
+  background: #1c2128;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.file-name-wrapper {
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: #5f6368;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.file-card:hover .file-actions {
+  opacity: 1;
+}
+
+.file-action-btn {
+  border: none;
+  background: rgba(139, 148, 158, 0.1);
+  color: #5f6368;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.dark-mode .file-action-btn {
+  color: #8b949e;
+}
+
+.file-action-btn:hover {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.file-action-btn.delete:hover {
+  background: #fce8e6;
+  color: #ea4335;
+}
+
+body.dark-mode .file-action-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+body.dark-mode .file-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* LIVE Voice Mode Overlay */
+#liveVoiceOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.95);
+  backdrop-filter: blur(12px);
+  z-index: 30000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+#liveVoiceOverlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.05);
+}
+
+.live-orb {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #a78bfa, #ec4899);
+  animation: idleOrb 3s ease-in-out infinite;
+  box-shadow: 0 0 40px rgba(167, 139, 250, 0.4);
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.live-orb::after {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  border: 2px solid rgba(167, 139, 250, 0.5);
+  animation: rippleOrb 2s linear infinite;
+  opacity: 0;
+}
+
+.live-orb.listening {
+  animation: listeningOrb 1.5s ease-in-out infinite;
+  box-shadow: 0 0 60px rgba(59, 130, 246, 0.6);
+}
+
+.live-orb.speaking {
+  animation: speakingOrb 0.5s ease-in-out infinite alternate;
+  box-shadow: 0 0 80px rgba(236, 72, 153, 0.6);
+}
+
+@keyframes idleOrb {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes listeningOrb {
+  0%, 100% { transform: scale(1) translateY(0); box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
+  50% { transform: scale(1.1) translateY(-10px); box-shadow: 0 0 80px rgba(59, 130, 246, 0.8); }
+}
+
+@keyframes speakingOrb {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.2); }
+}
+
+@keyframes rippleOrb {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.live-status {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.live-transcript {
+  font-size: 18px;
+  color: #a1a1aa;
+  max-width: 600px;
+  text-align: center;
+  min-height: 60px;
+  margin-bottom: 40px;
+}
+
+.close-live-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-live-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+
+/* Settings Tab */
+.settings-section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.settings-header {
+  margin-bottom: 24px;
+}
+
+.settings-header h2 {
+  font-size: 24px;
+  color: #202124;
+  margin: 0;
+}
+
+.settings-card {
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.settings-card h3 {
+  font-size: 16px;
+  color: #202124;
+  margin: 0 0 8px 0;
+}
+
+body.dark-mode .settings-card {
+  background: #161b22;
+  border-color: rgba(255,255,255,0.07);
+}
+
+body.dark-mode .settings-header h2 {
+  color: #e4e4e7;
+}
+
+body.dark-mode .settings-card h3 {
+  color: #e4e4e7;
+}
+
+.memory-item, .rule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f1f3f4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+body.dark-mode .memory-item, body.dark-mode .rule-item {
+  background: rgba(59,130,246,0.1);
+}
+
+.memory-item span, .rule-item span {
+  flex: 1;
+  font-size: 13px;
+  color: #202124;
+}
+
+body.dark-mode .memory-item span, body.dark-mode .rule-item span {
+  color: #e4e4e7;
+}
+
+.rule-toggle {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.rule-toggle.on {
+  background: #34a853;
+  color: #fff;
+}
+
+.rule-toggle.off {
+  background: #dadce0;
+  color: #5f6368;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #ea4335;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.delete-btn:hover {
+  color: #c5221f;
+}
+
+/* Terminal - FILL SCREEN */
+.terminal-section {
+  background: #0d1117;
+  border-radius: 12px;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(48, 54, 61, 0.5);
+  overflow: hidden;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+  border-bottom: 1px solid #30363d;
+}
+
+.terminal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+
+.terminal-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-brand-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e6edf3;
+  font-family: 'Google Sans', system-ui, sans-serif;
+}
+
+.terminal-brand-sub {
+  font-size: 13px;
+  color: #7d8590;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.terminal-title {
+  font-size: 12px;
+  color: #7d8590;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.terminal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.term-btn {
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #7d8590;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.term-btn:hover {
+  background: #21262d;
+  color: #e6edf3;
+  border-color: #484f58;
+}
+
+.terminal-banner {
+  background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+  padding: 24px;
+  border-bottom: 1px solid #21262d;
+  text-align: center;
+}
+
+.banner-logo {
+  font-family: 'Google Sans', system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.banner-bracket {
+  color: #30363d;
+}
+
+.banner-n { color: #3b82f6; }
+.banner-e { color: #10b981; }
+.banner-u { color: #22d3ee; }
+.banner-r { color: #a855f7; }
+.banner-a { color: #ef4444; }
+.banner-l { color: #f97316; }
+
+.banner-ai {
+  background: linear-gradient(135deg, #22d3ee 0%, #a855f7 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 32px;
+  margin-left: 4px;
+  font-weight: 800;
+}
+
+.banner-tagline {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+  color: #7d8590;
+  letter-spacing: 1px;
+}
+
+.terminal-banner pre {
+  margin: 0;
+  padding: 0;
+  display: inline-block;
+  text-align: left;
+}
+
+.terminal-banner-ascii {
+  color: #58a6ff;
+}
+
+.terminal-banner-green {
+  color: #3fb950;
+}
+
+.terminal-banner-cyan {
+  color: #39c5cf;
+}
+
+.terminal-banner-yellow {
+  color: #d29922;
+}
+
+.terminal-banner-magenta {
+  color: #bc8cff;
+}
+
+.terminal-banner-title {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.terminal-output {
+  flex: 1;
+  padding: 20px 24px;
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 15px;
+  color: #c9d1d9;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+}
+
+.term-line {
+  padding: 3px 0;
+  line-height: 1.7;
+}
+
+.term-line.input {
+  color: #58a6ff;
+}
+
+.term-line.success {
+  color: #3fb950;
+}
+
+.term-line.error {
+  color: #f85149;
+}
+
+.term-line.info {
+  color: #8b949e;
+}
+
+.terminal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+  border-top: 1px solid #30363d;
+}
+
+.terminal-input-row input {
+  flex: 1;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 14px 18px;
+  outline: none;
+  color: #c9d1d9;
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.terminal-input-row input:focus {
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.terminal-input-row input::placeholder {
+  color: #6e7681;
+}
+
+.terminal-prompt {
+  color: #58a6ff;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 15px;
+}
+
+.terminal-run-btn {
+  border: none;
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  color: #fff;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.terminal-run-btn:hover {
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  padding: 12px 20px;
+  background: #323232;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 20000; /* Increased to be above Auth Overlay (10000) */
+  animation: slideUp 0.3s;
+}
+
+.toast.success {
+  background: #34a853;
+}
+
+.toast.error {
+  background: #ea4335;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hidden */
+.hidden { display: none !important; }
+
+/* Terminal 2.0 Styles - Tabs and Quick Commands only */
+.terminal-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.terminal-tab {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.terminal-tab:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
+.terminal-tab.active {
+  background: #238636;
+  color: white;
+}
+
+.terminal-quick-cmds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 16px;
+  background: #161b22;
+  border-top: 1px solid #30363d;
+}
+
+.quick-cmd {
+  padding: 4px 8px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quick-cmd:hover {
+  background: #30363d;
+  color: #c9d1d9;
+  border-color: #484f58;
+}
+
+.terminal-prompt {
+  color: #a78bfa;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.terminal-run-btn {
+  padding: 6px 12px;
+  background: #238636;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.terminal-run-btn:hover {
+  background: #2ea043;
+}
+
+.terminal-panel {
+  position: absolute;
+  right: 20px;
+  bottom: 100px;
+  width: 300px;
+  max-height: 400px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #21262d;
+  border-bottom: 1px solid #30363d;
+  color: #c9d1d9;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panel-header button {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.panel-content {
+  padding: 12px;
+  max-height: 340px;
+  overflow-y: auto;
+  color: #c9d1d9;
+  font-size: 12px;
+}
+
+.snippets-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #21262d;
+  border-bottom: 1px solid #30363d;
+}
+
+.snippet-tab {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.snippet-tab:hover {
+  background: #30363d;
+  color: #c9d1d9;
+}
+
+.snippet-tab.active {
+  background: #238636;
+  color: white;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.sidebar-footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #5f6368;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.sidebar-link:hover {
+  background: #f1f3f4;
+}
+
+body.dark-mode .sidebar-link {
+  color: #8a8a9a;
+}
+
+body.dark-mode .sidebar-link:hover {
+  background: rgba(124,58,237,0.15);
+  color: #a78bfa;
+}
+
+/* Accessibility Improvements */
+*:focus-visible {
+  outline: 3px solid var(--google-blue);
+  outline-offset: 2px;
+}
+.nav-item:focus-visible,
+.tab-btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: 3px solid var(--google-blue);
+  outline-offset: 2px;
+}
+.sidebar {
+  min-width: 220px;
+}
+.sidebar * {
+  color: var(--gray-900);
+}
+.sidebar .nav-item,
+.sidebar .history-item {
+  color: var(--gray-800);
+}
+@media (prefers-contrast: high) {
+  .sidebar {
+    background: var(--white);
+    border-right: 2px solid var(--gray-900);
+  }
+  .sidebar * {
+    color: var(--gray-900);
+  }
+}
+
+/* Micro-interactions */
+.nav-item:hover,
+.history-item:hover {
+  transform: translateX(4px);
+}
+
+.immersive:hover {
+  transform: translateY(-4px);
+  background: rgba(255,255,255,0.08) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+@keyframes shimmer {
+  0% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
+.loading-shimmer {
+  animation: shimmer 1.5s infinite ease-in-out;
+}
+
+.msg-bubble {
+  animation: messageIn 0.3s ease;
+}
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.input-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+}
+
+/* Chat Bubble Polish */
+.message.user .msg-bubble {
+  background: linear-gradient(135deg, #e8f0fe, #d2e3fc);
+  border-radius: 20px 20px 4px 20px;
+}
+.message.assistant .msg-bubble {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 20px 20px 20px 4px;
+}
+
+/* Dark Mode */
+.dark-mode {
+  --gray-50: #1a1a1a;
+  --gray-100: #2d2d2d;
+  --gray-200: #3d3d3d;
+  --gray-300: #525252;
+  --gray-500: #8b8b8b;
+  --gray-700: #b0b0b0;
+  --gray-900: #f0f0f0;
+  --white: #121212;
+}
+.dark-mode .header,
+.dark-mode .sidebar,
+.dark-mode .tab-bar {
+  background: #1a1a1a;
+  border-color: #333;
+}
+.dark-mode .input-wrapper {
+  background: #2d2d2d;
+  border-color: #444;
+}
+.dark-mode .message.assistant .msg-bubble {
+  background: #2d2d2d;
+  border-color: #444;
+  color: #f0f0f0;
+}
+.dark-mode .message.user .msg-bubble {
+  background: linear-gradient(135deg, #1e3a5f, #2d4a6f);
+  color: #e0e0e0;
+}
+
+/* Model Badge */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--gray-100);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--gray-700);
+  cursor: help;
+  position: relative;
+}
+.model-badge::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: var(--gray-900);
+  color: white;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s;
+  margin-bottom: 8px;
+}
+.model-badge:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 16px;
+  margin-bottom: 12px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background: var(--google-blue);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Message Timestamp & Copy */
+.msg-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.msg-timestamp {
+  font-size: 11px;
+  color: var(--gray-500);
+}
+.msg-copy-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--gray-600);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.msg-bubble:hover .msg-copy-btn {
+  opacity: 1;
+}
+.msg-copy-btn:hover {
+  background: var(--gray-100);
+}
+
+/* Mobile Optimization */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -280px;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    transition: left 0.3s;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+  .sidebar-toggle-mobile {
+    display: flex;
+    position: fixed;
+    bottom: 80px;
+    left: 16px;
+    width: 48px;
+    height: 48px;
+    background: var(--google-blue);
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 1000;
+    cursor: pointer;
+    border: none;
+  }
+  /* Fix bottom input bar on mobile - reset left offset since sidebar is hidden */
+  .chat-input-bar {
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+  }
+  .input-wrapper {
+    padding: 8px 12px;
+  }
+  textarea {
+    font-size: 16px;
+  }
+  .welcome h1 {
+    font-size: 24px;
+  }
+  .prompt-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  /* ===== MOBILE TERMINAL STYLES ===== */
+  /* Terminal fits within content area, NOT full screen */
+  .terminal-section {
+    position: relative;
+    border-radius: 12px;
+    min-height: 400px;
+    max-height: 500px;
+    margin: 8px;
+  }
+  
+  .terminal-header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  
+  .terminal-brand {
+    order: 1;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .terminal-brand-name {
+    font-size: 14px;
+  }
+  
+  .terminal-brand-sub {
+    font-size: 10px;
+  }
+  
+  .terminal-actions {
+    order: 2;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .term-btn {
+    padding: 6px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+  }
+  
+  /* Compact banner */
+  .terminal-banner {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  
+  /* Compact tabs */
+  .terminal-tabs {
+    padding: 6px 10px;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .terminal-tab {
+    padding: 6px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+    border-radius: 6px;
+  }
+  
+  /* Quick commands - scrollable row */
+  .terminal-quick-cmds {
+    padding: 6px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  
+  .quick-cmd {
+    padding: 5px 10px;
+    font-size: 11px;
+    flex-shrink: 0;
+    border-radius: 5px;
+  }
+  
+  /* Terminal output */
+  .terminal-output {
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 150px;
+    max-height: 200px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Input bar - fits within terminal */
+  .terminal-input-row {
+    position: relative;
+    padding: 8px 10px;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  
+  .terminal-prompt {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  
+  .terminal-input-row input {
+    padding: 10px 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    min-width: 0;
+  }
+  
+  .terminal-run-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  
+  /* Panels - normal within content */
+  .terminal-panel {
+    position: relative;
+    border-radius: 8px;
+    max-height: 300px;
+    margin: 8px 0;
+  }
+  
+  .terminal-panel .panel-header {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  
+  .terminal-panel .panel-content {
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .term-close {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+}
+
+/* Onboarding Modal Styles */
+.onboarding-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.onboarding-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.onboarding-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 40px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.4s ease;
+}
+
+body.dark-mode .onboarding-card {
+  background: #161b22;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.onboarding-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a73e8;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+body.dark-mode .onboarding-title {
+  color: #a78bfa;
+}
+
+.onboarding-step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: flex-start;
+}
+
+.onboarding-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.onboarding-icon.chat {
+  background: #e8f0fe;
+}
+
+.onboarding-icon.files {
+  background: #e6f4ea;
+}
+
+.onboarding-icon.terminal {
+  background: #fce8e6;
+}
+
+body.dark-mode .onboarding-icon.chat {
+  background: rgba(124, 58, 237, 0.2);
+}
+
+body.dark-mode .onboarding-icon.files {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+body.dark-mode .onboarding-icon.terminal {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.onboarding-step h4 {
+  font-size: 16px;
+  font-weight: 500;
+  color: #202124;
+  margin-bottom: 4px;
+}
+
+body.dark-mode .onboarding-step h4 {
+  color: #e4e4e7;
+}
+
+.onboarding-step p {
+  font-size: 14px;
+  color: #5f6368;
+  line-height: 1.5;
+}
+
+body.dark-mode .onboarding-step p {
+  color: #8a8a9a;
+}
+
+.onboarding-close {
+  width: 100%;
+  padding: 14px 24px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.onboarding-close:hover {
+  background: #185abc;
+}
+
+body.dark-mode .onboarding-close {
+  background: #7c3aed;
+}
+
+body.dark-mode .onboarding-close:hover {
+  background: #6d28d9;
+}
+
+@media (max-width: 768px) {
+  .onboarding-card {
+    padding: 24px 20px;
+    margin: 20px;
+  }
+}
+
+@keyframes livePulse {
+  0%, 100% { 
+    opacity: 1; 
+    text-shadow: 0 0 8px rgba(239,68,68,0.6), 0 0 16px rgba(239,68,68,0.4);
+  }
+  50% { 
+    opacity: 0.7; 
+    text-shadow: 0 0 12px rgba(239,68,68,0.8), 0 0 24px rgba(239,68,68,0.6), 0 0 36px rgba(239,68,68,0.3);
+  }
+}
+
+/* Auth Overlay */
+#authOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  transition: background 0.3s ease;
+}
+
+.auth-card {
+  background: #ffffff;
+  border: 1px solid #e8eaed;
+  border-radius: 28px;
+  padding: 48px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #3b82f6, #a78bfa, #ec4899);
+}
+
+.auth-brand {
+  margin-bottom: 32px;
+}
+
+.auth-brand .product-name {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.auth-card h2 {
+  margin-bottom: 8px;
+  font-size: 24px;
+  color: #202124;
+  font-weight: 600;
+}
+
+.auth-subtitle {
+  color: #5f6368;
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.auth-input-group {
+  position: relative;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.auth-input-label {
+  display: block;
+  font-size: 12px;
+  color: #a78bfa;
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: #f8f9fa;
+  border: 1px solid #dadce0;
+  border-radius: 14px;
+  color: #202124;
+  outline: none;
+  transition: all 0.2s ease;
+  font-size: 15px;
+}
+
+.auth-input:focus {
+  border-color: #ef4444;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 12px;
+  margin-bottom: 24px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.auth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
+  filter: brightness(1.1);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+}
+
+.auth-switch {
+  font-size: 14px;
+  color: #8b949e;
+  cursor: pointer;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.auth-switch span {
+  color: #a78bfa;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.auth-switch span:hover {
+  text-decoration: underline;
+}
+</style>
+</head>
+<body class="">
+
+<!-- Auth Overlay -->
+<div id="authOverlay" class="hidden">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="product-name">
+        <span style="color:#3b82f6">N</span><span style="color:#10b981">e</span><span style="color:#22d3ee">u</span><span style="color:#a855f7">r</span><span style="color:#ef4444">a</span><span style="color:#f97316">l</span><span style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700">AI</span>
+      </span>
+    </div>
+    <h2 id="authTitle">Welcome Back</h2>
+    <p class="auth-subtitle" id="authSubtitle">Enter your credentials to access your cloud brain.</p>
+    
+    <div class="auth-input-group" id="emailGroup">
+      <label class="auth-input-label">Username or Email</label>
+      <input type="text" id="authEmail" class="auth-input" placeholder="e.g. founder@neuralai.com or dendrew">
+    </div>
+    
+    <div class="auth-input-group hidden" id="usernameGroup">
+      <label class="auth-input-label">Username</label>
+      <input type="text" id="authUsername" class="auth-input" placeholder="e.g. dendrew">
+    </div>
+    
+    <div class="auth-input-group">
+      <label class="auth-input-label">Password</label>
+      <input type="password" id="authPassword" class="auth-input" placeholder="••••••••">
+    </div>
+
+    <div class="auth-input-group hidden" id="confirmPasswordGroup">
+      <label class="auth-input-label">Confirm Password</label>
+      <input type="password" id="authConfirmPassword" class="auth-input" placeholder="••••••••">
+    </div>
+
+    <button id="authSubmit" class="auth-btn">Login</button>
+    <p class="auth-switch" id="authToggle">Don't have an account? <span>Sign Up</span></p>
+
+    <!-- Experimental Access Modes -->
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+        <p style="font-size: 11px; color: #8a8a9a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">Maestro Student & Guest Portal</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div id="maestroGroup" class="auth-input-group" style="margin-bottom: 0;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="maestroCode" class="auth-input" placeholder="Enter Maestro ID (e.g. Mae001)" style="flex: 1; padding: 10px 14px; font-size: 13px;">
+                    <button id="maestroSubmit" class="auth-btn" style="margin: 0; padding: 10px 16px; width: auto; font-size: 13px; background: linear-gradient(135deg, #10b981, #059669);">Verify</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.05);">
+                <span style="font-size: 10px; color: #555;">OR</span>
+                <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.05);">
+            </div>
+
+            <button id="guestSubmit" class="auth-btn" style="margin: 0; background: rgba(139, 92, 246, 0.05); border: 1px dashed rgba(139, 92, 246, 0.4); color: #a78bfa; box-shadow: none; font-size: 14px;">
+                🚀 Test Preview (Instant Guest Access)
+            </button>
+            <p style="font-size: 10px; color: #5f6368; text-align: center; margin-top: 4px;">No account required for trial sessions.</p>
+        </div>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding Modal -->
+<div class="onboarding-overlay" id="onboardingOverlay">
+  <div class="onboarding-card">
+    <div class="onboarding-title">Welcome to NeuralAI</div>
+    
+    <div class="onboarding-step">
+      <div class="onboarding-icon chat">💬</div>
+      <div>
+        <h4>Chat</h4>
+        <p>Ask questions, write code, analyze documents. NeuralAI responds with streaming answers.</p>
+      </div>
+    </div>
+    
+    <div class="onboarding-step">
+      <div class="onboarding-icon files">📁</div>
+      <div>
+        <h4>Files</h4>
+        <p>Upload PDFs, docs, or text files. NeuralAI can read and answer questions about them.</p>
+      </div>
+    </div>
+    
+    <div class="onboarding-step">
+      <div class="onboarding-icon terminal">⚡</div>
+      <div>
+        <h4>Terminal</h4>
+        <p>Run commands in Bash, Python, or Node.js. A real shell in your browser.</p>
+      </div>
+    </div>
+    
+    <button class="onboarding-close" onclick="closeOnboarding()">Got it, let's go!</button>
+  </div>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="product-name">
+      <span style="color:#3b82f6">N</span><span style="color:#10b981">e</span><span style="color:#22d3ee">u</span><span style="color:#a855f7">r</span><span style="color:#ef4444">a</span><span style="color:#f97316">l</span><span style="background:linear-gradient(135deg,#22d3ee,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700">AI</span>
+      <span style="color:#ef4444;font-size:10px;animation:livePulse 1.5s ease-in-out infinite;text-shadow:0 0 8px rgba(239,68,68,0.6);">●LIVE</span>
+    </span>
+  </div>
+  <div class="topbar-right">
+    <span id="userGreeting" class="product-name" style="margin-right: 12px;"></span>
+    <button id="logoutBtn" class="top-btn" onclick="logout()">Logout</button>
+    <button class="top-btn" onclick="toggleDarkMode()">🌙 Theme</button>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <button class="nav-item active" data-tab="chat" onclick="switchTab('chat')">💬 Chat</button>
+      <button class="nav-item" data-tab="files" onclick="switchTab('files')">📁 Files</button>
+      <button class="nav-item" data-tab="terminal" onclick="switchTab('terminal')">💻 Terminal</button>
+      <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</button>
+    </div>
+    <div class="sidebar-section">
+      <h3>Recent Intelligence</h3>
+      <div id="sidebarHistoryList"></div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Model Status</h3>
+      <div class="uplink-row">
+        <span class="status-dot online" id="uplinkDot"></span>
+        <span class="status-label" id="uplinkLabel">Ready</span>
+      </div>
+      <p class="muted">Fine-tuned SmolLM2-360M running locally</p>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-links">
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" class="sidebar-link">🔒 Privacy & Data Policy</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer" class="sidebar-link">⚖️ Terms of Service</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+    <!-- Chat Tab -->
+    <div id="tab-chat">
+      <!-- Search bar (Google-style) -->
+      <section class="search-wrapper">
+        <div class="search-box" style="position:relative;">
+          <input type="text" id="queryInput" placeholder="Ask NeuralAI anything..." autocomplete="off" onfocus="showHistoryDropdown()" onblur="hideHistoryDropdownDelayed()" />
+          <button id="searchBtn">Ask</button>
+          <!-- Chat History Dropdown -->
+          <div id="historyDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface,#fff);border:1px solid var(--border,#dadce0);border-radius:12px;margin-top:4px;max-height:280px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:100;">
+            <div style="padding:8px 12px;font-size:12px;color:#6b7280;border-bottom:1px solid rgba(255,255,255,0.1);">Recent Conversations</div>
+            <div id="historyDropdownList"></div>
+            <div id="historyDropdownEmpty" style="display:none;padding:16px;text-align:center;color:#6b7280;font-size:13px;">No past conversations</div>
+          </div>
+        </div>
+        <div class="search-tabs">
+          <button class="tab active" data-mode="all">All</button>
+          <button class="tab" data-mode="chat">Chat</button>
+          <button class="tab" data-mode="files">Files</button>
+          <button class="tab" data-mode="system">System Audit</button>
+        </div>
+      </section>
+
+      <!-- Results / Chat area -->
+      <section class="results">
+        <!-- Welcome screen for new chats -->
+        <div id="welcomeScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;">
+          <div style="font-size:48px;margin-bottom:16px;">🧠</div>
+          <h2 style="font-size:24px;color:#e4e4e7;margin-bottom:8px;">Welcome to NeuralAI</h2>
+          <p style="color:#6b7280;margin-bottom:24px;max-width:400px;">Your personal AI assistant with memory, persistence, and smart routing.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+            <button class="prompt-card" data-prompt="What can you help me with?" style="padding:12px 20px;background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e4e4e7;cursor:pointer;font-size:14px;">💡 What can you do?</button>
+            <button class="prompt-card" data-prompt="Help me write some code" style="padding:12px 20px;background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e4e4e7;cursor:pointer;font-size:14px;">💻 Help me code</button>
+            <button class="prompt-card" data-prompt="Explain a complex topic to me" style="padding:12px 20px;background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e4e4e7;cursor:pointer;font-size:14px;">📚 Explain something</button>
+          </div>
+        </div>
+        <div class="chat-thread" id="messages"></div>
+      </section>
+    </div>
+
+    <!-- Files Tab -->
+    <div id="tab-files" class="hidden">
+      <section class="files-section">
+        <div class="files-header">
+          <h2><span style="font-size:28px;">🗂️</span> NeuralDrive</h2>
+          <button class="upload-btn" id="uploadBtn">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            Upload File
+          </button>
+        </div>
+        
+        <div class="neural-drive-toolbar">
+          <div class="neural-drive-search">
+            <input type="text" id="fileSearch" placeholder="Search your files..." onkeyup="filterFiles()">
+          </div>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+          <svg width="48" height="48" fill="none" stroke="#a78bfa" viewBox="0 0 24 24" style="margin-bottom:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          <h3 style="margin:0 0 8px 0; color:var(--text);">Drag & Drop files here</h3>
+          <p style="margin:0; color:#8a8a9a; font-size:14px;">Or click to select files from your computer</p>
+          <input type="file" id="fileInputHidden" style="display:none" multiple>
+        </div>
+
+        <div class="files-grid" id="filesGrid"></div>
+      </section>
+    </div>
+
+    <!-- Terminal Tab 2.0 -->
+    <div id="tab-terminal" class="hidden">
+      <section class="terminal-section">
+        <div class="terminal-header">
+          <div class="terminal-brand">
+            <div class="terminal-brand-text">
+              <span class="terminal-brand-name">NeuralAI Terminal</span>
+              <span class="terminal-brand-sub">v2.0 • AI-Powered Shell</span>
+            </div>
+          </div>
+          <div class="terminal-actions">
+            <button class="term-btn" onclick="clearTerm()" title="Clear output">🗑️ Clear</button>
+            <button class="term-btn" onclick="restartTerm()" title="Restart terminal">🔄 Restart</button>
+            <button class="term-btn" onclick="toggleHistory()" title="Command history">📜 History</button>
+            <button class="term-btn" onclick="showSnippets()" title="Code snippets">📦 Snippets</button>
+          </div>
+        </div>
+        
+        <!-- ASCII Banner -->
+        <div class="terminal-banner" id="terminalBanner">
+          <div class="banner-logo">
+            <span class="banner-bracket">[</span>
+            <span class="banner-n">N</span><span class="banner-e">e</span><span class="banner-u">u</span><span class="banner-r">r</span><span class="banner-a">a</span><span class="banner-l">l</span>
+            <span class="banner-ai">AI</span>
+            <span class="banner-bracket">]</span>
+          </div>
+          <div class="banner-tagline">AI-Powered Development Shell v2.0</div>
+        </div>
+        
+        <!-- Terminal Tabs -->
+        <div class="terminal-tabs">
+          <button class="terminal-tab active" data-shell="bash">Bash</button>
+          <button class="terminal-tab" data-shell="python">Python</button>
+          <button class="terminal-tab" data-shell="node">Node.js</button>
+        </div>
+        
+        <div class="terminal-output" id="terminalOutput"></div>
+        
+        <!-- Quick Commands -->
+        <div class="terminal-quick-cmds">
+          <button class="quick-cmd" onclick="insertCmd('ls -la')">ls -la</button>
+          <button class="quick-cmd" onclick="insertCmd('git status')">git status</button>
+          <button class="quick-cmd" onclick="insertCmd('python --version')">python</button>
+          <button class="quick-cmd" onclick="insertCmd('pip list')">pip list</button>
+          <button class="quick-cmd" onclick="insertCmd('npm list')">npm list</button>
+          <button class="quick-cmd" onclick="insertCmd('help')">help</button>
+        </div>
+        
+        <div class="terminal-input-row">
+          <span class="terminal-prompt" id="terminalPrompt">root@Neural:~#</span>
+          <input type="text" id="terminalInput" placeholder="Type command or code..." autocomplete="off" spellcheck="false" />
+          <button class="terminal-run-btn" onclick="executeTerminalCmd()">▶ Run</button>
+        </div>
+      </section>
+      
+      <!-- History Panel -->
+      <div id="historyPanel" class="terminal-panel hidden">
+        <div class="panel-header">
+          <span>Command History</span>
+          <button onclick="toggleHistory()">×</button>
+        </div>
+        <div id="termHistoryList" class="panel-content"></div>
+      </div>
+      
+      <!-- Snippets Panel -->
+      <div id="snippetsPanel" class="terminal-panel hidden">
+        <div class="panel-header">
+          <span>Code Snippets</span>
+          <button onclick="hideSnippets()">×</button>
+        </div>
+        <div class="snippets-tabs">
+          <button class="snippet-tab active" data-lang="python">Python</button>
+          <button class="snippet-tab" data-lang="bash">Bash</button>
+          <button class="snippet-tab" data-lang="javascript">JavaScript</button>
+        </div>
+        <div id="snippetsList" class="panel-content"></div>
+      </div>    </div>
+
+    <!-- Settings Tab (Unified & Consolidated) -->
+    <div id="tab-settings" class="hidden">
+      <section class="settings-section">
+        <div class="settings-header">
+          <h2>⚙️ Settings & Profile</h2>
+          <p style="color:#6b7280;font-size:13px;margin-top:4px;">Manage your identity, data vault, and model intelligence.</p>
+        </div>
+        
+        <!-- Identity Card -->
+        <div class="settings-card">
+          <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:20px;">
+              <div style="width:64px; height:64px; background:linear-gradient(135deg,#3b82f6,#a78bfa); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; color:white;" id="profileInitial">U</div>
+              <div>
+                  <h3 style="margin:0; font-size:18px;">Personal Profile</h3>
+                  <p style="font-size:13px; color:#8a8a9a;">Authenticated access only.</p>
+              </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+              <div class="auth-input-group" style="margin-bottom:0">
+                  <label class="auth-input-label">First Name</label>
+                  <input type="text" id="profileFirstName" class="auth-input" placeholder="Dre">
+              </div>
+              <div class="auth-input-group" style="margin-bottom:0">
+                  <label class="auth-input-label">Last Name</label>
+                  <input type="text" id="profileLastName" class="auth-input" placeholder="Harris">
+              </div>
+          </div>
+
+          <div class="auth-input-group">
+              <label class="auth-input-label">Email Address</label>
+              <input type="email" id="profileEmail" class="auth-input" placeholder="deandrewh26@gmail.com">
+          </div>
+
+          <div class="auth-input-group">
+              <label class="auth-input-label">Username (Display Name)</label>
+              <input type="text" id="profileUsername" class="auth-input" placeholder="dendrew">
+          </div>
+
+          <div class="auth-input-group">
+              <label class="auth-input-label">Biography & Background</label>
+              <textarea id="userBioInput" placeholder="Tell NeuralAI about your goals..." style="width:100%;height:100px;background:#09090b;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px;color:#fff;resize:none;outline:none;"></textarea>
+          </div>
+
+          <button class="auth-btn" style="margin-top:24px;" onclick="saveFullProfile()">Update Identity Vault</button>
+        </div>
+        
+        <!-- Intelligence Section -->
+        <div class="settings-card">
+          <h3 style="font-size:14px; color:#a78bfa; margin-bottom:12px;">Personal Memory Cloud</h3>
+          <p style="font-size:12px; color:#8a8a9a; margin-bottom:12px;">Persistent facts that personalize your experience.</p>
+          <div id="memoryList"></div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <input type="text" id="memoryInput" placeholder="Add a memory..." style="flex:1; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#09090b; color:#fff;">
+            <button onclick="addMemoryFromTab()" style="padding:10px 18px; background:#7c3aed; border:none; border-radius:10px; color:#fff; cursor:pointer;">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Behavioral Constraint Rules</h3>
+          <div id="rulesList"></div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <input type="text" id="ruleInput" placeholder="Add a rule..." style="flex:1; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#09090b; color:#fff;">
+            <button onclick="addRuleFromTab()" style="padding:10px 18px; background:#10b981; border:none; border-radius:10px; color:#fff; cursor:pointer;">Add</button>
+          </div>
+        </div>
+
+        <!-- Voice Selection -->
+        <div class="settings-card">
+          <h3 style="font-size:14px; color:#3b82f6; margin-bottom:12px;">Live Speech-to-Speech Voice</h3>
+          <p style="font-size:12px; color:#8a8a9a; margin-bottom:12px;">Select the persona voice for NeuralAI's Live Speech-to-Speech conversations.</p>
+          <div class="auth-input-group" style="margin-bottom:0;">
+            <select id="voiceSelection" class="auth-input" onchange="saveVoicePreference()" style="width:100%; background:#09090b; border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:10px 14px; color:#fff; outline:none; cursor:pointer;">
+              <option value="Alexa">Alexa (Clear, professional female)</option>
+              <option value="Sara">Sara (Friendly, conversational female)</option>
+              <option value="Andrew">Andrew (African American black male, down south light heavy tone)</option>
+              <option value="Claude">Claude (Calm, intellectual male)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Architecture & Node Status</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Intelligence Core</div>
+                  <div style="color:#a78bfa; font-weight:600; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                      <span style="color:#10b981; font-size: 8px; animation: pulse 1s infinite;">●</span> v5.2.1-maintenance
+                  </div>
+                  <div style="font-size: 10px; color: #34a853; margin-top: 2px;">OTA Synchronized</div>
+              </div>
+              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Inference Node</div>
+                  <div id="settingDevice" style="color:#fff; font-weight:600; margin-top: 4px;">Scanning...</div>
+                  <div style="font-size: 10px; color: #1a73e8; margin-top: 2px;">CPU (Optimized)</div>
+              </div>
+          </div>
+          <div style="margin-top: 16px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #5f6368;">Latent Space Depth:</span>
+                  <span style="color: #3b82f6;">360M Params</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #5f6368;">Uplink Status:</span>
+                  <span style="color: #10b981;">CONNECTED</span>
+              </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Bottom input bar -->
+<section class="chat-input-bar">
+  <button id="voiceBtn" class="voice-btn" title="Live Conversation">🎤</button>
+  <textarea id="chatInput" placeholder="Ask NeuralAI anything..." rows="1"></textarea>
+  <button id="sendBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 4px 14px rgba(239,68,68,0.3);">Send</button>
+</section>
+
+<!-- TERMINAL PANEL -->
+<div id="terminalPanel" class="terminal-panel hidden">
+  <div class="terminal-header">
+    <span class="term-title">NeuralAI Terminal</span>
+    <button id="closeTerminal" class="term-close">×</button>
+  </div>
+  <div id="popupTerminalOutput" class="terminal-output"></div>
+  <div class="terminal-input-row">
+    <span class="prompt">$</span>
+    <input id="popupTerminalInput" type="text" placeholder="Enter command..." autocomplete="off" />
+    <button id="popupTerminalRun">Run</button>
+  </div>
+</div>
+
+<!-- LIVE VOICE OVERLAY -->
+<div id="liveVoiceOverlay" class="hidden">
+  <div class="live-orb" id="liveOrb"></div>
+  <div class="live-status" id="liveStatusText">Initializing Live Mode...</div>
+  <div class="live-transcript" id="liveTranscript">Listening...</div>
+  <button class="close-live-btn" id="closeLiveBtn">End Conversation</button>
+</div>
+
+<script src="/static/js/main_v2.js"></script>
+</body>
+</html>

@@ -133,11 +133,11 @@ NeuralAI is evolving from a workspace-bound assistant into a standalone, downloa
 **Project Code Name**: `NeuralLabs` (Working Title)
 **Vision**: A local-first, AI-native operating environment that integrates the Agentic Orchestrator, World-Brain, and NeuralDrive into a seamless desktop experience—similar to the "Codex" model but expanded into a full cognitive workspace.
 
-### 🚀 Roadmap Addition: The Nexus Shift
+### 🚀 Roadmap Addition: The NeuralLabs Shift
 
-- **Nexus v1 (Client)**: Development of a cross-platform wrapper (Electron/Tauri) for the NeuralAI interface.
-- **Nexus v2 (Edge)**: Local model execution (Llama/Mistral) as a fallback for the cloud-based NeuralAI core.
-- **Nexus v3 (Eco)**: Plugin architecture allowing third-party "Neural-Skills" to be installed as standalone apps.
+- **NeuralLabs v1 (Client)**: Development of a cross-platform wrapper (Electron/Tauri) for the NeuralAI interface.
+- **NeuralLabs v2 (Edge)**: Local model execution (Llama/Mistral) as a fallback for the cloud-based NeuralAI core.
+- **NeuralLabs v3 (Eco)**: Plugin architecture allowing third-party "Neural-Skills" to be installed as standalone apps.
 
 ---
 

@@ -315,6 +315,19 @@ def index():
     return render_template("index.html")
 
 @app.route("/health")
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(os.path.join(STATIC_PATH, "static"), "favicon.png", mimetype="image/png")
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 @app.route("/api/health")
 @app.route("/api/status")
 def status():

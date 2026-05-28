@@ -175,4 +175,4 @@ The standalone software implementation of this core is **NeuralLabs**:
 
 **Software Downloads**:
 The latest beta builds of NeuralLabs are available at:
-👉 [https://zo.pub/deandrewharris/neuralnexus-beta](https://zo.pub/deandrewharris/neuralnexus-beta) (Legacy URL)
+👉 [https://zo.pub/deandrewharris/neuralnexus-beta](https://zo.pub/deandrewharris/neurallabs-beta) (Legacy URL)

@@ -28,3 +28,8 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
+
+## ⚠️ Web UI & Service Safety
+- **UI Integrity:** The web interface for NeuralAI (`from-scratch/web_ui`) features a custom, high-fidelity Google-style UI. **DO NOT** attempt to "redesign", "polish", or replace the layout with generic templates.
+- **API Endpoints:** The frontend relies on critical backend endpoints (`/api/auth/guest`, `/api/terminal/create`, `/api/memory`, `/api/files`, etc.). Modifying or deleting these in `neural_core_service.py` will cause 404/JSON parsing errors (like `Unexpected token '<', "<!doctype "... is not valid JSON`) in the UI. 
+- **Verification:** Always empirically test the live user service (`https://neuralai-deandrewharris.zocomputer.io`) using `curl` and verify JSON responses before claiming a fix is complete. Do not confuse `zo.space` routes with the NeuralAI user service.

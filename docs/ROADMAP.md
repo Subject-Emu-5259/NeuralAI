@@ -70,6 +70,17 @@
 - **Model:** SmolLM2-360M-Instruct + DPO v13.0
 - **Context:** System-wide (Expanding)
 
+### Latest DPO Run (v13.0)
+
+- **Training samples:** 363
+- **Validation samples:** 41
+- **Epochs:** 3
+- **Best checkpoint:** `checkpoint-69`
+- **Best validation loss:** `0.7232`
+- **Eval progression:** `1.6713` → `0.8969` → `0.7232`
+- **Alignment improvement:** `56.73%` reduction from first eval to best checkpoint
+- **Completed:** `2026-05-17 08:41 UTC`
+
 ---
 
 ## 🎯 Next Steps (Priority Order)

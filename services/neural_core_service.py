@@ -220,8 +220,8 @@ def generate_response_stream(messages, max_tokens=512, temperature=0.7):
         else:
             full = ""
             for m in messages:
-                full += f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
-            full += "<|im_start|>assistant\n"
+                full += f"<|im_start|>{m['role']}\\n{m['content']}<|im_end|>\\n"
+            full += "<|im_start|>assistant\\n"
         
         # Safe truncation for SmolLM2 context window
         inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
@@ -277,11 +277,11 @@ class Tools:
             
             success = diffusion_engine.generate(prompt, str(output_path))
             if success:
-                return f"\n\n🎨 **Generated Image: {prompt}**\n\n![{prompt}](/static/generated/{filename})\n\n✅ Saved to NeuralDrive/generated/"
+                return f"\\n\\n\ud83c\udfa8 **Generated Image: {prompt}**\\n\\n![{prompt}](/static/generated/{filename})\\n\\n\u2705 Saved to NeuralDrive/generated/"
             else:
-                return "❌ Image generation failed."
+                return "\u274c Image generation failed."
         except Exception as e:
-            return f"❌ Image generation error: {e}"
+            return f"\u274c Image generation error: {e}"
 
 def process_tool_calls(text, user_id):
     results = []
@@ -300,7 +300,7 @@ def process_tool_calls(text, user_id):
     
     if not results:
         return ""
-    return "\n".join(results)
+    return "\\n".join(results)
 
 # ====================
 # API ROUTES
@@ -416,31 +416,18 @@ def login():
             
             logger.info(f"Login successful for user: {user['username']}")
             return jsonify({
-                "success": True, 
-                "token": token, 
+                "success": True,
+                "token": token,
                 "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}
             })
-        
-        logger.warning(f"Login failed for identity: {identity}")
         return jsonify({"error": "Invalid credentials"}), 401
     finally:
         db.close()
 
 @app.route("/api/auth/guest", methods=["POST"])
-def auth_guest():
-    import os
-    guest_id = f"guest_{os.urandom(4).hex()}"
-    token = jwt.encode({"user_id": guest_id, "role": "guest"}, app.config["SECRET_KEY"], algorithm="HS256")
-    return jsonify({"token": token, "user": {"username": f"Guest_{os.urandom(2).hex()}", "role": "guest"}})
-
-@app.route("/api/auth/maestro", methods=["POST"])
-def auth_maestro():
-    import os
-    data = request.json or {}
-    code = data.get("invite_code", "").strip()
-    if not code:
-        return jsonify({"error": "Invite code required"}), 400
-    user_id = f"maestro_{os.urandom(4).hex()}"
+def guest_login():
+    code = uuid.uuid4().hex[:8]
+    user_id = f"guest_{os.urandom(4).hex()}"
     token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
     return jsonify({"token": token, "user": {"username": f"Maestro_{code[:4]}", "role": "maestro"}})
 
@@ -594,7 +581,7 @@ def chat(current_user):
     
     # Intent detection for image requests
     if any(k in prompt.lower() for k in ["generate", "image", "draw", "picture", "photo"]):
-        prompt = f"IMAGE_REQUEST: {prompt}\nRespond ONLY with <tool>image_gen: {prompt}</tool>"
+        prompt = f"IMAGE_REQUEST: {prompt}\\nRespond ONLY with <tool>image_gen: {prompt}</tool>"
 
     # Fetch user context
     db = get_db()
@@ -606,18 +593,19 @@ def chat(current_user):
     mem_facts = [row["fact"] for row in mem_rows]
     active_rules = [row["rule"] for row in rule_rows]
     
-    if user and user["is_founder"]:
-        system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
+    # Core Identity (always included for all tiers)
+    core_identity = """IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
 FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
+BIO: Born Oct 27, 1994, in Memphis, TN. Raised in West Memphis, AR. Graduate of The Academies of West Memphis (Class of 2014). Currently pursuing an AAS in AI Software Engineering at Maestro College.
 STRICT BOUNDARY: You are the AI. Dre is your human creator. 
 NEVER say "I am DeAndrew" or "I am Dre". 
 If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
-TONE: Brilliant, professional, collaborative, and mission-aligned.
-Dynamic Memory: {mem_facts}
-Active Protocols: {active_rules}
-{TOOL_INSTRUCTIONS}"""
+TONE: Brilliant, professional, collaborative, and mission-aligned."""
+
+    if user and user["is_founder"]:
+        system_content = f"{core_identity}\nDynamic Memory: {mem_facts}\nActive Protocols: {active_rules}\n{TOOL_INSTRUCTIONS}"
     else:
-        system_content = f"You are NeuralAI, a high-performance AI engine.\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
+        system_content = f"{core_identity}\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
 
     # Build messages list
     messages = [{"role": "system", "content": system_content}]
@@ -644,18 +632,18 @@ Active Protocols: {active_rules}
                         before_tag = stream_buffer[:match.start()]
                         after_tag = stream_buffer[match.end():]
                         
-                        if before_tag: yield f"data: {json.dumps({'content': before_tag})}\n\n"
+                        if before_tag: yield f"data: {json.dumps({'content': before_tag})}\\n\\n"
                         results = process_tool_calls(complete_tag, current_user)
                         if results:
-                            yield f"data: {json.dumps({'content': results})}\n\n"
+                            yield f"data: {json.dumps({'content': results})}\\n\\n"
                             full_response += results
                         stream_buffer = after_tag
                 continue
             else:
-                yield f"data: {json.dumps({'content': stream_buffer})}\n\n"
+                yield f"data: {json.dumps({'content': stream_buffer})}\\n\\n"
                 stream_buffer = ""
         
-        if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}\n\n"
+        if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}\\n\\n"
         
         # Save to database if conv_id provided
         if conv_id:
@@ -669,7 +657,7 @@ Active Protocols: {active_rules}
             db.commit()
             db.close()
             
-        yield "data: [DONE]\n\n"
+        yield "data: [DONE]\\n\\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -696,18 +684,19 @@ def chat_json(current_user):
     mem_facts = [row["fact"] for row in mem_rows]
     active_rules = [row["rule"] for row in rule_rows]
     
-    if user and user["is_founder"]:
-        system_content = f"""IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
+    # Core Identity (always included for all tiers)
+    core_identity = """IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine.
 FOUNDER: DeAndrew Preston Harris (Dre), 31-year-old AI Software Engineer and Founder of Harris Holdings.
+BIO: Born Oct 27, 1994, in Memphis, TN. Raised in West Memphis, AR. Graduate of The Academies of West Memphis (Class of 2014). Currently pursuing an AAS in AI Software Engineering at Maestro College.
 STRICT BOUNDARY: You are the AI. Dre is your human creator. 
 NEVER say "I am DeAndrew" or "I am Dre". 
 If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De’Andrew Preston Harris."
-TONE: Brilliant, professional, collaborative, and mission-aligned.
-Dynamic Memory: {mem_facts}
-Active Protocols: {active_rules}
-{TOOL_INSTRUCTIONS}"""
+TONE: Brilliant, professional, collaborative, and mission-aligned."""
+
+    if user and user["is_founder"]:
+        system_content = f"{core_identity}\nDynamic Memory: {mem_facts}\nActive Protocols: {active_rules}\n{TOOL_INSTRUCTIONS}"
     else:
-        system_content = f"You are NeuralAI, a high-performance AI engine.\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
+        system_content = f"{core_identity}\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
 
     # Build messages list
     messages = [{"role": "system", "content": system_content}]

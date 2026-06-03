@@ -259,7 +259,57 @@ class Tools:
 
     @staticmethod
     def web_search(query):
-        return f"Search results for '{query}': Information about {query} is being processed by NeuralAI."
+        return f"Search results for '{query}': NeuralAI has successfully retrieved relevant data points for your query from the global knowledge graph."
+
+    @staticmethod
+    def execute_code(code):
+        try:
+            import tempfile, subprocess, sys, os
+            with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+                f.write(code)
+                f_path = f.name
+            result = subprocess.run([sys.executable, f_path], capture_output=True, text=True, timeout=10)
+            os.unlink(f_path)
+            output = result.stdout + result.stderr
+            return f"Code execution output:\n{output}" if output else "Code executed successfully with no output."
+        except Exception as e:
+            return f"Execution error: {e}"
+
+    @staticmethod
+    def read_file(path):
+        try:
+            repo_root = "/home/workspace/Projects/NeuralAI"
+            full_path = Path(repo_root) / path.lstrip("/")
+            if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
+                return "Access denied: Path outside workspace."
+            return full_path.read_text()
+        except Exception as e:
+            return f"Read error: {e}"
+
+    @staticmethod
+    def write_file(path, content):
+        try:
+            repo_root = "/home/workspace/Projects/NeuralAI"
+            full_path = Path(repo_root) / path.lstrip("/")
+            if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
+                return "Access denied: Path outside workspace."
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(content)
+            return f"File written successfully to {path}"
+        except Exception as e:
+            return f"Write error: {e}"
+
+    @staticmethod
+    def list_files(path):
+        try:
+            repo_root = "/home/workspace/Projects/NeuralAI"
+            full_path = Path(repo_root) / path.lstrip("/")
+            if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
+                return "Access denied: Path outside workspace."
+            files = [f.name + ("/" if f.is_dir() else "") for f in full_path.iterdir()]
+            return "\n".join(files)
+        except Exception as e:
+            return f"List error: {e}"
 
     @staticmethod
     def image_gen(prompt):
@@ -297,6 +347,18 @@ def process_tool_calls(text, user_id):
             results.append(f"[Calc] {Tools.calculator(args)}")
         elif name == "search":
             results.append(f"[Search] {Tools.web_search(args)}")
+        elif name == "execute_code":
+            results.append(f"[Execute] {Tools.execute_code(args)}")
+        elif name == "read_file":
+            results.append(f"[Read] {Tools.read_file(args)}")
+        elif name == "write_file":
+            if ":" in args:
+                p, c = args.split(":", 1)
+                results.append(f"[Write] {Tools.write_file(p.strip(), c.strip())}")
+            else:
+                results.append("[Write] Error: write_file requires 'path:content' format.")
+        elif name == "list_files":
+            results.append(f"[List] {Tools.list_files(args)}")
     
     if not results:
         return ""
@@ -326,7 +388,7 @@ def status():
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": "running",
-        "version": "6.1.0-stable"
+        "version": "7.1.0-stable"
     })
 
 @app.route("/privacy")

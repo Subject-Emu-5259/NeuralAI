@@ -28,7 +28,7 @@ Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkans
 
 ---
 
-## 🛠️ Tech Stack & Architecture (v7.0-alpha)
+## 🛠️ Tech Stack & Architecture (v7.1-alpha)
 
 NeuralAI is built on a high-performance, containerized architecture that marries local inference with cloud-grade storage.
 
@@ -168,7 +168,7 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 *Built with precision and discipline for Harris Holdings.*
 
-### CURRENT VERSION: v7.0-alpha (The Agentic Operator)
+### CURRENT VERSION: v7.1-alpha (The Agentic Operator)
 
 - **Model Alignment**: DPO v13.0 Aligned (Logic, Debugging, Reasoning)
 - **Last Maintenance**: June 1, 2026

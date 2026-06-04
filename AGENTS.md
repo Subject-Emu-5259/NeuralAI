@@ -28,6 +28,8 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
+- **Restore DPO Alignment**: Re-train or restore `checkpoints/dpo_model` to align with the `v13` dataset (249 pairs).
+- **Voice Key Integration**: Configure `GEMINI_API_KEY` for the `neural-voice` service to enable Live S2S functionality.
 
 ## ⚠️ Web UI & Service Safety
 - **UI Integrity:** The web interface for NeuralAI (`from-scratch/web_ui`) features a custom, high-fidelity Google-style UI. **DO NOT** attempt to "redesign", "polish", or replace the layout with generic templates.

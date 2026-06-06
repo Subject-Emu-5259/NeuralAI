@@ -327,11 +327,11 @@ class Tools:
             
             success = diffusion_engine.generate(prompt, str(output_path))
             if success:
-                return f"\\n\\n\ud83c\udfa8 **Generated Image: {prompt}**\\n\\n![{prompt}](/static/generated/{filename})\\n\\n\u2705 Saved to NeuralDrive/generated/"
+                return f"\\n\\n🎨 **Generated Image: {prompt}**\\n\\n![{prompt}](/static/generated/{filename})\\n\\n✅ Saved to NeuralDrive/generated/"
             else:
-                return "\u274c Image generation failed."
+                return "❌ Image generation failed."
         except Exception as e:
-            return f"\u274c Image generation error: {e}"
+            return f"❌ Image generation error: {e}"
 
 def process_tool_calls(text, user_id):
     results = []
@@ -695,6 +695,12 @@ TONE: Brilliant, professional, collaborative, and mission-aligned."""
                         after_tag = stream_buffer[match.end():]
                         
                         if before_tag: yield f"data: {json.dumps({'content': before_tag})}\\n\\n"
+                        
+                        # Yield a tool execution indicator to keep stream alive
+                        tool_name_match = re.search(r"<tool>(.*?):", complete_tag)
+                        tool_name = tool_name_match.group(1).strip() if tool_name_match else "unknown"
+                        yield f"data: {json.dumps({'content': f'\\n\\n🔧 **NeuralAI is processing tool: {tool_name}...**\\n'})}\\n\\n"
+                        
                         results = process_tool_calls(complete_tag, current_user)
                         if results:
                             yield f"data: {json.dumps({'content': results})}\\n\\n"

@@ -1,7 +1,7 @@
 # 🚀 NeuralAI Development Roadmap
 
 **Version Target: 6.0 (The Workstation Pivot)**
-**Last Updated: May 19, 2026**
+**Last Updated: June 6, 2026**
 
 ---
 
@@ -18,6 +18,8 @@
 - [x] Unified Service Migration: Consolidated Model + UI + Terminal into `file neural_core_service.py`
 
 - [x] Fixed Chat streaming and Terminal consistency
+
+- [x] Improved SSE responsiveness with tool execution indicators and non-blocking stream chunks.
 
 ### Phase 1: Tool Ecosystem ✓
 
@@ -67,7 +69,7 @@
 
 - **Main Service:** **READY** (Unified `file neural_core_service.py`)
 - **Voice Service:** **READY** (ElevenLabs v2 Migrated)
-- **Model:** SmolLM2-360M-Instruct + DPO v13.0
+- **Model:** SmolLM2-360M-Instruct + DPO v14.0 (In Progress)
 - **Context:** System-wide (Expanding)
 
 ### Latest DPO Run (v13.0)
@@ -87,15 +89,14 @@
 
 ### 1. Training Data Expansion
 
-**Status:** In progress (404 → target 1000+)
+**Status:** In progress (500+ samples reached, target 1000+)
 
 **Categories to expand:**
 
-- Advanced coding: +100 samples
-- API design: +50 samples
-- DevOps commands: +50 samples
-- Multi-turn reasoning: +50 samples
-- Tool chaining: +50 samples
+- Symbolic Logic & Formal Proofs: +50 samples
+- Security & Vulnerability Analysis: +50 samples
+- Multi-Step Algorithmic Reasoning: +50 samples
+- Advanced Mathematics (Calculus/Linear Algebra): +50 samples
 
 ### 2. Evaluation Suite
 

@@ -1,396 +1,391 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NeuralAI — Chat Interface</title>
+  <title>NeuralAI — Launch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #0a0a0f;
-      color: #e0e0ff;
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #09090b;
+      color: #e4e4e7;
+      font-family: 'Google Sans', system-ui, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      align-items: center;
+      justify-content: center;
       overflow: hidden;
     }
 
-    header {
-      background: linear-gradient(135deg, #0d0d1a, #1a0033);
-      border-bottom: 1px solid #2a1a4a;
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 2px 20px rgba(120, 0, 255, 0.2);
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 0;
     }
 
-    .logo {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #7c00ff, #00c8ff);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 16px;
-      color: #fff;
-      flex-shrink: 0;
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.25;
+      animation: drift 12s ease-in-out infinite;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .orb-1 { width: 500px; height: 500px; background: #3b82f6; top: -150px; left: -150px; animation-delay: 0s; }
+    .orb-2 { width: 400px; height: 400px; background: #a855f7; bottom: -100px; right: -100px; animation-delay: -5s; }
+    .orb-3 { width: 300px; height: 300px; background: #ec4899; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: -3s; opacity: 0.1; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0); }
+      50% { transform: translate(30px, 20px); }
     }
 
-    header h1 {
-      font-size: 1.2rem;
+    /* Topbar */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(9,9,11,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .product-name {
+      font-size: 20px;
       font-weight: 700;
-      background: linear-gradient(135deg, #a855f7, #22d3ee);
+      letter-spacing: -0.3px;
+    }
+
+    .live-dot {
+      font-size: 10px;
+      color: #ef4444;
+      margin-left: 6px;
+      animation: livePulse 1.5s ease-in-out infinite;
+      text-shadow: 0 0 8px rgba(239,68,68,0.6);
+    }
+
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 40px 24px;
+      max-width: 680px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(139,92,246,0.12);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 30px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #a78bfa;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 32px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-dot {
+      width: 7px; height: 7px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .hero h1 {
+      font-size: clamp(42px, 8vw, 72px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 .n { color: #3b82f6; }
+    .hero h1 .e { color: #10b981; }
+    .hero h1 .u { color: #22d3ee; }
+    .hero h1 .r { color: #a855f7; }
+    .hero h1 .a { color: #ef4444; }
+    .hero h1 .l { color: #f97316; }
+    .hero h1 .ai {
+      background: linear-gradient(135deg, #22d3ee, #a855f7, #ec4899);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
-    .status {
+    .hero p {
+      font-size: 18px;
+      color: #71717a;
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 500px;
       margin-left: auto;
-      font-size: 0.75rem;
-      color: #888;
+      margin-right: auto;
+    }
+
+    /* CTA Buttons */
+    .cta-group {
       display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22d3ee;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    #chat-window {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 16px;
-      display: flex;
-      flex-direction: column;
       gap: 16px;
-      scroll-behavior: smooth;
-    }
-
-    #chat-window::-webkit-scrollbar { width: 6px; }
-    #chat-window::-webkit-scrollbar-track { background: transparent; }
-    #chat-window::-webkit-scrollbar-thumb { background: #2a1a4a; border-radius: 3px; }
-
-    .message {
-      display: flex;
-      gap: 10px;
-      max-width: 780px;
-      animation: fadeIn 0.25s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .message.user { align-self: flex-end; flex-direction: row-reverse; }
-    .message.ai   { align-self: flex-start; }
-
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
       justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
+      flex-wrap: wrap;
+      margin-bottom: 60px;
     }
 
-    .message.user .avatar { background: linear-gradient(135deg, #7c00ff, #a855f7); color: #fff; }
-    .message.ai   .avatar { background: linear-gradient(135deg, #0ea5e9, #22d3ee); color: #fff; }
-
-    .bubble {
-      padding: 12px 16px;
-      border-radius: 14px;
-      font-size: 0.92rem;
-      line-height: 1.6;
-      max-width: 680px;
-      word-wrap: break-word;
-    }
-
-    .message.user .bubble {
-      background: linear-gradient(135deg, #3b0066, #1a0044);
-      border: 1px solid #5500aa;
-      border-bottom-right-radius: 4px;
-    }
-
-    .message.ai .bubble {
-      background: #0f0f1e;
-      border: 1px solid #1e1e3a;
-      border-bottom-left-radius: 4px;
-    }
-
-    .typing-indicator {
-      display: flex;
-      gap: 5px;
-      padding: 14px 18px;
+    .btn-launch {
+      display: inline-flex;
       align-items: center;
-    }
-
-    .typing-indicator span {
-      width: 7px;
-      height: 7px;
-      background: #7c00ff;
-      border-radius: 50%;
-      animation: bounce 1.2s infinite;
-    }
-
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes bounce {
-      0%, 60%, 100% { transform: translateY(0); }
-      30%            { transform: translateY(-8px); }
-    }
-
-    .input-area {
-      background: #0d0d1a;
-      border-top: 1px solid #1e1e3a;
-      padding: 16px;
-      display: flex;
       gap: 10px;
-      align-items: flex-end;
-    }
-
-    #user-input {
-      flex: 1;
-      background: #0f0f20;
-      border: 1px solid #2a1a4a;
-      border-radius: 12px;
-      padding: 12px 16px;
-      color: #e0e0ff;
-      font-size: 0.92rem;
-      resize: none;
-      min-height: 48px;
-      max-height: 160px;
-      outline: none;
-      transition: border-color 0.2s;
-      font-family: inherit;
-    }
-
-    #user-input:focus { border-color: #7c00ff; }
-    #user-input::placeholder { color: #444466; }
-
-    #send-btn {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #7c00ff, #00c8ff);
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 16px 36px;
+      border-radius: 50px;
       border: none;
-      border-radius: 12px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.2s, transform 0.1s;
-      flex-shrink: 0;
+      text-decoration: none;
+      box-shadow: 0 8px 32px rgba(124,58,237,0.4);
+      transition: all 0.25s ease;
     }
 
-    #send-btn:hover { opacity: 0.85; }
-    #send-btn:active { transform: scale(0.95); }
-    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-launch:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(124,58,237,0.55);
+      filter: brightness(1.1);
+    }
 
-    #send-btn svg { width: 20px; height: 20px; fill: #fff; }
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.05);
+      color: #a1a1aa;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 16px 28px;
+      border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
 
-    .api-notice {
-      background: #0f0f20;
-      border: 1px solid #2a1a4a;
-      border-radius: 12px;
-      padding: 14px 18px;
-      font-size: 0.82rem;
-      color: #888;
+    .btn-github:hover {
+      background: rgba(255,255,255,0.1);
+      color: #e4e4e7;
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    /* Feature Cards */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 620px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .feat-card {
+      background: rgba(22,27,34,0.8);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 20px;
       text-align: center;
-      margin: 0 16px 8px;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s, transform 0.2s;
     }
 
-    .api-notice a { color: #a855f7; text-decoration: none; }
-    .api-notice a:hover { text-decoration: underline; }
-
-    #api-url-bar {
-      background: #0d0d1a;
-      border-top: 1px solid #1e1e3a;
-      padding: 10px 16px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
+    .feat-card:hover {
+      border-color: rgba(139,92,246,0.4);
+      transform: translateY(-3px);
     }
 
-    #api-url-bar label { font-size: 0.75rem; color: #666; white-space: nowrap; }
+    .feat-icon { font-size: 28px; margin-bottom: 10px; }
 
-    #api-endpoint {
-      flex: 1;
-      background: #0f0f20;
-      border: 1px solid #2a1a4a;
-      border-radius: 8px;
-      padding: 7px 12px;
-      color: #a0a0cc;
-      font-size: 0.78rem;
-      outline: none;
-      font-family: monospace;
+    .feat-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e4e4e7;
+      margin-bottom: 4px;
     }
 
-    #api-endpoint:focus { border-color: #7c00ff; }
-
-    .save-btn {
-      background: #1a0033;
-      border: 1px solid #5500aa;
-      border-radius: 8px;
-      color: #a855f7;
-      padding: 7px 14px;
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: background 0.2s;
+    .feat-desc {
+      font-size: 12px;
+      color: #71717a;
+      line-height: 1.5;
     }
 
-    .save-btn:hover { background: #2a004a; }
+    /* Footer */
+    .footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 16px 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #3f3f46;
+      z-index: 100;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Config notice */
+    .config-notice {
+      position: relative;
+      z-index: 10;
+      margin-top: 32px;
+      background: rgba(15,15,30,0.8);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #6b7280;
+      max-width: 520px;
+      text-align: left;
+    }
+
+    .config-notice span { color: #3b82f6; }
+    .config-notice strong { color: #a78bfa; }
+
+    @media (max-width: 480px) {
+      .features { grid-template-columns: 1fr 1fr; }
+      .cta-group { flex-direction: column; align-items: center; }
+    }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">N</div>
-  <h1>NeuralAI</h1>
-  <div class="status">
-    <div class="status-dot"></div>
-    Online
-  </div>
-</header>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
 
-<div id="api-url-bar">
-  <label>API Endpoint:</label>
-  <input type="text" id="api-endpoint" placeholder="https://your-backend.onrender.com/chat" />
-  <button class="save-btn" onclick="saveEndpoint()">Save</button>
+<!-- Topbar -->
+<div class="topbar">
+  <span class="product-name">
+    <span class="n">N</span><span class="e">e</span><span class="u">u</span><span class="r">r</span><span class="a">a</span><span class="l">l</span><span class="ai">AI</span>
+  </span>
+  <span class="live-dot">●LIVE</span>
 </div>
 
-<div id="chat-window">
-  <div class="message ai">
-    <div class="avatar">N</div>
-    <div class="bubble">
-      Hey! I'm <strong>NeuralAI</strong> — your custom-built intelligence. Ask me anything. 🚀
-    </div>
+<!-- Hero -->
+<div class="hero" style="margin-top:56px;">
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    SmolLM2-360M · Flash Attention · RoPE · KV-Cache
+  </div>
+
+  <h1>
+    <span class="n">N</span><span class="e">e</span><span class="u">u</span><span class="r">r</span><span class="a">a</span><span class="l">l</span><span class="ai">AI</span>
+  </h1>
+
+  <p>A production-grade ChatGPT-style LLM built from scratch in PyTorch. Memory, tools, streaming, voice — all yours.</p>
+
+  <div class="cta-group">
+    <a id="launchBtn" href="#" class="btn-launch">
+      🚀 Launch NeuralAI
+    </a>
+    <a href="https://github.com/Subject-Emu-5259/NeuralAI" target="_blank" class="btn-github">
+      ⭐ View on GitHub
+    </a>
   </div>
 </div>
 
-<div class="input-area">
-  <textarea id="user-input" rows="1" placeholder="Message NeuralAI..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-  <button id="send-btn" onclick="sendMessage()" title="Send">
-    <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-  </button>
+<!-- Features -->
+<div class="features">
+  <div class="feat-card">
+    <div class="feat-icon">💬</div>
+    <div class="feat-title">Chat</div>
+    <div class="feat-desc">Streaming SSE responses with memory & conversation history</div>
+  </div>
+  <div class="feat-card">
+    <div class="feat-icon">📁</div>
+    <div class="feat-title">NeuralDrive</div>
+    <div class="feat-desc">Upload & analyze files. Cloud file system built in.</div>
+  </div>
+  <div class="feat-card">
+    <div class="feat-icon">💻</div>
+    <div class="feat-title">Terminal</div>
+    <div class="feat-desc">Real AI-powered shell — Bash, Python, Node.js</div>
+  </div>
+  <div class="feat-card">
+    <div class="feat-icon">🎤</div>
+    <div class="feat-title">Live Voice</div>
+    <div class="feat-desc">Speech-to-speech conversations with persona voices</div>
+  </div>
+</div>
+
+<!-- Config notice -->
+<div class="config-notice" id="configNotice" style="display:none;">
+  ⚠️ <strong>Backend not configured.</strong> Set your live URL below:<br><br>
+  <input id="backendUrl" type="text" placeholder="https://neuralai-xxxx.onrender.com"
+    style="width:100%;padding:8px 12px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e4e4e7;font-family:inherit;font-size:12px;outline:none;margin-top:6px;">
+  <button onclick="saveBackend()" style="margin-top:8px;padding:7px 18px;background:#7c3aed;border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;">Save & Launch</button>
+</div>
+
+<div class="footer">
+  Built by De'Andrew Preston Harris · Harris Holdings · NeuralAI v7.1.0-stable
 </div>
 
 <script>
-  const chatWindow = document.getElementById('chat-window');
-  const input = document.getElementById('user-input');
-  const sendBtn = document.getElementById('send-btn');
-  const endpointInput = document.getElementById('api-endpoint');
+  const STORAGE_KEY = 'neuralai_backend_url';
 
-  // Load saved endpoint
-  endpointInput.value = localStorage.getItem('neuralai_endpoint') || '';
-
-  function saveEndpoint() {
-    localStorage.setItem('neuralai_endpoint', endpointInput.value.trim());
-    endpointInput.style.borderColor = '#22d3ee';
-    setTimeout(() => endpointInput.style.borderColor = '', 1500);
+  function getBackend() {
+    return localStorage.getItem(STORAGE_KEY) || '';
   }
 
-  function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  function saveBackend() {
+    const url = document.getElementById('backendUrl').value.trim();
+    if (url) {
+      localStorage.setItem(STORAGE_KEY, url);
+      window.location.href = url;
+    }
   }
 
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const btn = document.getElementById('launchBtn');
+  const notice = document.getElementById('configNotice');
+  const saved = getBackend();
+
+  if (saved) {
+    btn.href = saved;
+    btn.textContent = '🚀 Launch NeuralAI';
+  } else {
+    btn.href = '#';
+    btn.addEventListener('click', function(e) {
       e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  function appendMessage(role, text) {
-    const msg = document.createElement('div');
-    msg.className = `message ${role}`;
-    msg.innerHTML = `
-      <div class="avatar">${role === 'user' ? 'U' : 'N'}</div>
-      <div class="bubble">${escapeHtml(text)}</div>
-    `;
-    chatWindow.appendChild(msg);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-    return msg;
-  }
-
-  function showTyping() {
-    const msg = document.createElement('div');
-    msg.className = 'message ai';
-    msg.id = 'typing';
-    msg.innerHTML = `
-      <div class="avatar">N</div>
-      <div class="bubble typing-indicator"><span></span><span></span><span></span></div>
-    `;
-    chatWindow.appendChild(msg);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  function removeTyping() {
-    const t = document.getElementById('typing');
-    if (t) t.remove();
-  }
-
-  function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-  }
-
-  async function sendMessage() {
-    const text = input.value.trim();
-    if (!text) return;
-
-    const endpoint = localStorage.getItem('neuralai_endpoint') || endpointInput.value.trim();
-
-    appendMessage('user', text);
-    input.value = '';
-    input.style.height = 'auto';
-    sendBtn.disabled = true;
-    showTyping();
-
-    if (!endpoint) {
-      removeTyping();
-      appendMessage('ai', '⚠️ No API endpoint set. Enter your backend URL in the bar above and click Save.');
-      sendBtn.disabled = false;
-      return;
-    }
-
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
-      });
-
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-      const data = await res.json();
-      removeTyping();
-      appendMessage('ai', data.response || data.message || data.reply || JSON.stringify(data));
-    } catch (err) {
-      removeTyping();
-      appendMessage('ai', `❌ Could not reach the backend: ${err.message}\n\nMake sure your API is running and the endpoint is correct.`);
-    }
-
-    sendBtn.disabled = false;
-    input.focus();
+      notice.style.display = 'block';
+      document.getElementById('backendUrl').focus();
+      notice.scrollIntoView({ behavior: 'smooth' });
+    });
   }
 </script>
 </body>

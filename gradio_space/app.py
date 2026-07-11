@@ -2,6 +2,7 @@
 # This Space
 # Requires HF PRO for Gradio Spaces
 
+import os
 import torch
 import gradio as gr
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -11,21 +12,28 @@ from peft import PeftModel
 BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
 ADAPTER_REPO = "Subject-Emu-5259/NeuralAI"
 
-# Load model and adapter
-print("Loading base model...")
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-model = AutoModelForCausalLM.from_pretrained(
-    BASE_MODEL,
-    torch_dtype=torch.bfloat16,
-    device_map="auto",
-    trust_remote_code=True
-)
+# Lazy-load the model so the server binds its port immediately
+# (Render's port scanner times out if loading blocks startup).
+tokenizer = None
+model = None
 
-print("Loading LoRA adapter...")
-model = PeftModel.from_pretrained(model, ADAPTER_REPO)
-model.eval()
-
-print("Model ready!")
+def load_model():
+    global tokenizer, model
+    if model is not None:
+        return
+    print("Loading base model...", flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+    # 8-bit quantization keeps the 360M model under the 512MB free-tier RAM limit
+    model = AutoModelForCausalLM.from_pretrained(
+        BASE_MODEL,
+        load_in_8bit=True,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+    print("Loading LoRA adapter...", flush=True)
+    model = PeftModel.from_pretrained(model, ADAPTER_REPO)
+    model.eval()
+    print("Model ready!", flush=True)
 
 SYSTEM_PROMPT = (
     "You are NeuralAI v2, a helpful, concise assistant. "
@@ -42,6 +50,7 @@ def format_prompt(history, user_message):
 
 def chat(message, history):
     """Generate response from the model."""
+    load_model()
     prompt = format_prompt(history, message)
     
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -119,4 +128,10 @@ with gr.Blocks(
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    # share=False keeps it private to the container; Render proxies the public URL
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        share=False,
+        show_error=True,
+    )

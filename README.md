@@ -188,3 +188,4 @@ The standalone software implementation of this core is **NeuralLabs**:
 **Software Downloads**:
 The latest beta builds (v0.1-Beta) of NeuralLabs are available at:
 👉 **[https://zo.pub/deandrewharris/neurallabs-beta](https://zo.pub/deandrewharris/neurallabs-beta)**
+# NeuralAI → Hugging Face sync is live

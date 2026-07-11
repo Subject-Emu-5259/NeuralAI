@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuralAI — Chat Interface</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0e0ff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0d0d1a, #1a0033);
+      border-bottom: 1px solid #2a1a4a;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 20px rgba(120, 0, 255, 0.2);
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #7c00ff, #00c8ff);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a855f7, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .status {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3ee;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #chat-window {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    #chat-window::-webkit-scrollbar { width: 6px; }
+    #chat-window::-webkit-scrollbar-track { background: transparent; }
+    #chat-window::-webkit-scrollbar-thumb { background: #2a1a4a; border-radius: 3px; }
+
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 780px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.ai   { align-self: flex-start; }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .message.user .avatar { background: linear-gradient(135deg, #7c00ff, #a855f7); color: #fff; }
+    .message.ai   .avatar { background: linear-gradient(135deg, #0ea5e9, #22d3ee); color: #fff; }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      max-width: 680px;
+      word-wrap: break-word;
+    }
+
+    .message.user .bubble {
+      background: linear-gradient(135deg, #3b0066, #1a0044);
+      border: 1px solid #5500aa;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.ai .bubble {
+      background: #0f0f1e;
+      border: 1px solid #1e1e3a;
+      border-bottom-left-radius: 4px;
+    }
+
+    .typing-indicator {
+      display: flex;
+      gap: 5px;
+      padding: 14px 18px;
+      align-items: center;
+    }
+
+    .typing-indicator span {
+      width: 7px;
+      height: 7px;
+      background: #7c00ff;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-8px); }
+    }
+
+    .input-area {
+      background: #0d0d1a;
+      border-top: 1px solid #1e1e3a;
+      padding: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    #user-input {
+      flex: 1;
+      background: #0f0f20;
+      border: 1px solid #2a1a4a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #e0e0ff;
+      font-size: 0.92rem;
+      resize: none;
+      min-height: 48px;
+      max-height: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    #user-input:focus { border-color: #7c00ff; }
+    #user-input::placeholder { color: #444466; }
+
+    #send-btn {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #7c00ff, #00c8ff);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    #send-btn:hover { opacity: 0.85; }
+    #send-btn:active { transform: scale(0.95); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #send-btn svg { width: 20px; height: 20px; fill: #fff; }
+
+    .api-notice {
+      background: #0f0f20;
+      border: 1px solid #2a1a4a;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 0.82rem;
+      color: #888;
+      text-align: center;
+      margin: 0 16px 8px;
+    }
+
+    .api-notice a { color: #a855f7; text-decoration: none; }
+    .api-notice a:hover { text-decoration: underline; }
+
+    #api-url-bar {
+      background: #0d0d1a;
+      border-top: 1px solid #1e1e3a;
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #api-url-bar label { font-size: 0.75rem; color: #666; white-space: nowrap; }
+
+    #api-endpoint {
+      flex: 1;
+      background: #0f0f20;
+      border: 1px solid #2a1a4a;
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: #a0a0cc;
+      font-size: 0.78rem;
+      outline: none;
+      font-family: monospace;
+    }
+
+    #api-endpoint:focus { border-color: #7c00ff; }
+
+    .save-btn {
+      background: #1a0033;
+      border: 1px solid #5500aa;
+      border-radius: 8px;
+      color: #a855f7;
+      padding: 7px 14px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .save-btn:hover { background: #2a004a; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">N</div>
+  <h1>NeuralAI</h1>
+  <div class="status">
+    <div class="status-dot"></div>
+    Online
+  </div>
+</header>
+
+<div id="api-url-bar">
+  <label>API Endpoint:</label>
+  <input type="text" id="api-endpoint" placeholder="https://your-backend.onrender.com/chat" />
+  <button class="save-btn" onclick="saveEndpoint()">Save</button>
+</div>
+
+<div id="chat-window">
+  <div class="message ai">
+    <div class="avatar">N</div>
+    <div class="bubble">
+      Hey! I'm <strong>NeuralAI</strong> — your custom-built intelligence. Ask me anything. 🚀
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <textarea id="user-input" rows="1" placeholder="Message NeuralAI..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="sendMessage()" title="Send">
+    <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+<script>
+  const chatWindow = document.getElementById('chat-window');
+  const input = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+  const endpointInput = document.getElementById('api-endpoint');
+
+  // Load saved endpoint
+  endpointInput.value = localStorage.getItem('neuralai_endpoint') || '';
+
+  function saveEndpoint() {
+    localStorage.setItem('neuralai_endpoint', endpointInput.value.trim());
+    endpointInput.style.borderColor = '#22d3ee';
+    setTimeout(() => endpointInput.style.borderColor = '', 1500);
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function appendMessage(role, text) {
+    const msg = document.createElement('div');
+    msg.className = `message ${role}`;
+    msg.innerHTML = `
+      <div class="avatar">${role === 'user' ? 'U' : 'N'}</div>
+      <div class="bubble">${escapeHtml(text)}</div>
+    `;
+    chatWindow.appendChild(msg);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    return msg;
+  }
+
+  function showTyping() {
+    const msg = document.createElement('div');
+    msg.className = 'message ai';
+    msg.id = 'typing';
+    msg.innerHTML = `
+      <div class="avatar">N</div>
+      <div class="bubble typing-indicator"><span></span><span></span><span></span></div>
+    `;
+    chatWindow.appendChild(msg);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById('typing');
+    if (t) t.remove();
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+
+    const endpoint = localStorage.getItem('neuralai_endpoint') || endpointInput.value.trim();
+
+    appendMessage('user', text);
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    showTyping();
+
+    if (!endpoint) {
+      removeTyping();
+      appendMessage('ai', '⚠️ No API endpoint set. Enter your backend URL in the bar above and click Save.');
+      sendBtn.disabled = false;
+      return;
+    }
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      const data = await res.json();
+      removeTyping();
+      appendMessage('ai', data.response || data.message || data.reply || JSON.stringify(data));
+    } catch (err) {
+      removeTyping();
+      appendMessage('ai', `❌ Could not reach the backend: ${err.message}\n\nMake sure your API is running and the endpoint is correct.`);
+    }
+
+    sendBtn.disabled = false;
+    input.focus();
+  }
+</script>
+</body>
+</html>

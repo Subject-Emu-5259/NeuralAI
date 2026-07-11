@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NeuralAI v2 — Chat demo</title>
+  <meta name="description" content="Live chat demo for the NeuralAI v2 LoRA adapter (base model)." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🧠</span>
+      <span class="brand-name">NeuralAI</span>
+      <span class="brand-sub">v2 · chat</span>
+    </div>
+    <nav class="nav">
+      <a href="./index.html">Overview</a>
+      <a href="./chat.html" class="active">Chat demo</a>
+      <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">Model ↗</a>
+      <a href="https://github.com/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="chat-shell">
+      <div class="chat-card">
+        <div class="chat-head">
+          <span class="title">NeuralAI v2 — chat</span>
+          <span class="sub" id="modelLabel">base · SmolLM2-360M-Instruct</span>
+          <div class="right">
+            <button id="clearBtn" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="chat-token-row">
+          <label for="tokenInput">🔑 HF Token:</label>
+          <input type="password" id="tokenInput" placeholder="hf_..." spellcheck="false" autocomplete="off" />
+          <span id="tokenStatus" class="token-missing">⚡ No token (rate-limited)</span>
+        </div>
+        <div class="chat-log" id="log" aria-live="polite"></div>
+        <form class="chat-input" id="form">
+          <textarea id="input" placeholder="Ask NeuralAI anything…" rows="1" required></textarea>
+          <button id="sendBtn" type="submit">Send</button>
+        </form>
+      </div>
+      <p class="disclaimer">
+        This Space hits the public Hugging Face Inference API against the
+        <em>merged</em> <code>NeuralAI-merged</code> model (SmolLM2-360M + LoRA).
+        Paste your
+        <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">HF token</a>
+        above for higher rate limits & reliability.
+      </p>
+    </div>
+  </main>
+
+  <script src="./chat.js"></script>
+</body>
+</html>

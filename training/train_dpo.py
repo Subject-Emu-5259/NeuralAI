@@ -279,7 +279,15 @@ class DPODatasetBuilder:
 def train_dpo(config: DPOTrainingConfig):
     """Train model with DPO"""
     
-    print(f"Loading base model: {config.base_model}")
+    # On Apple Silicon (MPS), set the default tensor type so .to("mps") is reliable
+    if config.device == "mps":
+        torch.set_default_tensor_type(torch.FloatTensor)
+        # bf16 is not well supported on MPS; use float32 for stability
+        dtype = torch.float32
+    else:
+        dtype = torch.float32 if config.device == "cpu" else torch.bfloat16
+
+    print(f"Loading base model: {config.base_model} (device={config.device})")
     
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(config.base_model)
@@ -287,7 +295,6 @@ def train_dpo(config: DPOTrainingConfig):
         tokenizer.pad_token = tokenizer.eos_token
     
     # Load base model with memory optimization
-    dtype = torch.float32 if config.device == "cpu" else torch.bfloat16
     model = AutoModelForCausalLM.from_pretrained(
         config.base_model,
         torch_dtype=dtype,
@@ -366,6 +373,8 @@ def train_dpo(config: DPOTrainingConfig):
         save_strategy="epoch",
         logging_steps=1,
         report_to="none",
+        # MPS + multiprocessing dataloaders can hang; use 0 workers
+        dataloader_num_workers=0,
         push_to_hub=config.push_to_hub,
         hub_model_id=config.hub_repo if config.push_to_hub else None,
     )

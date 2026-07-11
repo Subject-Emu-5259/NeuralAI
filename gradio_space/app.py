@@ -7,10 +7,12 @@ import torch
 import gradio as gr
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
+from huggingface_hub import snapshot_download
 
 # Configuration
 BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
 ADAPTER_REPO = "Subject-Emu-5259/NeuralAI"
+HF_TOKEN = os.environ.get("HF_TOKEN")  # optional; repo is public
 
 # Lazy-load the model so the server binds its port immediately
 # (Render's port scanner times out if loading blocks startup).
@@ -30,8 +32,18 @@ def load_model():
         device_map="auto",
         trust_remote_code=True,
     )
+    # Always pull the LATEST adapter from the Hub on each (re)start so a fresh
+    # `train_dpo.py --push` is reflected without a rebuild. snapshot_download
+    # checks the Hub for updates and only re-downloads if the adapter changed.
+    print(f"Fetching latest LoRA adapter from {ADAPTER_REPO}...", flush=True)
+    adapter_path = snapshot_download(
+        repo_id=ADAPTER_REPO,
+        repo_type="model",
+        token=HF_TOKEN,
+        local_dir="/tmp/neuralai_adapter",
+    )
     print("Loading LoRA adapter...", flush=True)
-    model = PeftModel.from_pretrained(model, ADAPTER_REPO)
+    model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()
     print("Model ready!", flush=True)
 

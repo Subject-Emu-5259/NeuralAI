@@ -34,3 +34,8 @@ checkpoints/dpo_model/
 checkpoints/v2_model/checkpoint-23/
 backups/
 checkpoints/
+
+# Tracked adapter (committed to GitHub + mirrored to HF via Actions)
+# The .safetensors weight is handled by Git LFS (see .gitattributes)
+!adapter/
+!adapter/**

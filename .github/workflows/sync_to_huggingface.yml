@@ -19,18 +19,16 @@ jobs:
         run: |
           git config --global user.email "deandrewh26@gmail.com"
           git config --global user.name "Subject-Emu-5259"
-          git config --global lfs.skippush true
-          git config --global lfs.fetchinclude ""
 
       - name: Push to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -e
-          # NOTE: This syncs the GitHub *code* to a SEPARATE HF repo
-          # (NeuralAI-code) so it never overwrites the model adapter that
-          # `train_dpo.py --push` writes to Subject-Emu-5259/NeuralAI.
-          HF_REPO_ID="Subject-Emu-5259/NeuralAI-code"
+          # NOTE: GitHub is the single source of truth. This pushes the
+          # WHOLE repo (code + the tracked `adapter/` LoRA weights) to
+          # Subject-Emu-5259/NeuralAI, which the Render demo reads from.
+          HF_REPO_ID="Subject-Emu-5259/NeuralAI"
           echo "Pushing to Hugging Face repo: $HF_REPO_ID"
           # Use the token in the remote URL for auth
           HF_URL="https://Subject-Emu-5259:${HF_TOKEN}@huggingface.co/${HF_REPO_ID}"

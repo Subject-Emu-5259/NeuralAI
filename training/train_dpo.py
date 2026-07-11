@@ -46,6 +46,8 @@ class DPOTrainingConfig:
     # Hugging Face upload (set push_to_hub=True to auto-sync after training)
     push_to_hub: bool = False
     hub_repo: str = "Subject-Emu-5259/NeuralAI"
+    # Local adapter folder that gets committed to GitHub (then mirrored to HF)
+    adapter_dir: str = str(REPO_ROOT / "adapter")
     
     # DPO parameters
     beta: float = 0.1  # KL penalty coefficient
@@ -399,8 +401,30 @@ def train_dpo(config: DPOTrainingConfig):
     
     print(f"DPO LoRA adapter saved to {config.output_dir}")
     
-    # Optionally push the adapter straight to the Hub
+    # Optionally push the adapter to GitHub + Hugging Face
     if config.push_to_hub:
+        # 1) Save a clean copy into the tracked `adapter/` folder
+        adapter_dir = Path(config.adapter_dir)
+        adapter_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(adapter_dir)
+        tokenizer.save_pretrained(adapter_dir)
+        print(f"Adapter copied to {adapter_dir} (tracked by git)")
+
+        # 2) Commit + push to GitHub (Git LFS handles the .safetensors weight)
+        import subprocess
+        try:
+            subprocess.run(["git", "add", "adapter/"], check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "DPO LoRA adapter update"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(["git", "push", "origin", "master"], check=True)
+            print("✅ Adapter committed + pushed to GitHub.")
+        except subprocess.CalledProcessError as e:
+            print(f"⚠️  Git push to GitHub failed (continuing to HF): {e}")
+
+        # 3) Also push directly to the HF Hub (instant, no Actions wait)
         print(f"Pushing adapter to Hugging Face: {config.hub_repo}")
         model.push_to_hub(config.hub_repo, commit_message="DPO LoRA update")
         tokenizer.push_to_hub(config.hub_repo, commit_message="DPO LoRA update")

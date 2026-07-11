@@ -128,10 +128,12 @@ with gr.Blocks(
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 7860))
-    # share=False keeps it private to the container; Render proxies the public URL
+    # Gradio 6.x renamed server_port -> port; use `port` so Render's assigned
+    # $PORT is actually bound (otherwise it defaults to 7860 and Render's
+    # port scanner finds nothing).
     demo.launch(
         server_name="0.0.0.0",
-        server_port=port,
+        port=port,
         share=False,
         show_error=True,
     )

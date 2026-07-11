@@ -27,9 +27,13 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -e
-          echo "Pushing to Hugging Face repo: Subject-Emu-5259/NeuralAI"
+          # NOTE: This syncs the GitHub *code* to a SEPARATE HF repo
+          # (NeuralAI-code) so it never overwrites the model adapter that
+          # `train_dpo.py --push` writes to Subject-Emu-5259/NeuralAI.
+          HF_REPO_ID="Subject-Emu-5259/NeuralAI-code"
+          echo "Pushing to Hugging Face repo: $HF_REPO_ID"
           # Use the token in the remote URL for auth
-          HF_URL="https://Subject-Emu-5259:${HF_TOKEN}@huggingface.co/Subject-Emu-5259/NeuralAI"
+          HF_URL="https://Subject-Emu-5259:${HF_TOKEN}@huggingface.co/${HF_REPO_ID}"
           git remote add hf "$HF_URL" 2>/dev/null || git remote set-url hf "$HF_URL"
           # Push master -> main on the Hub, force to keep them identical
           GIT_LFS_SKIP_SMUDGE=1 git push hf "HEAD:refs/heads/main" --force

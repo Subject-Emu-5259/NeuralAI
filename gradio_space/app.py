@@ -59,11 +59,19 @@ def load_model():
             trust_remote_code=True,
         )
     else:
+        # CPU-only host (e.g. Railway free tier, ~512MB RAM). fp32 360M is
+        # ~1.4GB and OOMs the container; 8-bit needs CUDA. Use torch
+        # dynamic int8 quantization so the model fits in ~360MB and still
+        # runs on CPU (no bitsandbytes / GPU required).
         model = AutoModelForCausalLM.from_pretrained(
             BASE_MODEL,
             dtype="auto",
             trust_remote_code=True,
         ).to("cpu")
+        print("Applying dynamic int8 quantization for CPU...", flush=True)
+        model = torch.quantization.quantize_dynamic(
+            model, {torch.nn.Linear}, dtype=torch.qint8
+        )
     # Always pull the LATEST adapter from the Hub on each (re)start so a fresh
     # `train_dpo.py --push` is reflected without a rebuild. snapshot_download
     # checks the Hub for updates and only re-downloads if the adapter changed.

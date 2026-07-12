@@ -525,19 +525,12 @@ async function initLiveSession() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
       
-      // Robust Voice Host Detection
-      let voiceHost = host.replace('neuralai-', 'neural-voice-');
-      if (host === 'localhost' || host === '127.0.0.1') {
-        voiceHost = `${host}:5001`;
-      } else if (!host.includes('neural-voice-')) {
-        const parts = host.split('.');
-        if (parts.length >= 3) {
-          const handle = parts[0].replace('neuralai-', '');
-          voiceHost = `neural-voice-${handle}.zocomputer.io`;
-        }
-      }
-
-      console.log(`[Voice] Connecting to: ${voiceHost}`);
+      // Voice WebSocket connects through the main service proxy at /voice/ws
+      // This works universally: localhost, ZO Computer, Cloudflare, etc.
+      const voiceOrigin = window.location.origin.replace('https:', 'wss:').replace('http:', 'ws:');
+      const voiceUrl = `${voiceOrigin}/voice/ws`;
+      
+      console.log(`[Voice] Connecting to: ${voiceUrl}`);
       showToast('Connecting to NeuralVoice Engine...', 'info');
       
       if (voiceWS) {
@@ -546,7 +539,7 @@ async function initLiveSession() {
       }
       
       try {
-        voiceWS = new WebSocket(`${protocol}//${voiceHost}/ws`);
+        voiceWS = new WebSocket(voiceUrl);
       } catch (wsErr) {
         console.error("[Voice] WebSocket constructor failed:", wsErr);
         throw new Error("Failed to create connection: " + wsErr.message);

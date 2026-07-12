@@ -14,6 +14,8 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory
+from flask_sock import Sock
+import websocket  # websocket-client for proxying
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NeuralAI")
@@ -458,7 +460,7 @@ def manage_convs(current_user):
     finally:
         db.close()
 
-@app.route("/api/conversations/<cid>", methods=["GET", "DELETE"])
+@app.route("/api/conversations/<cid>", methods=["GET", "PUT", "DELETE"])
 @token_required
 def conv_detail(current_user, cid):
     db = get_db()
@@ -468,7 +470,17 @@ def conv_detail(current_user, cid):
             db.execute("DELETE FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user))
             db.commit()
             return jsonify({"success": True})
-        
+
+        if request.method == "PUT":
+            data = request.get_json(silent=True) or {}
+            title = data.get("title", "").strip()
+            if not title:
+                return jsonify({"error": "Title required"}), 400
+            db.execute("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                       (title, datetime.now(timezone.utc).isoformat(), cid, current_user))
+            db.commit()
+            return jsonify({"success": True})
+
         conv = db.execute("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user)).fetchone()
         if not conv: return jsonify({"error": "Not found"}), 404
         
@@ -780,6 +792,66 @@ def upload_file():
     save_path = STORAGE_ROOT / file.filename
     file.save(str(save_path))
     return jsonify({"success": True, "name": file.filename, "size": save_path.stat().st_size})
+
+# ====================
+# WEBSOCKET PROXY - Voice Service
+# ====================
+# Proxies WebSocket connections from /voice/ws to the local voice service on port 5001
+VOICE_SERVICE = os.environ.get("VOICE_SERVICE_URL", "ws://127.0.0.1:5001/ws")
+
+@app.route("/voice/ws")
+def voice_ws_proxy():
+    """Upgrade HTTP to WebSocket and proxy to voice service."""
+    from flask_sock import Sock
+    import websocket as ws_lib
+    
+    # This endpoint is handled by flask_sock via the sock instance below
+    pass
+
+sock = Sock(app)
+
+@sock.route("/voice/ws")
+def voice_proxy(ws):
+    """Proxy WebSocket between browser and voice service on localhost:5001."""
+    import websocket as ws_lib
+    import threading
+    
+    logger.info("[VoiceProxy] Browser connected, opening upstream to %s", VOICE_SERVICE)
+    
+    # Connect upstream to the voice service
+    upstream = ws_lib.create_connection(VOICE_SERVICE, timeout=30)
+    
+    def recv_from_upstream():
+        try:
+            while True:
+                data = upstream.recv()
+                if not data:
+                    break
+                ws.send(data)
+        except Exception as e:
+            logger.info("[VoiceProxy] Upstream closed: %s", e)
+        finally:
+            try:
+                ws.close()
+            except:
+                pass
+    
+    t = threading.Thread(target=recv_from_upstream, daemon=True)
+    t.start()
+    
+    try:
+        while True:
+            data = ws.receive()
+            if data is None:
+                break
+            upstream.send(data)
+    except Exception as e:
+        logger.info("[VoiceProxy] Browser disconnected: %s", e)
+    finally:
+        try:
+            upstream.close()
+        except:
+            pass
 
 # ====================
 # STARTUP

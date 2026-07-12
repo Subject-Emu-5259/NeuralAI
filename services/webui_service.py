@@ -98,12 +98,23 @@ def generate_response(prompt, max_tokens=256, temperature=0.7):
 # ====================
 # ROUTES - STATIC
 # ====================
+import time
+BUILD_VERSION = str(int(time.time()))
+
 @app.route("/")
 def index():
     p = f"{STATIC_PATH}/templates/index.html"
     if os.path.exists(p):
         with open(p) as f:
-            return f.read(), 200, {"Content-Type": "text/html"}
+            content = f.read()
+            # Inject build version for cache busting
+            content = content.replace("{{BUILD_VERSION}}", BUILD_VERSION)
+            return content, 200, {
+                "Content-Type": "text/html",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
     return "index.html not found", 404
 
 @app.route("/<path:path>")
@@ -113,7 +124,9 @@ def static_files(path):
         if os.path.exists(p) and os.path.isfile(p):
             ext = path.split('.')[-1]
             ct = {"js": "application/javascript", "css": "text/css", "png": "image/png", "jpg": "image/jpeg", "ico": "image/x-icon"}
-            return send_from_directory(os.path.dirname(p), os.path.basename(p), mimetype=ct.get(ext, "text/plain"))
+            # Set no-cache for JS/CSS to prevent Cloudflare caching old 404s
+            cache_ctrl = "no-cache, no-store, must-revalidate" if ext in ("js", "css") else "public, max-age=31536000"
+            return send_from_directory(os.path.dirname(p), os.path.basename(p), mimetype=ct.get(ext, "text/plain"), max_age=0 if ext in ("js", "css") else 31536000)
     return "Not found", 404
 
 # ====================

@@ -15,24 +15,48 @@ jobs:
           fetch-depth: 0
           lfs: false
 
-      - name: Configure git
-        run: |
-          git config --global user.email "deandrewh26@gmail.com"
-          git config --global user.name "Subject-Emu-5259"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Push to Hugging Face Hub
+      - name: Install huggingface_hub
+        run: pip install -q huggingface_hub
+
+      - name: Upload LoRA adapter to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -e
-          # NOTE: GitHub is the single source of truth. This pushes the
-          # WHOLE repo (code + the tracked `adapter/` LoRA weights) to
-          # Subject-Emu-5259/NeuralAI, which the Render demo reads from.
+          # NOTE: GitHub is the single source of truth for CODE.
+          # We do NOT push the whole repo to HF (it contains >1GB of
+          # checkpoints/nextcloud files that exceed HF's 10 MiB non-LFS limit).
+          # Instead we upload ONLY the LoRA adapter that the Gradio demo
+          # (Subject-Emu-5259/NeuralAI) loads via snapshot_download.
           HF_REPO_ID="Subject-Emu-5259/NeuralAI"
-          echo "Pushing to Hugging Face repo: $HF_REPO_ID"
-          # Use the token in the remote URL for auth
-          HF_URL="https://Subject-Emu-5259:${HF_TOKEN}@huggingface.co/${HF_REPO_ID}"
-          git remote add hf "$HF_URL" 2>/dev/null || git remote set-url hf "$HF_URL"
-          # Push master -> main on the Hub, force to keep them identical
-          GIT_LFS_SKIP_SMUDGE=1 git push hf "HEAD:refs/heads/main" --force
-          echo "✅ Sync to Hugging Face complete"
+          ADAPTER_SRC="checkpoints/v2_model"
+          echo "Uploading LoRA adapter from $ADAPTER_SRC to $HF_REPO_ID"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          src = os.environ["ADAPTER_SRC"]
+          repo = os.environ["HF_REPO_ID"]
+          # Upload only the small adapter files (config + weights + tokenizer).
+          # .safetensors (~35MB) is allowed through the Hub API (no 10MiB git limit).
+          allowed = (".safetensors", ".json", ".bin", ".jinja", ".md", ".txt")
+          for root, _, files in os.walk(src):
+              for f in files:
+                  if f.endswith(allowed):
+                      local = os.path.join(root, f)
+                      # Flatten into repo root so PeftModel.from_pretrained(repo) works
+                      api.upload_file(
+                          path_or_fileobj=local,
+                          path_in_repo=f,
+                          repo_id=repo,
+                          repo_type="model",
+                          commit_message=f"Sync LoRA adapter: {f}",
+                      )
+                      print(f"  uploaded {f}")
+          print("✅ Adapter sync to Hugging Face complete")
+          PY

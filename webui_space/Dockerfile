@@ -14,13 +14,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY webui_space/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy the whole repo so the service can find the web UI templates/static
-COPY . /app
+# Copy only what the web service needs (NOT the 1.5GB checkpoints/nextcloud).
+# The LoRA adapter is pulled at runtime from the HF Hub (ADAPTER_REPO).
+COPY services/ /app/services/
+COPY from-scratch/web_ui/ /app/from-scratch/web_ui/
+COPY data/ /app/data/
+COPY tools/ /app/tools/
 
 # The service reads REPO_ROOT from its own location
 ENV REPO_ROOT=/app
 ENV PORT=7860
 ENV ADAPTER_REPO=Subject-Emu-5259/NeuralAI
+ENV QUANTIZE=1
 ENV HF_HUB_DISABLE_TELEMETRY=1
 EXPOSE 7860
 

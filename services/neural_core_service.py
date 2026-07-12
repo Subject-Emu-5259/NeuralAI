@@ -184,14 +184,27 @@ def load_model():
             load_path = DPO_MODEL_PATH
             is_dpo = True
 
+        # 8-bit quantization keeps the 360M model under tight RAM limits
+        # (e.g. Railway/HF free tiers ~512MB). Enable with QUANTIZE=1.
+        quantize = os.environ.get("QUANTIZE", "0") == "1"
+        load_kwargs = {}
+        if quantize:
+            try:
+                from bitsandbytes.nn import Linear8bitLt  # noqa: F401
+                load_kwargs["load_in_8bit"] = True
+                load_kwargs["device_map"] = "auto"
+                print("[NeuralAI] 8-bit quantization enabled.")
+            except Exception:
+                print("[NeuralAI] bitsandbytes unavailable; loading in fp32.")
+
         if load_path:
             print(f"[NeuralAI] Loading Production Model from {load_path}...")
             tokenizer = AutoTokenizer.from_pretrained(str(load_path))
-            model = AutoModelForCausalLM.from_pretrained(str(load_path), torch_dtype=torch.float32, device_map=None)
+            model = AutoModelForCausalLM.from_pretrained(str(load_path), torch_dtype=torch.float32, **load_kwargs)
         else:
             print(f"[NeuralAI] Loading Base Model: {BASE_MODEL}...")
             tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-            base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
+            base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, **load_kwargs)
 
             # Check for LoRA adapter (v2_model) locally
             adapter_path = Path(MODEL_PATH)

@@ -84,10 +84,28 @@ def chat(message, history):
     return response.strip()
 
 # Gradio interface
-# NOTE: In Gradio 6.0 `theme` and `css` moved from gr.Blocks() to launch().
-with gr.Blocks(
-    title="NeuralAI v2 Chat",
-) as demo:
+# Gradio 6.0 moved `theme`/`css` from gr.Blocks() to launch() and renamed
+# `server_port` -> `port`. Support both 4.x and 6.x via version detection so
+# the container binds $PORT regardless of which major is installed.
+_GV = tuple(int(p) for p in gr.__version__.split(".")[:2])
+_BLOCKS_KWARGS = {"title": "NeuralAI v2 Chat"}
+_LAUNCH_THEME_CSS = {}
+if _GV >= (5, 0):
+    _LAUNCH_THEME_CSS = {
+        "theme": gr.themes.Soft(),
+        "css": """
+        .gradio-container { max-width: 900px !important; }
+        .chat-message { font-size: 15px; }
+        """,
+    }
+else:
+    _BLOCKS_KWARGS["theme"] = gr.themes.Soft()
+    _BLOCKS_KWARGS["css"] = """
+    .gradio-container { max-width: 900px !important; }
+    .chat-message { font-size: 15px; }
+    """
+
+with gr.Blocks(**_BLOCKS_KWARGS) as demo:
     gr.Markdown("""
     # 🧠 NeuralAI v2 — Chat Demo
     
@@ -135,17 +153,17 @@ with gr.Blocks(
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 7860))
-    # Gradio 6.x renamed server_port -> port; use `port` so Render's assigned
-    # $PORT is actually bound (otherwise it defaults to 7860 and Render's
-    # port scanner finds nothing).
-    demo.launch(
-        server_name="0.0.0.0",
-        port=port,
-        share=False,
-        show_error=True,
-        theme=gr.themes.Soft(),
-        css="""
-        .gradio-container { max-width: 900px !important; }
-        .chat-message { font-size: 15px; }
-        """,
-    )
+    # Gradio 6.x renamed server_port -> port. Use the right kwarg per version
+    # so the host's assigned $PORT is actually bound (otherwise it defaults to
+    # 7860 and the port scanner finds nothing).
+    _launch_kwargs = {
+        "server_name": "0.0.0.0",
+        "share": False,
+        "show_error": True,
+        **_LAUNCH_THEME_CSS,
+    }
+    if _GV >= (5, 0):
+        _launch_kwargs["port"] = port
+    else:
+        _launch_kwargs["server_port"] = port
+    demo.launch(**_launch_kwargs)

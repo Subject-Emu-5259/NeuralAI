@@ -9,6 +9,27 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 from huggingface_hub import snapshot_download
 
+# --- WORKAROUND: gradio-client 1.1.x-1.3.0 crashes on every / request ----------
+# Gradio 4.x emits a JSON schema with `additionalProperties: true` (a bool).
+# gradio_client.utils.get_type() does `if "const" in schema:` which raises
+# `TypeError: argument of type 'bool' is not iterable` when schema is a bool,
+# so the / route returns HTTP 500 and the healthcheck fails. Patch get_type
+# to treat any non-dict schema as "Any" so the API info builds cleanly.
+import gradio_client.utils as _gcu
+
+_orig_json_schema = _gcu._json_schema_to_python_type  # capture real impl
+
+def _safe_json_schema(schema, defs):
+    # Gradio 4.x emits `additionalProperties: true` (a bool). gradio_client
+    # 1.1.x-1.3.0 then calls _json_schema_to_python_type(True) which crashes
+    # ('bool' object has no attribute 'get'). Treat any non-dict schema as Any.
+    if not isinstance(schema, dict):
+        return "Any"
+    return _orig_json_schema(schema, defs)
+
+_gcu._json_schema_to_python_type = _safe_json_schema
+# ------------------------------------------------------------------------------
+
 # Configuration
 BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
 ADAPTER_REPO = "Subject-Emu-5259/NeuralAI"

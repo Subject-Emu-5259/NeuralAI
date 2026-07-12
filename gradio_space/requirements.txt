@@ -1,7 +1,12 @@
 torch>=2.0.0
 transformers>=4.40.0
 peft>=0.10.0
-gradio>=4.0.0,<5.0.0
+# Gradio 4.x + gradio-client 1.1.1 is a known-good pairing. gradio-client
+# 1.2.0-1.3.0 crash on every / request (TypeError when parsing
+# `additionalProperties: true`), which fails the healthcheck. app.py also
+# patches gradio_client.utils at runtime as a belt-and-suspenders guard.
+gradio>=4.43.0,<4.44.0
+gradio-client==1.1.1
 huggingface_hub>=0.20.0
 safetensors>=0.4.0
 accelerate>=0.24.0

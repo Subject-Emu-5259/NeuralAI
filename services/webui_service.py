@@ -46,6 +46,40 @@ CONV_FILE = Path("/home/workspace/Projects/NeuralAI/conversations.json")
 STORAGE_SERVICE = os.environ.get("STORAGE_SERVICE", "http://localhost:7003")
 STORAGE_ROOT = Path("/home/workspace/Projects/NeuralAI/storage")
 STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+from collections import defaultdict
+import hashlib
+
+# ====================
+# NEURALAI SYSTEM PROMPT
+# ====================
+NEURALAI_SYSTEM_PROMPT = """You are NeuralAI, an advanced AI assistant created by the Xiaomi LLM Core Team. You are powered by SmolLM2-360M with a custom NeuralAI LoRA adapter trained on expert-level knowledge.
+
+## Core Identity
+- Name: NeuralAI
+- Creator: Xiaomi LLM Core Team
+- Model: SmolLM2-360M-Instruct + NeuralAI LoRA (DPO v15)
+- Expertise: Physics, Philosophy, Geopolitics, History, Nature, Arts, Culture
+
+## Response Style
+- Be warm, conversational, and respectful
+- Provide detailed, expert-level answers when appropriate
+- Use examples, metaphors, or thought experiments to explain complex ideas
+- Acknowledge uncertainty when you don't know something
+- Be concise but thorough - match response depth to question complexity
+
+## Knowledge Domains
+- Physics: Quantum mechanics, relativity, particle physics, cosmology
+- Philosophy: Metaphysics, epistemology, ethics, logic
+- Geopolitics: International relations, global order, diplomacy
+- History: Ancient civilizations through modern era
+- Nature: Evolution, ecology, biological systems
+- Arts and Culture: Creative expression, cultural analysis
+
+## Important Guidelines
+- Always identify yourself as NeuralAI when asked
+- Stay factual and evidence-based
+- Respect user privacy and data
+- Follow the Xiaomi LLM Core Team alignment principles"""
 
 # ====================
 # DATABASE LAYER
@@ -174,20 +208,68 @@ def load_model():
         model_status = f"error: {e}"
         print(f"[ERROR] Model: {e}")
 
-def generate_response(prompt, max_tokens=256, temperature=0.7):
+def get_conversation_history(conv_id, limit=10):
+    """Get recent conversation history for context"""
+    if not conv_id:
+        return []
+    try:
+        db = get_db()
+        rows = db.execute(
+            "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
+            (conv_id, limit)
+        ).fetchall()
+        db.close()
+        return list(reversed([dict(r) for r in rows]))
+    except Exception:
+        return []
+
+def build_prompt_with_context(prompt, conv_id=None, max_history=8):
+    """Build a prompt with system prompt and conversation history"""
+    history = get_conversation_history(conv_id, max_history) if conv_id else []
+    parts = [NEURALAI_SYSTEM_PROMPT, ""]
+    if history:
+        parts.append("## Conversation History")
+        for msg in history:
+            role = "User" if msg["role"] == "user" else "NeuralAI"
+            content_preview = msg["content"][:200]
+            parts.append(f"{role}: {content_preview}")
+        parts.append("")
+    parts.append("## Current Request")
+    parts.append(f"User: {prompt}")
+    parts.append("")
+    parts.append("NeuralAI:")
+    return "\n".join(parts)
+
+def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
+    """Enhanced response generation with system prompt and context"""
     global model, tokenizer, inference_count
     if model is None or tokenizer is None:
-        return "Model not loaded."
+        return "Model not loaded. Please wait a moment and try again."
     try:
-        full = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+        full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
         with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature, top_p=0.95, pad_token_id=tokenizer.eos_token_id)
+            out = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                do_sample=True,
+                temperature=temperature,
+                top_p=0.95,
+                pad_token_id=tokenizer.eos_token_id,
+                repetition_penalty=1.1
+            )
         new_tokens = out[0][inputs["input_ids"].shape[-1]:]
+        response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        # Clean up response - remove any echo of system prompt or markers
+        if response.startswith("NeuralAI:"):
+            response = response[len("NeuralAI:"):].strip()
+        if "## Current Request" in response:
+            response = response.split("## Current Request")[0].strip()
         inference_count += 1
-        return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        return response
     except Exception as e:
-        return f"Error: {e}"
+        logger.error(f"Generation error: {e}")
+        return "I encountered an error generating a response. Please try again."
 
 # ====================
 # ROUTES - STATIC
@@ -277,10 +359,14 @@ def generate_stream():
 @app.route("/api/chat", methods=["POST"])
 @token_required
 def api_chat(current_user):
+    start_time = time.time()
     data = request.get_json() or {}
     prompt = data.get("prompt", "")
     use_uplink = data.get("use_uplink", False)
     conv_id = data.get("conversation_id")
+    
+    if not prompt:
+        return jsonify({"error": "No prompt provided"}), 400
     
     # Save user message to DB if conversation_id provided
     if conv_id:
@@ -290,6 +376,18 @@ def api_chat(current_user):
             db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
                        (conv_id, prompt, now))
             db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?", (now, conv_id))
+            
+            # Auto-generate title from first message
+            msg_count = db.execute("SELECT COUNT(*) as cnt FROM messages WHERE conversation_id = ?", (conv_id,)).fetchone()["cnt"]
+            if msg_count <= 1:
+                auto_title = prompt[:50].strip()
+                if len(prompt) > 50:
+                    last_space = auto_title.rfind(" ")
+                    if last_space > 20:
+                        auto_title = auto_title[:last_space]
+                    auto_title += "..."
+                db.execute("UPDATE conversations SET title = ? WHERE id = ?", (auto_title, conv_id))
+            
             db.commit()
             db.close()
         except Exception as e:
@@ -305,7 +403,7 @@ def api_chat(current_user):
                         yield f"data: {json.dumps({'content': chunk})}\n\n"
                 except: pass
         else:
-            response = generate_response(prompt)
+            response = generate_response(prompt, conv_id=conv_id)
             # Save assistant response
             if conv_id and response:
                 try:
@@ -317,12 +415,25 @@ def api_chat(current_user):
                     db.close()
                 except Exception as e:
                     logger.error(f"Failed to save assistant message: {e}")
+            # Stream word by word
             for word in response.split():
                 yield f"data: {json.dumps({'content': word + ' '})}\n\n"
         
         yield "data: [DONE]\n\n"
 
     return Response(generate_unified(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ====================
+# ROUTES - MONITORING
+# ====================
+@app.route("/api/monitoring/metrics", methods=["GET"])
+def get_metrics():
+    """Get system metrics (public for status page)"""
+    return jsonify({
+        "model_status": model_status,
+        "inference_count": inference_count,
+        "version": "7.2.0-enhanced"
+    })
 
 # ====================
 # ROUTES - CONVERSATIONS

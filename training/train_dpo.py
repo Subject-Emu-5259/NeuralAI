@@ -39,7 +39,7 @@ def detect_device() -> str:
 class DPOTrainingConfig:
     """DPO training configuration"""
     base_model: str = "HuggingFaceTB/SmolLM2-360M-Instruct"
-    dataset_path: str = str(REPO_ROOT / "data" / "train_dpo_v14.jsonl")
+    dataset_path: str = str(REPO_ROOT / "data" / "train_dpo_v15.jsonl")
     output_dir: str = str(REPO_ROOT / "checkpoints" / "dpo_model_v14")
     adapter_path: str = ""  # Path to existing adapter if continuing training
 

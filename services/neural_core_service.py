@@ -10,11 +10,13 @@ NeuralAI Unified Service - ALL IN ONE
 import os, sys, json, asyncio, requests, threading, logging
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
+# Diffusion is optional: it pulls in diffusers + a large model download and is
+# not required for the chat UI. Import lazily/guarded so the service boots
+# even when diffusers is unavailable (e.g. on a slim HF Space image).
 try:
     from diffusion_engine import NeuralAIDiffusion
-except ImportError:
-    sys.path.append(os.path.join("/home/workspace/Projects/NeuralAI", "services"))
-    from diffusion_engine import NeuralAIDiffusion
+except Exception:
+    NeuralAIDiffusion = None
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -28,9 +30,9 @@ logger = logging.getLogger("NeuralCore")
 
 torch.set_num_threads(4)
 
-# Config
-REPO_ROOT = "/home/workspace/Projects/NeuralAI"
-STATIC_PATH = f"{REPO_ROOT}/from-scratch/web_ui"
+# Config (portable: resolve REPO_ROOT from this file's location)
+REPO_ROOT = os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parent.parent))
+STATIC_PATH = os.path.join(REPO_ROOT, "from-scratch", "web_ui")
 DATA_DIR = Path(REPO_ROOT) / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 PORT = int(os.environ.get("PORT", 5000))
@@ -52,8 +54,8 @@ Example: <tool>image_gen: a neon cyber-Pegasus</tool>
 app = Flask(__name__, static_folder=os.path.join(STATIC_PATH, "static"), template_folder=os.path.join(STATIC_PATH, "templates"))
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
-# NeuralDrive Integration
-NEURAL_DRIVE = "/home/workspace/Projects/NeuralAI/services/nextcloud/data/admin/files"
+# NeuralDrive Integration (portable paths)
+NEURAL_DRIVE = os.environ.get("NEURAL_DRIVE", str(Path(REPO_ROOT) / "services" / "nextcloud" / "data" / "admin" / "files"))
 STORAGE_ROOT = Path(REPO_ROOT) / "storage"
 GENERATED_DIR = Path(NEURAL_DRIVE) / "generated"
 UPLOADS_DIR = STORAGE_ROOT / "uploads"
@@ -62,9 +64,9 @@ TTS_DIR = STORAGE_ROOT / "tts"
 for d in [GENERATED_DIR, UPLOADS_DIR, TTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
-MODEL_PATH = os.environ.get("MODEL_PATH", f"{REPO_ROOT}/checkpoints/v2_model")
+MODEL_PATH = os.environ.get("MODEL_PATH", str(Path(REPO_ROOT) / "checkpoints" / "v2_model"))
 BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
-DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", f"{REPO_ROOT}/checkpoints/dpo_model")
+DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", str(Path(REPO_ROOT) / "checkpoints" / "dpo_model"))
 DATABASE = os.path.join(DATA_DIR, "neuralai.db")
 
 # Model globals
@@ -174,14 +176,14 @@ def load_model():
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
-        
+
         # Priority: DPO Model -> Base Model with Adapter
         load_path = None
-        
+
         if Path(DPO_MODEL_PATH).exists() and (Path(DPO_MODEL_PATH) / "model.safetensors").exists():
             load_path = DPO_MODEL_PATH
             is_dpo = True
-            
+
         if load_path:
             print(f"[NeuralAI] Loading Production Model from {load_path}...")
             tokenizer = AutoTokenizer.from_pretrained(str(load_path))
@@ -190,15 +192,26 @@ def load_model():
             print(f"[NeuralAI] Loading Base Model: {BASE_MODEL}...")
             tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
             base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
-            
-            # Check for LoRA adapter (v2_model)
+
+            # Check for LoRA adapter (v2_model) locally
             adapter_path = Path(MODEL_PATH)
             has_adapter = any((adapter_path / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
             if adapter_path.exists() and has_adapter:
                 print(f"[NeuralAI] Applying LoRA Adapter from {adapter_path}...")
                 model = PeftModel.from_pretrained(base_model, str(adapter_path))
             else:
-                model = base_model
+                # Fall back to pulling the latest adapter from the Hugging Face Hub
+                # so the hosted Space always serves the most recent fine-tune.
+                hub_repo = os.environ.get("ADAPTER_REPO", "Subject-Emu-5259/NeuralAI")
+                try:
+                    from huggingface_hub import snapshot_download
+                    print(f"[NeuralAI] No local adapter found; downloading from HF Hub: {hub_repo}")
+                    adapter_path = Path(snapshot_download(repo_id=hub_repo, repo_type="model"))
+                    model = PeftModel.from_pretrained(base_model, str(adapter_path))
+                    print(f"[NeuralAI] Applied LoRA Adapter from HF Hub.")
+                except Exception as hub_err:
+                    print(f"[NeuralAI] Adapter download failed ({hub_err}); using base model only.")
+                    model = base_model
 
         tokenizer.pad_token = tokenizer.eos_token
         model.eval()
@@ -278,7 +291,7 @@ class Tools:
     @staticmethod
     def read_file(path):
         try:
-            repo_root = "/home/workspace/Projects/NeuralAI"
+            repo_root = REPO_ROOT
             full_path = Path(repo_root) / path.lstrip("/")
             if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
                 return "Access denied: Path outside workspace."
@@ -289,7 +302,7 @@ class Tools:
     @staticmethod
     def write_file(path, content):
         try:
-            repo_root = "/home/workspace/Projects/NeuralAI"
+            repo_root = REPO_ROOT
             full_path = Path(repo_root) / path.lstrip("/")
             if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
                 return "Access denied: Path outside workspace."
@@ -302,7 +315,7 @@ class Tools:
     @staticmethod
     def list_files(path):
         try:
-            repo_root = "/home/workspace/Projects/NeuralAI"
+            repo_root = REPO_ROOT
             full_path = Path(repo_root) / path.lstrip("/")
             if not str(full_path.resolve()).startswith(str(Path(repo_root).resolve())):
                 return "Access denied: Path outside workspace."
@@ -493,6 +506,18 @@ def guest_login():
     token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
     return jsonify({"token": token, "user": {"username": f"Maestro_{code[:4]}", "role": "maestro"}})
 
+@app.route("/api/auth/maestro", methods=["POST"])
+def maestro_login():
+    # Maestro Student Portal: accepts a Maestro ID (e.g. Mae001) and grants a
+    # guest-style session. Pattern validation is lenient for the demo.
+    data = request.get_json(silent=True) or {}
+    code_in = (data.get("code") or data.get("maestro_id") or "").strip()
+    if not code_in:
+        return jsonify({"error": "Maestro ID required"}), 400
+    user_id = f"maestro_{os.urandom(4).hex()}"
+    token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token, "user": {"username": code_in, "role": "maestro"}})
+
 
 @app.route("/api/settings", methods=["GET", "POST"])
 @token_required
@@ -681,10 +706,11 @@ TONE: Brilliant, professional, collaborative, and mission-aligned."""
     def generate():
         full_response = ""
         stream_buffer = ""
+        sse_tail = "\n\n"
         for chunk in generate_response_stream(messages, max_tokens, temperature):
             full_response += chunk
             stream_buffer += chunk
-            
+
             if "<tool>" in stream_buffer:
                 if "</tool>" in stream_buffer:
                     pattern = r"(<tool>.*?</tool>)"
@@ -693,26 +719,27 @@ TONE: Brilliant, professional, collaborative, and mission-aligned."""
                         complete_tag = match.group(0)
                         before_tag = stream_buffer[:match.start()]
                         after_tag = stream_buffer[match.end():]
-                        
-                        if before_tag: yield f"data: {json.dumps({'content': before_tag})}\\n\\n"
-                        
+
+                        if before_tag: yield f"data: {json.dumps({'content': before_tag})}{sse_tail}"
+
                         # Yield a tool execution indicator to keep stream alive
                         tool_name_match = re.search(r"<tool>(.*?):", complete_tag)
                         tool_name = tool_name_match.group(1).strip() if tool_name_match else "unknown"
-                        yield f"data: {json.dumps({'content': f'\\n\\n🔧 **NeuralAI is processing tool: {tool_name}...**\\n'})}\\n\\n"
-                        
+                        indicator = f"\n\n🔧 **NeuralAI is processing tool: {tool_name}...**\n"
+                        yield f"data: {json.dumps({'content': indicator})}{sse_tail}"
+
                         results = process_tool_calls(complete_tag, current_user)
                         if results:
-                            yield f"data: {json.dumps({'content': results})}\\n\\n"
+                            yield f"data: {json.dumps({'content': results})}{sse_tail}"
                             full_response += results
                         stream_buffer = after_tag
                 continue
             else:
-                yield f"data: {json.dumps({'content': stream_buffer})}\\n\\n"
+                yield f"data: {json.dumps({'content': stream_buffer})}{sse_tail}"
                 stream_buffer = ""
         
-        if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}\\n\\n"
-        
+        if stream_buffer: yield f"data: {json.dumps({'content': stream_buffer})}{sse_tail}"
+
         # Save to database if conv_id provided
         if conv_id:
             db = get_db()
@@ -724,8 +751,8 @@ TONE: Brilliant, professional, collaborative, and mission-aligned."""
             db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 2 WHERE id = ?", (now, conv_id))
             db.commit()
             db.close()
-            
-        yield "data: [DONE]\\n\\n"
+
+        yield f"data: [DONE]{sse_tail}"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -791,32 +818,20 @@ TONE: Brilliant, professional, collaborative, and mission-aligned."""
 @app.route("/api/terminal/create", methods=["POST"])
 @token_required
 def create_terminal(current_user):
-    sid = uuid.uuid4().hex[:8]
-    terminal_sessions[sid] = {"user": current_user, "history": []}
-    return jsonify({"success": True, "session_id": sid})
+    # Terminal/shell execution is disabled in the hosted deployment for
+    # security (it would allow arbitrary command execution). The chat UI
+    # remains fully functional without it.
+    return jsonify({"success": False, "error": "Terminal is disabled in this deployment."}), 403
 
 @app.route("/api/terminal/<sid>/send", methods=["POST"])
 @token_required
 def send_terminal(current_user, sid):
-    if sid not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    
-    cmd = request.json.get("command", "")
-    try:
-        # Run command safely
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
-        output = result.stdout + result.stderr
-        terminal_sessions[sid]["history"].append({"cmd": cmd, "out": output})
-        return jsonify({"success": True, "output": output})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return jsonify({"success": False, "error": "Terminal is disabled in this deployment."}), 403
 
 @app.route("/api/terminal/<sid>/read", methods=["GET"])
 @token_required
 def read_terminal(current_user, sid):
-    if sid not in terminal_sessions:
-        return jsonify({"error": "Session not found"}), 404
-    return jsonify({"success": True, "history": terminal_sessions[sid]["history"]})
+    return jsonify({"success": False, "error": "Terminal is disabled in this deployment."}), 403
 
 @app.route("/api/files", methods=["GET"])
 @token_required
@@ -833,6 +848,22 @@ def serve_file(current_user, folder, filename):
     # Right now, folder might just be 'uploads', but we serve from UPLOADS_DIR / current_user
     user_uploads = UPLOADS_DIR / current_user
     return send_from_directory(user_uploads, filename)
+
+@app.route("/api/upload", methods=["POST"])
+@token_required
+def upload_file(current_user):
+    from werkzeug.utils import secure_filename
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    user_uploads = UPLOADS_DIR / current_user
+    user_uploads.mkdir(parents=True, exist_ok=True)
+    filename = secure_filename(f.filename)
+    f.save(str(user_uploads / filename))
+    return jsonify({"success": True, "filename": filename, "chunks": 0,
+                    "message": f'"{filename}" uploaded.'})
 
 @app.route("/static/generated/<path:filename>")
 def serve_generated(filename):

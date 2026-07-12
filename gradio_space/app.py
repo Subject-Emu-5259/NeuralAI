@@ -46,13 +46,24 @@ def load_model():
         return
     print("Loading base model...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-    # 8-bit quantization keeps the 360M model under the 512MB free-tier RAM limit
-    model = AutoModelForCausalLM.from_pretrained(
-        BASE_MODEL,
-        load_in_8bit=True,
-        device_map="auto",
-        trust_remote_code=True,
-    )
+    # 8-bit quantization keeps the 360M model under the 512MB free-tier RAM
+    # limit, but it REQUIRES CUDA + bitsandbytes. Railway (and other CPU-only
+    # hosts) have no GPU, so fall back to a plain fp32 CPU load there.
+    use_8bit = torch.cuda.is_available()
+    print(f"CUDA available: {torch.cuda.is_available()} -> 8-bit={use_8bit}", flush=True)
+    if use_8bit:
+        model = AutoModelForCausalLM.from_pretrained(
+            BASE_MODEL,
+            load_in_8bit=True,
+            device_map="auto",
+            trust_remote_code=True,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            BASE_MODEL,
+            torch_dtype="auto",
+            trust_remote_code=True,
+        ).to("cpu")
     # Always pull the LATEST adapter from the Hub on each (re)start so a fresh
     # `train_dpo.py --push` is reflected without a rebuild. snapshot_download
     # checks the Hub for updates and only re-downloads if the adapter changed.

@@ -7,21 +7,30 @@ NeuralAI Unified Service - ALL IN ONE
 - Tools (code, terminal)
 - Web UI
 """
-import os, sys, json, asyncio, requests
-import torch, sqlite3, subprocess, tempfile, uuid
+import os, sys, json, asyncio, requests, logging
+import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("NeuralAI")
 
 torch.set_num_threads(4)
 
 app = Flask(__name__, static_folder=None)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
 MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
 BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
-STATIC_PATH = "/home/workspace/Projects/NeuralAI/from-scratch/web_ui"
+STATIC_PATH = os.environ.get("STATIC_PATH", "/home/workspace/Projects/NeuralAI/from-scratch/web_ui")
+DATA_DIR = Path("/home/workspace/Projects/NeuralAI/data")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATABASE = str(DATA_DIR / "neuralai.db")
 
 # Model globals
 model = None
@@ -37,6 +46,91 @@ CONV_FILE = Path("/home/workspace/Projects/NeuralAI/conversations.json")
 STORAGE_SERVICE = os.environ.get("STORAGE_SERVICE", "http://localhost:7003")
 STORAGE_ROOT = Path("/home/workspace/Projects/NeuralAI/storage")
 STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+
+# ====================
+# DATABASE LAYER
+# ====================
+def get_db():
+    db = sqlite3.connect(DATABASE)
+    db.row_factory = sqlite3.Row
+    return db
+
+def init_db():
+    db = get_db()
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            first_name TEXT,
+            last_name TEXT,
+            bod TEXT,
+            bio TEXT,
+            is_founder INTEGER DEFAULT 0,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            message_count INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, key)
+        );
+        CREATE TABLE IF NOT EXISTS memory_facts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fact TEXT NOT NULL,
+            category TEXT DEFAULT 'general',
+            importance INTEGER DEFAULT 0,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS active_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            user_id TEXT,
+            created_at TEXT NOT NULL
+        );
+    """)
+    db.commit()
+    db.close()
+
+# ====================
+# AUTH DECORATOR
+# ====================
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token:
+            token = request.args.get("token")
+        if not token:
+            request.user_id = "guest"
+            return f(request.user_id, *args, **kwargs)
+        try:
+            token = token.replace("Bearer ", "")
+            payload = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            request.user_id = payload["user_id"]
+        except Exception:
+            return jsonify({"error": "Invalid token"}), 401
+        return f(request.user_id, *args, **kwargs)
+    return decorated
 
 def load_convs():
     if CONV_FILE.exists():
@@ -152,8 +246,11 @@ def terms():
 # ROUTES - HEALTH
 # ====================
 @app.route("/health")
+@app.route("/api/health")
+@app.route("/api/status")
 def health():
-    return jsonify({"status": model_status, "model": BASE_MODEL, "inference_count": inference_count, "uplink": "integrated"})
+    return jsonify({"status": model_status, "model": BASE_MODEL, "inference_count": inference_count, "uplink": "integrated",
+                    "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.1.0-stable"})
 
 # ====================
 # ROUTES - MODEL
@@ -178,10 +275,25 @@ def generate_stream():
 
 # Unified AI API for Frontend
 @app.route("/api/chat", methods=["POST"])
-def api_chat():
+@token_required
+def api_chat(current_user):
     data = request.get_json() or {}
     prompt = data.get("prompt", "")
     use_uplink = data.get("use_uplink", False)
+    conv_id = data.get("conversation_id")
+    
+    # Save user message to DB if conversation_id provided
+    if conv_id:
+        try:
+            db = get_db()
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
+                       (conv_id, prompt, now))
+            db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?", (now, conv_id))
+            db.commit()
+            db.close()
+        except Exception as e:
+            logger.error(f"Failed to save user message: {e}")
     
     def generate_unified():
         if use_uplink:
@@ -194,6 +306,17 @@ def api_chat():
                 except: pass
         else:
             response = generate_response(prompt)
+            # Save assistant response
+            if conv_id and response:
+                try:
+                    db = get_db()
+                    now = datetime.now(timezone.utc).isoformat()
+                    db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
+                               (conv_id, response, now))
+                    db.commit()
+                    db.close()
+                except Exception as e:
+                    logger.error(f"Failed to save assistant message: {e}")
             for word in response.split():
                 yield f"data: {json.dumps({'content': word + ' '})}\n\n"
         
@@ -205,26 +328,43 @@ def api_chat():
 # ROUTES - CONVERSATIONS
 # ====================
 @app.route("/api/conversations", methods=["GET", "POST"])
-def manage_convs():
-    convs = load_convs()
-    if request.method == "POST":
-        data = request.get_json() or {}
-        cid = str(uuid.uuid4())[:8]
-        convs[cid] = {"title": data.get("title", "New Chat"), "messages": []}
-        save_convs(convs)
-        return jsonify({"success": True, "id": cid})
-    
-    return jsonify([{"id": k, "title": v["title"]} for k, v in convs.items()])
+@token_required
+def manage_convs(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            cid = str(uuid.uuid4().hex[:8])
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                       (cid, current_user, data.get("title", "New Chat"), now, now))
+            db.commit()
+            return jsonify({"success": True, "id": cid})
+        
+        rows = db.execute("SELECT id, title, updated_at FROM conversations WHERE user_id = ? ORDER BY updated_at DESC", (current_user,)).fetchall()
+        convs = [dict(row) for row in rows]
+        return jsonify(convs)
+    finally:
+        db.close()
 
 @app.route("/api/conversations/<cid>", methods=["GET", "DELETE"])
-def conv_detail(cid):
-    convs = load_convs()
-    if cid not in convs: return jsonify({"error": "Not found"}), 404
-    if request.method == "DELETE":
-        del convs[cid]
-        save_convs(convs)
-        return jsonify({"success": True})
-    return jsonify(convs[cid])
+@token_required
+def conv_detail(current_user, cid):
+    db = get_db()
+    try:
+        if request.method == "DELETE":
+            db.execute("DELETE FROM messages WHERE conversation_id = ?", (cid,))
+            db.execute("DELETE FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user))
+            db.commit()
+            return jsonify({"success": True})
+        
+        conv = db.execute("SELECT * FROM conversations WHERE id = ? AND user_id = ?", (cid, current_user)).fetchone()
+        if not conv: return jsonify({"error": "Not found"}), 404
+        
+        msgs = db.execute("SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC", (cid,)).fetchall()
+        return jsonify({**dict(conv), "messages": [dict(m) for m in msgs]})
+    finally:
+        db.close()
 
 # ====================
 # ROUTES - FILES (Proxied to Storage Service)
@@ -322,9 +462,219 @@ def execute_code():
         os.unlink(path)
 
 # ====================
+# ROUTES - AUTH
+# ====================
+@app.route("/api/auth/guest", methods=["POST"])
+def guest_login():
+    code = uuid.uuid4().hex[:8]
+    user_id = f"guest_{os.urandom(4).hex()}"
+    token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token, "user": {"username": f"Maestro_{code[:4]}", "role": "maestro"}})
+
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"error": "Missing fields"}), 400
+    is_founder = 1 if email == "deandrewh26@gmail.com" else 0
+    hashed = generate_password_hash(password)
+    uid = "user_" + uuid.uuid4().hex[:8]
+    now = datetime.now(timezone.utc).isoformat()
+    db = get_db()
+    try:
+        db.execute("INSERT INTO users (id, username, email, is_founder, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                   (uid, username, email, is_founder, hashed, now))
+        db.commit()
+        token = jwt.encode({"user_id": uid, "is_founder": is_founder, "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+                           app.config["SECRET_KEY"], algorithm="HS256")
+        return jsonify({"success": True, "message": "User created", "token": token,
+                        "user": {"id": uid, "username": username, "is_founder": bool(is_founder)}})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Username or email exists"}), 409
+    finally:
+        db.close()
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+    identity = (data.get("username") or data.get("email") or "").strip()
+    password = data.get("password", "")
+    if not identity or not password:
+        return jsonify({"error": "Missing credentials"}), 400
+    db = get_db()
+    try:
+        user = db.execute("SELECT * FROM users WHERE username = ? OR email = ?", (identity, identity)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            token = jwt.encode({"user_id": user["id"], "is_founder": user["is_founder"],
+                                "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+                               app.config["SECRET_KEY"], algorithm="HS256")
+            return jsonify({"success": True, "token": token,
+                            "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
+        return jsonify({"error": "Invalid credentials"}), 401
+    finally:
+        db.close()
+
+@app.route("/api/auth/maestro", methods=["POST"])
+def maestro_login():
+    data = request.get_json(silent=True) or {}
+    code_in = (data.get("code") or data.get("maestro_id") or "").strip()
+    if not code_in:
+        return jsonify({"error": "Maestro ID required"}), 400
+    user_id = f"maestro_{os.urandom(4).hex()}"
+    token = jwt.encode({"user_id": user_id, "role": "maestro"}, app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token, "user": {"username": code_in, "role": "maestro"}})
+
+# ====================
+# ROUTES - USER
+# ====================
+@app.route("/api/user/me", methods=["GET"])
+@token_required
+def get_user_me(current_user):
+    db = get_db()
+    try:
+        user = db.execute("SELECT * FROM users WHERE id = ?", (current_user,)).fetchone()
+        if not user:
+            return jsonify({"user": {"id": current_user, "username": current_user, "is_founder": False}})
+        u_dict = dict(user)
+        if "password_hash" in u_dict: del u_dict["password_hash"]
+        return jsonify({"user": u_dict})
+    finally:
+        db.close()
+
+@app.route("/api/user/update", methods=["POST"])
+@token_required
+def update_user(current_user):
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    try:
+        for field in ["first_name", "last_name", "bio", "bod", "email"]:
+            if field in data:
+                db.execute(f"UPDATE users SET {field} = ? WHERE id = ?", (data[field], current_user))
+        db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+# ====================
+# ROUTES - SETTINGS
+# ====================
+@app.route("/api/settings", methods=["GET", "POST"])
+@token_required
+def manage_settings(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            now = datetime.now(timezone.utc).isoformat()
+            for k, v in data.items():
+                db.execute("INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                           (current_user, k, str(v), now))
+            db.commit()
+            return jsonify({"success": True})
+        rows = db.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (current_user,)).fetchall()
+        settings = {row["key"]: row["value"] for row in rows}
+        return jsonify({"success": True, "settings": settings})
+    finally:
+        db.close()
+
+# ====================
+# ROUTES - MEMORY
+# ====================
+@app.route("/api/memory", methods=["GET", "POST"])
+@token_required
+def manage_memory(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            fact = data.get("fact")
+            if not fact: return jsonify({"error": "Missing fact"}), 400
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO memory_facts (fact, user_id, created_at) VALUES (?, ?, ?)", (fact, current_user, now))
+            db.commit()
+            return jsonify({"success": True})
+        rows = db.execute("SELECT id, fact, created_at FROM memory_facts WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        return jsonify({"success": True, "facts": [dict(row) for row in rows]})
+    finally:
+        db.close()
+
+@app.route("/api/memory/<int:id>", methods=["DELETE"])
+@token_required
+def delete_memory(current_user, id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM memory_facts WHERE id = ? AND user_id = ?", (id, current_user))
+        db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+# ====================
+# ROUTES - RULES
+# ====================
+@app.route("/api/rules", methods=["GET", "POST"])
+@token_required
+def manage_rules(current_user):
+    db = get_db()
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            rule = data.get("rule")
+            if not rule: return jsonify({"error": "Missing rule"}), 400
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute("INSERT INTO active_rules (rule, user_id, created_at) VALUES (?, ?, ?)", (rule, current_user, now))
+            db.commit()
+            return jsonify({"success": True})
+        rows = db.execute("SELECT id, rule, active, created_at FROM active_rules WHERE user_id = ? ORDER BY created_at DESC", (current_user,)).fetchall()
+        return jsonify({"success": True, "rules": [dict(row) for row in rows]})
+    finally:
+        db.close()
+
+@app.route("/api/rules/<int:id>", methods=["DELETE"])
+@token_required
+def delete_rule(current_user, id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user))
+        db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+@app.route("/api/rules/<int:id>/toggle", methods=["POST"])
+@token_required
+def toggle_rule(current_user, id):
+    db = get_db()
+    try:
+        row = db.execute("SELECT active FROM active_rules WHERE id = ? AND user_id = ?", (id, current_user)).fetchone()
+        if row:
+            new_status = 0 if row["active"] else 1
+            db.execute("UPDATE active_rules SET active = ? WHERE id = ? AND user_id = ?", (new_status, id, current_user))
+            db.commit()
+        return jsonify({"success": True})
+    finally:
+        db.close()
+
+# ====================
+# ROUTES - UPLOAD
+# ====================
+@app.route("/api/upload", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file = request.files['file']
+    save_path = STORAGE_ROOT / file.filename
+    file.save(str(save_path))
+    return jsonify({"success": True, "name": file.filename, "size": save_path.stat().st_size})
+
+# ====================
 # STARTUP
 # ====================
 if __name__ == "__main__":
     print(f"NeuralAI Unified Service starting on port {PORT}...")
+    init_db()
     load_model()
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

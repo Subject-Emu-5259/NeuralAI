@@ -1,0 +1,33 @@
+# Keep the Docker build context small — exclude heavy/irrelevant paths
+# so Railway/HF build uploads stay fast and under limits.
+
+# Virtual env & caches
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Large model checkpoints & weights (adapter is pulled at runtime from HF Hub)
+checkpoints/
+*.pt
+*.bin
+*.safetensors
+*.gguf
+
+# Nextcloud / storage blobs
+services/nextcloud/
+storage/
+*.mp4
+*.wav
+*.mp3
+
+# Local logs & test artifacts
+*.log
+neuralai_web_test.log
+neuralai_web.log
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store

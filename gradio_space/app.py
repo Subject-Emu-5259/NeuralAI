@@ -84,13 +84,9 @@ def chat(message, history):
     return response.strip()
 
 # Gradio interface
+# NOTE: In Gradio 6.0 `theme` and `css` moved from gr.Blocks() to launch().
 with gr.Blocks(
     title="NeuralAI v2 Chat",
-    theme=gr.themes.Soft(),
-    css="""
-    .gradio-container { max-width: 900px !important; }
-    .chat-message { font-size: 15px; }
-    """
 ) as demo:
     gr.Markdown("""
     # 🧠 NeuralAI v2 — Chat Demo
@@ -103,7 +99,6 @@ with gr.Blocks(
     chatbot = gr.Chatbot(
         label="NeuralAI v2",
         height=500,
-        show_copy_button=True,
         bubble_full_width=False,
     )
     
@@ -148,4 +143,9 @@ if __name__ == "__main__":
         port=port,
         share=False,
         show_error=True,
+        theme=gr.themes.Soft(),
+        css="""
+        .gradio-container { max-width: 900px !important; }
+        .chat-message { font-size: 15px; }
+        """,
     )

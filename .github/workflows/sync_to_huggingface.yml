@@ -26,6 +26,8 @@ jobs:
       - name: Upload LoRA adapter to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO_ID: "Subject-Emu-5259/NeuralAI"
+          ADAPTER_SRC: "checkpoints/v2_model"
         run: |
           set -e
           # NOTE: GitHub is the single source of truth for CODE.
@@ -33,8 +35,6 @@ jobs:
           # checkpoints/nextcloud files that exceed HF's 10 MiB non-LFS limit).
           # Instead we upload ONLY the LoRA adapter that the Gradio demo
           # (Subject-Emu-5259/NeuralAI) loads via snapshot_download.
-          HF_REPO_ID="Subject-Emu-5259/NeuralAI"
-          ADAPTER_SRC="checkpoints/v2_model"
           echo "Uploading LoRA adapter from $ADAPTER_SRC to $HF_REPO_ID"
           python - <<'PY'
           import os

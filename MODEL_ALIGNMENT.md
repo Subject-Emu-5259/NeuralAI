@@ -6,8 +6,9 @@ This document tracks the integration of the Neural-Brain knowledge into the acti
 - **Knowledge Base**: High-Density Markdown Assets (Neural-Brain)
 - **Method**: RAG (Retrieval-Augmented Generation) + Context Injection
 - **Current Layer**: Expert Transition
-- **Latest Weight Snapshot**: v13.0 aligned at `checkpoint-69` with best validation loss `0.7232`
-- **Latest Run Completion**: `2026-05-17 08:41 UTC`
+- **Latest Weight Snapshot**: v15.0 aligned — 597 DPO pairs, final loss `0.305`, reward margin `~3.5`
+- **Latest Run Completion**: `2026-07-11 20:00 UTC`
+- **Adapter Live**: [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI) (auto-pulled by demo + web UI)
 
 ## 🧪 Expert-Level Modules
 - **Physics**: [ACTIVE] Quantum Field Theory and Quantum Mechanics modules populated.

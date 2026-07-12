@@ -28,7 +28,7 @@ This Space runs the **fine-tuned adapter locally** with PEFT merging — no Infe
 
 - **Adapter:** `Subject-Emu-5259/NeuralAI` (LoRA, rank 16, α 32)
 - **Base:** `HuggingFaceTB/SmolLM2-360M-Instruct`
-- **Training:** LoRA + DPO, 3 epochs, 363 samples
+- **Training:** LoRA + DPO, 3 epochs, 597 preference pairs (v15.0)
 - **Author:** De'Andrew P. Harris
 
 ## Usage

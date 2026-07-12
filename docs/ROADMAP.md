@@ -69,19 +69,20 @@
 
 - **Main Service:** **READY** (Unified `file neural_core_service.py`)
 - **Voice Service:** **READY** (ElevenLabs v2 Migrated)
-- **Model:** SmolLM2-360M-Instruct + DPO v14.0 (In Progress)
+- **Model:** SmolLM2-360M-Instruct + DPO v15.0 (Deployed)
 - **Context:** System-wide (Expanding)
 
-### Latest DPO Run (v13.0)
+### Latest DPO Run (v15.0)
 
-- **Training samples:** 363
-- **Validation samples:** 41
+- **Training samples:** 597 (expanded from 302)
 - **Epochs:** 3
-- **Best checkpoint:** `checkpoint-69`
-- **Best validation loss:** `0.7232`
-- **Eval progression:** `1.6713` → `0.8969` → `0.7232`
-- **Alignment improvement:** `56.73%` reduction from first eval to best checkpoint
-- **Completed:** `2026-05-17 08:41 UTC`
+- **Steps:** 450
+- **Final training loss:** `0.305`
+- **Reward margin:** `~0.5` → `~3.5`
+- **Hardware:** Apple Silicon MPS (MacBook Air M4)
+- **Duration:** `730.5s` (~12 min)
+- **Completed:** `2026-07-11 20:00 UTC`
+- **Adapter:** live on HF `Subject-Emu-5259/NeuralAI`
 
 ---
 

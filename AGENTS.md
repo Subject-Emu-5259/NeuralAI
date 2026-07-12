@@ -19,7 +19,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
     - **History & Nature**: From Ancient Civilizations to Human Evolution.
 - **Architecture**: Transitioned to an orchestrator-led model using the Manager-Worker pattern via the `/zo/ask` API.
 - **Hygiene**: All legacy checkpoints, `wandb` logs, and `from-scratch` remnants have been purged.
-- **DPO Expansion**: Dataset v14 expanded with 10 new pairs focusing on debugging, logic, and multi-step reasoning.
+- **DPO Expansion**: Dataset v15 expanded to **597** preference pairs (`data/train_dpo_v15.jsonl`) focusing on debugging, logic, and multi-step reasoning.
 
 ## 🔗 Ecosystem Integration
 - **Frontend**: NeuralAI is the intelligence source for **NeuralLabs** (`/home/workspace/Projects/NeuralLabs`).
@@ -29,8 +29,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
-- **Restore DPO Alignment**: Re-train or restore `checkpoints/dpo_model` to align with the `v13` dataset (249 pairs).
-- **DPO v14 Batch**: Continue expanding v14 to reach 100+ high-quality reasoning pairs.
+- **DPO v15 Complete**: Trained 597-pair dataset (3 epochs, 450 steps, loss 0.305, margin ~3.5) on Apple Silicon MPS; adapter live on HF `Subject-Emu-5259/NeuralAI`.
 - **Voice Key Integration**: Configure `GEMINI_API_KEY` for the `neural-voice` service to enable Live S2S functionality.
 
 ## ⚠️ Web UI & Service Safety

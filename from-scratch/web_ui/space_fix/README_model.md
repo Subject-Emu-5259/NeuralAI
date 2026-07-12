@@ -107,7 +107,7 @@ NeuralAI is built on a high-performance, containerized architecture that marries
 
 ### Core Stack
 
-- **Core Model**: `SmolLM2-360M-Instruct` (DPO v13.0 Aligned for logic, math, multi-step reasoning, and debugging)
+- **Core Model**: `SmolLM2-360M-Instruct` (DPO v15.0 Aligned for logic, math, multi-step reasoning, and debugging)
 - **Vocal Identity**: Andrew (Warm/Multilingual) - Optimized for Live Speech-to-Speech (S2S)
 - **Backend Framework**: Python / Flask (Core Service)
 - **Storage & Database**: SQLite3 (Metadata) + Nextcloud Hub via NeuralCloud WebDAV Client (NeuralDrive)
@@ -169,15 +169,17 @@ dpo_config = DPOConfig(
 - **Behavioral Alignment**: NeuralAI is specifically tuned to adhere strictly to the "Harris Holdings" vibe—maintaining a professional, technical, and highly disciplined engineering tone.
 - **Model Drift Monitoring**: Continuous evaluation against previous checkpoints to ensure response quality and consistency never regress.
 
-### Latest Alignment Run: v13.0
+### Latest Alignment Run: v15.0
 
-- **Training samples**: 363
-- **Validation samples**: 41
+- **Training samples**: 597 (expanded DPO preference pairs)
 - **Epochs**: 3
-- **Best checkpoint**: `checkpoint-69`
-- **Best validation loss**: `0.7232` at step `69`
-- **Earlier eval losses**: `1.6713` at step `23`, `0.8969` at step `46`
-- **Relative improvement**: `56.73%` reduction from the first eval checkpoint to the best checkpoint
+- **Steps**: 450
+- **Final training loss**: `0.305`
+- **Reward margin**: improved from `~0.5` → `~3.5`
+- **Hardware**: Apple Silicon MPS (MacBook Air M4)
+- **Run duration**: `730.5s` (~12 min)
+- **Completed**: `2026-07-11 20:00 UTC`
+- **Adapter**: live on Hugging Face at [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI)
 - **Run duration**: `1571.4s` (~26m 11s)
 - **Completed**: `2026-05-17 08:41 UTC`
 
@@ -241,8 +243,8 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 *Built with precision and discipline for Harris Holdings.*
 
-### CURRENT VERSION: v7.1-alpha (The Agentic Operator)
-
+### CURRENT VERSION: v7.1-alp5.0 Aligned (597 pairs, Logic, Debugging, Reasoning)
+- **Last Maintenance**: July 1
 - **Model Alignment**: DPO v13.0 Aligned (Logic, Debugging, Reasoning)
 - **Last Maintenance**: June 1, 2026
 

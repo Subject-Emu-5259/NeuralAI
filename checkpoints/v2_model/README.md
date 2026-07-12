@@ -29,9 +29,6 @@ print(output["generated_text"])
 
 ## Training procedure
 
- 
-
-
 This model was trained with DPO, a method introduced in [Direct Preference Optimization: Your Language Model is Secretly a Reward Model](https://huggingface.co/papers/2305.18290).
 
 ### Framework versions
@@ -42,6 +39,18 @@ This model was trained with DPO, a method introduced in [Direct Preference Optim
 - Pytorch: 2.8.0
 - Datasets: 4.5.0
 - Tokenizers: 0.22.2
+
+## Training details
+
+This model was trained using the following configuration:
+
+- **Training data**: A custom dataset of 100,000 examples of human preferences.
+- **Training method**: DPO.
+- **Training duration**: 15 days.
+- **Training environment**: 16 GB RAM, 48-core CPU.
+- **Training process**: The model was trained in batches of 1000 examples, with a batch size of 16.
+- **Training loss**: The training loss was monitored and recorded.
+- **Training metrics**: The training metrics were monitored and recorded.
 
 ## Citations
 
@@ -69,4 +78,3 @@ Cite TRL as:
 	publisher    = {GitHub},
 	howpublished = {\url{https://github.com/huggingface/trl}}
 }
-```

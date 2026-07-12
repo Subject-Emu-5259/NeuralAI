@@ -89,7 +89,7 @@ pipeline_tag: text-generation
 
 **The High-Velocity Model for Your Entire Vibe Stack**
 
-NeuralAI is the central intelligence engine developed for **Harris Holdings**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ec\[...\]
+NeuralAI is the central intelligence engine developed by **De'Andrew Preston Harris**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ec\[...\]
 
 ---
 
@@ -166,7 +166,7 @@ dpo_config = DPOConfig(
 ```
 
 - **Dataset Expansions**: The dataset is aggressively expanded to include advanced reasoning, complex mathematics, logical deduction, creative writing, and system debugging.
-- **Behavioral Alignment**: NeuralAI is specifically tuned to adhere strictly to the "Harris Holdings" vibe—maintaining a professional, technical, and highly disciplined engineering tone.
+- **Behavioral Alignment**: NeuralAI is aligned using Gemini-style behavioral principles—prioritizing safety, structured reasoning, helpful conversational flow, and transparent step-by-step explanations. Training enforces clear Markdown formatting, code-first responses, and rejection of boilerplate or overly verbose outputs.
 - **Model Drift Monitoring**: Continuous evaluation against previous checkpoints to ensure response quality and consistency never regress.
 
 ### Latest Alignment Run: v15.0
@@ -231,7 +231,7 @@ NeuralAI is evolving from a workspace-bound assistant into a standalone, downloa
 ## 👨‍💻 The Developer & Architect
 
 **De'Andrew Preston Harris** (D. Harris / Dre)
-*Founder, Harris Holdings & Architect of NeuralAI*
+*Founder & Architect of NeuralAI*
 
 A dedicated software engineer, thinker, and builder from West Memphis, AR. De'Andrew is currently pursuing an AAS in AI Software Engineering at Maestro College. NeuralAI is the culmination of his\[...\]
 
@@ -241,7 +241,7 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 ---
 
-*Built with precision and discipline for Harris Holdings.*
+*Built with precision and discipline by De'Andrew Preston Harris.*
 
 ### CURRENT VERSION: v7.1-alp5.0 Aligned (597 pairs, Logic, Debugging, Reasoning)
 - **Last Maintenance**: July 1

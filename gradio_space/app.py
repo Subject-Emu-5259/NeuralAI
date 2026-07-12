@@ -61,7 +61,7 @@ def load_model():
     else:
         model = AutoModelForCausalLM.from_pretrained(
             BASE_MODEL,
-            torch_dtype="auto",
+            dtype="auto",
             trust_remote_code=True,
         ).to("cpu")
     # Always pull the LATEST adapter from the Hub on each (re)start so a fresh
@@ -185,6 +185,14 @@ with gr.Blocks(**_BLOCKS_KWARGS) as demo:
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 7860))
+    # Eager-load the model BEFORE launching the server. The first chat used to
+    # trigger a lazy load (download base model + adapter + CPU inference) which
+    # exceeded Railway's proxy request timeout and returned 502 "Application
+    # failed to respond". Loading up front means the port only binds once the
+    # model is ready, so every request is served fast.
+    print("Pre-loading model before binding port...", flush=True)
+    load_model()
+    print("Model pre-loaded. Binding port...", flush=True)
     # Gradio 6.x renamed server_port -> port. Use the right kwarg per version
     # so the host's assigned $PORT is actually bound (otherwise it defaults to
     # 7860 and the port scanner finds nothing).

@@ -546,8 +546,11 @@ async function generateImageFromPrompt(prompt) {
     });
     const data = await res.json();
     if (data.success && data.image_url) {
-      addMsg('assistant', `🖼️ **${escHtml(prompt)}**\n\n![generated](${data.image_url})`);
-      showToast('Image ready', 'success');
+      const badge = data.placeholder
+        ? `\n\n> ⚠️ *Concept placeholder — AI image generation is unavailable on this host, so this is **not** a real AI image.*`
+        : `\n\n> 🤖 *AI-generated image${data.provider ? ' (' + data.provider + ')' : ''}*`;
+      addMsg('assistant', `🖼️ **${escHtml(prompt)}**\n\n![generated](${data.image_url})${badge}`);
+      showToast(data.placeholder ? 'Placeholder shown (no AI image)' : 'Image ready', data.placeholder ? 'info' : 'success');
     } else {
       showToast('Image generation failed: ' + (data.error || 'unknown'), 'error');
     }

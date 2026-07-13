@@ -699,22 +699,81 @@ def api_image():
     prompt = data.get("prompt", "")
     if not prompt:
         return jsonify({"success": False, "error": "No prompt provided"}), 400
-    # Try the dedicated tools service first
+
+    gen_dir = Path(STATIC_PATH) / "static" / "generated"
+    gen_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = int(time.time())
+    file_stem = f"gen_{timestamp}"
+
+    # ---- 1) ZO native image generator (REAL images, platform-provided) ----
+    # Mirrors the approach in from-scratch/web_ui/neuralai_engine.py which calls
+    # /home/.z/tools/generate_image.py — the host's real image generation tool.
     try:
-        tools_url = os.environ.get("TOOLS_SERVICE", "http://localhost:7002")
-        r = requests.post(f"{tools_url}/generate/image", json={"prompt": prompt}, timeout=5)
-        if r.ok:
-            return jsonify(r.json())
-    except Exception:
-        pass
-    # Fallback: generate a placeholder image locally so the button always works
+        script = (
+            "import sys\n"
+            "sys.path.insert(0, '/home/.z/tools')\n"
+            "try:\n"
+            "    from generate_image import generate_image as _gen\n"
+            "except Exception as e:\n"
+            "    print('IMPORT_FAIL', e); sys.exit(2)\n"
+            "ok = _gen(prompt=" + repr(prompt) +
+            ", output_dir=" + repr(str(gen_dir)) +
+            ", file_stem=" + repr(file_stem) + ", aspect_ratio='1:1')\n"
+            "sys.exit(0 if ok else 1)\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tf:
+            tf.write(script)
+            script_path = tf.name
+        try:
+            r = subprocess.run(["python3", script_path], capture_output=True, text=True, timeout=150)
+        finally:
+            try:
+                os.unlink(script_path)
+            except Exception:
+                pass
+        if r.returncode == 0:
+            matches = sorted(gen_dir.glob(f"{file_stem}*"))
+            if matches:
+                fname = matches[-1].name
+                return jsonify({
+                    "success": True,
+                    "image_url": f"/static/generated/{fname}",
+                    "prompt": prompt,
+                    "placeholder": False,
+                    "provider": "zo-native"
+                })
+            logger.warning("[api_image] ZO generator reported success but produced no file")
+        else:
+            logger.warning(f"[api_image] ZO native image gen returned {r.returncode}: {r.stderr[:200]}")
+    except Exception as e:
+        logger.warning(f"[api_image] ZO native image gen unavailable: {e}")
+
+    # ---- 2) Local diffusion engine (REAL SD model, opt-in to avoid OOM on small hosts) ----
+    if os.environ.get("NEURALAI_DIFFUSION", "").lower() in ("1", "true", "yes"):
+        try:
+            import sys as _sys
+            _svc_dir = os.path.dirname(os.path.abspath(__file__))
+            if _svc_dir not in _sys.path:
+                _sys.path.insert(0, _svc_dir)
+            from diffusion_engine import NeuralAIDiffusion
+            engine = NeuralAIDiffusion()
+            out_path = gen_dir / f"{file_stem}.png"
+            if engine.generate(prompt, str(out_path)):
+                return jsonify({
+                    "success": True,
+                    "image_url": f"/static/generated/{file_stem}.png",
+                    "prompt": prompt,
+                    "placeholder": False,
+                    "provider": "diffusion"
+                })
+        except Exception as e:
+            logger.warning(f"[api_image] Diffusion image gen failed: {e}")
+
+    # ---- 3) Last resort: clearly-labeled concept placeholder (never pretend it's AI) ----
     try:
         from PIL import Image, ImageDraw
         import random
-        gen_dir = Path(STATIC_PATH) / "static" / "generated"
-        gen_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = int(time.time())
-        filename = f"generated_{timestamp}.png"
+        filename = f"{file_stem}.png"
         filepath = gen_dir / filename
         img = Image.new("RGB", (512, 512))
         draw = ImageDraw.Draw(img)
@@ -740,7 +799,7 @@ def api_image():
             "image_url": f"/static/generated/{filename}",
             "prompt": prompt,
             "placeholder": True,
-            "note": "Placeholder render (enable the image service for full AI generation)"
+            "note": "AI image generation is unavailable on this host, so this is a concept placeholder (not a real AI image). Enable ZO image generation or set NEURALAI_DIFFUSION=1 for local models."
         })
     except Exception as e:
         return jsonify({"success": False, "error": f"Image generation failed: {e}"})

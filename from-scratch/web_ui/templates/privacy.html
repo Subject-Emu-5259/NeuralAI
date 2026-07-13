@@ -73,13 +73,18 @@
     <div class="container">
         <a href="/" class="back-link">&larr; Back to NeuralAI Node</a>
         <div class="header">
-            <div class="last-updated">VERSION 6.0 &bull; UPDATED MAY 22, 2026</div>
+            <div class="last-updated">VERSION 7.0 &bull; UPDATED JUNE 27, 2026</div>
             <h1>NeuralAI Privacy & Data Policy</h1>
         </div>
         
         <div class="highlight-box">
             <h3>Our Core Philosophy: Data Sovereignty</h3>
             <p>NeuralAI is built on the unwavering principle of <strong>User Data Sovereignty</strong>. Your digital soul—composed of your thoughts, prompts, files, and generated knowledge—belongs exclusively to you. Unlike traditional AI services, NeuralAI ensures that your data is not "harvested" for the benefit of a central corporation. We provide the intelligence; you hold the keys.</p>
+        </div>
+
+        <div class="highlight-box">
+            <h3>v7.0 Update: Identity-Aware Training</h3>
+            <p>NeuralAI v16 now includes <strong>Supervised Fine-Tuning (SFT)</strong> on identity-focused training data, enabling the model to recognize its creator and provide accurate contextual responses. This SFT training is conducted exclusively on identity-verification examples and does not involve user data. All training data remains local to the NeuralAI deployment.</p>
         </div>
 
         <h2>1. Information We Collect</h2>
@@ -130,7 +135,16 @@
         <h2>6. Third-Party Integrations</h2>
         <p>In instances where NeuralAI utilizes external modules or integrations (such as Zo workspace capabilities, internet searching agents, or image diffusion APIs), those actions are bound by this policy. We rigorously vet our upstream integrations to ensure they uphold the standard of User Data Sovereignty.</p>
 
-        <h2>7. Founder's Commitment</h2>
+        <h2>8. Model Training & Identity Data</h2>
+        <p>NeuralAI v16 utilizes <strong>Supervised Fine-Tuning (SFT)</strong> and <strong>Direct Preference Optimization (DPO)</strong> to align model behavior. All training data is:</p>
+        <ul>
+            <li><strong>Locally Owned:</strong> Training datasets (identity Q&A pairs, preference rankings) are authored by the NeuralAI founder and stored locally within the project repository.</li>
+            <li><strong>No User Data in Training:</strong> Your conversations, files, and Memory Cloud entries are <strong>NEVER</strong> used as training data without your explicit, separate, written opt-in consent.</li>
+            <li><strong>Identity Examples Only:</strong> SFT training is limited to factual identity-verification examples (e.g., "Who created you?") and conversational alignment data. No personal user information is included.</li>
+            <li><strong>Transparent Process:</strong> The full training pipeline is documented in the NeuralAI repository under the `training/` directory, and model weights are published on HuggingFace.</li>
+        </ul>
+
+        <h2>9. Founder's Commitment</h2>
         <p>NeuralAI was founded by <strong>De'Andrew Preston Harris</strong> with a visionary goal: to achieve greatness beyond the boundaries of life through intelligent personal servers. This Privacy Policy is our unbreakable social contract with you. It ensures that technology serves as a "noble steed for the mind" while respecting the absolute sanctity and privacy of your digital existence.</p>
     </div>
 </body>

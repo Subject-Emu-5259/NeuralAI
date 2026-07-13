@@ -1396,7 +1396,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('maestroSubmit')?.addEventListener('click', handleMaestroAuth);
   document.getElementById('guestSubmit')?.addEventListener('click', handleGuestAuth);
   
-  // Wire chat send button and enter key
+  // Wire top search bar (Google-style) — Ask button + Enter key
+  document.getElementById('searchBtn')?.addEventListener('click', () => {
+    console.log("Search Ask button clicked");
+    handleSearch();
+  });
+  document.getElementById('queryInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
+    }
+  });
+
+  // Wire bottom chat send button and enter key
   document.getElementById('sendBtn')?.addEventListener('click', () => {
     console.log("Send button clicked");
     sendMessage();

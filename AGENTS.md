@@ -11,15 +11,16 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 2.  Review the `MODEL_ALIGNMENT.md` to ensure output matches the v7.0 Expert persona.
 3.  Consult the `ORCHESTRATOR.md` for delegation patterns.
 
-## 🌌 Current State (v7.1-alpha)
+## 🌌 Current State (v7.2)
 - **Neural-Brain**: An expanded, high-density knowledge graph spanning:
     - **Physics**: Advanced Quantum Field Theory (Expert level).
     - **Philosophy**: Platonic forms and metaphysical systems.
     - **Geopolitics**: Multipolar global order analysis.
     - **History & Nature**: From Ancient Civilizations to Human Evolution.
-- **Architecture**: Transitioned to an orchestrator-led model using the Manager-Worker pattern via the `/zo/ask` API.
+- **Architecture**: Manager-Worker pattern via the Orchestrator. Inference via llmster (LM Studio headless) on port 1234, with pluggable backend support for Ollama, OpenAI-compatible APIs, or local PyTorch.
 - **Hygiene**: All legacy checkpoints, `wandb` logs, and `from-scratch` remnants have been purged.
 - **DPO Expansion**: Dataset v15 expanded to **597** preference pairs (`data/train_dpo_v15.jsonl`) focusing on debugging, logic, and multi-step reasoning.
+- **Inference Engine**: llmster 0.0.19 running SmolLM2-360M-Instruct Q4_K_M GGUF (~258MB RAM). Replaces PyTorch (5GB RAM) for production inference.
 
 ## 🔗 Ecosystem Integration
 - **Frontend**: NeuralAI is the intelligence source for **NeuralLabs** (`/home/workspace/Projects/NeuralLabs`).

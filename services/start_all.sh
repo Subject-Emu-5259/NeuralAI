@@ -1,15 +1,16 @@
 #!/bin/bash
-# NeuralAI Unified Service Startup Script
-# Starts the core service + voice service
+# NeuralAI Unified Service Startup Script (v7.2)
+# Starts llmster backend, voice service, and core service
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="/dev/shm"
+LMS_BIN="$HOME/.lmstudio/bin/lms"
 
 echo "========================================="
-echo "NeuralAI Unified Startup (v6.0)"
+echo "NeuralAI Unified Startup (v7.2)"
 echo "========================================="
 
 # Function to wait for service
@@ -58,6 +59,34 @@ pkill -f "neural_core_service.py" 2>/dev/null || true
 pkill -f "neural_voice_service.py" 2>/dev/null || true
 sleep 2
 
+# ============================
+# Start llmster Backend (port 1234)
+# ============================
+echo ""
+echo "[Startup] Checking llmster backend..."
+
+# Start lmstudio daemon if not running
+if ! pgrep -f "lmstudio" > /dev/null 2>&1; then
+    echo "[Startup] Starting lmstudio daemon..."
+    "$LMS_BIN" server start --port 1234 2>/dev/null || true
+    sleep 3
+fi
+
+# Load model if not loaded
+if ! curl -s "http://localhost:1234/v1/models" | grep -q "data"; then
+    echo "[Startup] Loading SmolLM2-360M-Instruct..."
+    "$LMS_BIN" load smollm2 -y 2>/dev/null || true
+    sleep 5
+fi
+
+# Verify llmster is serving
+if curl -s "http://localhost:1234/v1/models" > /dev/null 2>&1; then
+    echo "[Startup] ✓ llmster backend ready on port 1234"
+else
+    echo "[Startup] ⚠ llmster not responding, falling back to local PyTorch"
+    export LLM_BACKEND=local
+fi
+
 # Start Voice Service (port 5001) — lightweight, starts fast
 echo ""
 echo "[Startup] Starting NeuralVoice Service (port 5001)..."
@@ -70,9 +99,12 @@ wait_for_voice "NeuralVoice" 5001 15 || true
 # Start Unified Service (port 5000)
 echo ""
 echo "[Startup] Starting Neural Core Service (port 5000)..."
-echo "[Startup] This may take 30-60 seconds to load the model..."
+echo "[Startup] Backend: ${LLM_BACKEND:-lmstudio}"
 
 cd "$SCRIPT_DIR"
+LLM_BACKEND="${LLM_BACKEND:-lmstudio}" \
+LLM_API_URL="http://localhost:1234/v1" \
+LLM_MODEL="smollm2" \
 nohup python3 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
 CORE_PID=$!
 echo "[Startup] Core PID: $CORE_PID"
@@ -85,7 +117,8 @@ fi
 
 echo ""
 echo "========================================="
-echo "✓ NeuralAI Unified Service running!"
+echo "✓ NeuralAI Unified Service running! (v7.2)"
+echo "  llmster: port 1234 (inference)"
 echo "  Core: port 5000 (PID: $CORE_PID)"
 echo "  Voice: port 5001 (PID: $VOICE_PID)"
 echo "========================================="

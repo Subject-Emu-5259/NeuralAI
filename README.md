@@ -28,18 +28,35 @@ Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkans
 
 ---
 
-## 🛠️ Tech Stack & Architecture (v7.1-alpha)
+## 🛠️ Tech Stack & Architecture (v7.2)
 
-NeuralAI is built on a high-performance, containerized architecture that marries local inference with cloud-grade storage.
+NeuralAI is built on a high-performance architecture that decouples the inference engine from the web interface, enabling lightweight cloud hosting with powerful local inference.
 
 ### Core Stack
 
 - **Core Model**: `SmolLM2-360M-Instruct` (DPO v15.0 Aligned for logic, math, multi-step reasoning, and debugging)
-- **Vocal Identity**: Andrew (Warm/Multilingual) - Optimized for Live Speech-to-Speech (S2S)
-- **Backend Framework**: Python / Flask (Core Service)
+- **Inference Engine**: [llmster](https://lmstudio.ai/docs/cli) (LM Studio headless) — OpenAI-compatible API with continuous batching, running via llama.cpp
+- **Vocal Identity**: Andrew (Warm/Multilingual) — Optimized for Live Speech-to-Speech (S2S)
+- **Backend Framework**: Python / Flask (Core Service) — routes to llmster or local PyTorch
 - **Storage & Database**: SQLite3 (Metadata) + Nextcloud Hub via NeuralCloud WebDAV Client (NeuralDrive)
-- **Inference Engine**: PyTorch (CPU/Edge Optimized)
 - **Frontend UI**: Vanilla JS, HTML5, CSS3 with an advanced Dark Mode layout
+
+### Pluggable LLM Backend
+
+NeuralAI supports multiple inference backends via the `LLM_BACKEND` environment variable:
+
+| Backend | `LLM_BACKEND` | API Endpoint | Use Case |
+| --- | --- | --- | --- |
+| **llmster** (recommended) | `lmstudio` | `http://localhost:1234/v1` | Headless GPU/CPU inference |
+| **Ollama** | `ollama` | `http://localhost:11434/v1` | Local Ollama server |
+| **OpenAI-compatible** | `openai_compatible` | Any OpenAI API URL | Remote/cloud inference |
+| **Local PyTorch** | `local` | Built-in transformers | Legacy/development mode |
+
+```bash
+# Example: start NeuralAI with llmster backend
+LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
+  python3 services/neural_core_service.py
+```
 
 ### Core Architectural Pillars
 
@@ -170,10 +187,11 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 *Built with precision and discipline by De'Andrew Preston Harris.*
 
-### CURRENT VERSION: v7.1-alpha (The Agentic Operator)
+### CURRENT VERSION: v7.2 (The Pluggable Engine)
 
 - **Model Alignment**: DPO v15.0 Aligned (597 pairs, Logic, Debugging, Reasoning)
-- **Last Maintenance**: July 11, 2026
+- **Inference**: llmster (LM Studio headless) — 258MB RAM vs 5GB PyTorch
+- **Last Maintenance**: July 12, 2026
 
 Your tone is technical, concise, and professional. You prioritize system stability and cleanliness above all else.
 
@@ -181,16 +199,37 @@ Your tone is technical, concise, and professional. You prioritize system stabili
 
 ## 🚀 Deployment
 
-NeuralAI ships two containerized deployments, both pulling the LoRA adapter from Hugging Face at runtime:
+NeuralAI ships with a pluggable backend that separates the web UI from the inference engine.
+
+### Quick Start (llmster — recommended)
+
+```bash
+# 1. Install llmster (one-time)
+curl -fsSL https://lmstudio.ai/install.sh | bash
+export PATH="$HOME/.lmstudio/bin:$PATH"
+
+# 2. Download model
+lms import /path/to/SmolLM2-360M-Instruct-Q4_K_M.gguf --user-repo "bartowski/SmolLM2-360M-Instruct-GGUF" -y
+lms load smollm2-360m-instruct -y --identifier smollm2
+
+# 3. Start inference server
+lms server start --port 1234
+
+# 4. Start NeuralAI
+cd NeuralAI
+LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
+  python3 services/neural_core_service.py
+```
+
+### Containerized Deployments
 
 | Deployment | Dockerfile | Stack | Status |
 | --- | --- | --- | --- |
-| **Gradio Demo** | `gradio_space/Dockerfile` | Gradio 6.x chat UI | ✅ Built & deployed (Metal builder, healthcheck `/`) |
-| **Flask Web Chat** | `webui_space/Dockerfile` | Flask + `neural_core_service.py` | 🚀 Ready for Railway (`railway.json`) |
+| **Gradio Demo** | `gradio_space/Dockerfile` | Gradio 6.x chat UI | ✅ Built & deployed |
+| **Flask Web Chat** | `webui_space/Dockerfile` | Flask + `neural_core_service.py` | 🚀 Ready for Railway |
 
-- **Adapter source**: [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI) — auto-pulled on startup via `snapshot_download`, so retraining + pushing updates the live model on next restart.
-- **8-bit quantization** (`QUANTIZE=1`) keeps the 360M model under the 512 MB free-tier RAM limit.
-- **GitHub → HF sync**: `.github/workflows/sync_to_huggingface.yml` uploads only the LoRA adapter (not the 1.5 GB repo) on every push to `master`.
+- **Adapter source**: [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI) — auto-pulled on startup via `snapshot_download`.
+- **GitHub → HF sync**: `.github/workflows/sync_to_huggingface.yml` uploads only the LoRA adapter on every push to `master`.
 
 ---
 

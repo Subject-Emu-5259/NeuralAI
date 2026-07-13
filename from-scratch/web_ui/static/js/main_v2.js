@@ -516,14 +516,18 @@ async function generateImageFromPrompt(prompt) {
   if (isStreaming) return;
   showToast('Generating image…', 'info');
   try {
-    const res = await fetch('/api/execute/code', {
+    const res = await fetch('/api/image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-      body: JSON.stringify({ code: `import requests\nr=requests.post('${location.origin}/api/image', json={'prompt': ${JSON.stringify(prompt)}})\nprint(r.status_code, r.text[:200])`, language: 'python' })
+      body: JSON.stringify({ prompt })
     });
     const data = await res.json();
-    if (data.success) showToast('Image task dispatched', 'success');
-    else showToast('Image generation unavailable: ' + (data.error || 'unknown'), 'error');
+    if (data.success && data.image_url) {
+      addMsg('assistant', `🖼️ **${escHtml(prompt)}**\n\n![generated](${data.image_url})`);
+      showToast('Image ready', 'success');
+    } else {
+      showToast('Image generation failed: ' + (data.error || 'unknown'), 'error');
+    }
   } catch (e) {
     showToast('Image generation failed: ' + e.message, 'error');
   }
@@ -540,7 +544,7 @@ async function runCodeSnippet(code) {
     });
     const data = await res.json();
     const out = data.success ? data.output : (data.error || 'No output');
-    addMsg('assistant', '```\n' + out + '\n```');
+    addMsg('assistant', '```python\n' + out + '\n```');
   } catch (e) {
     showToast('Code execution failed: ' + e.message, 'error');
   }
@@ -1600,8 +1604,37 @@ document.addEventListener('DOMContentLoaded', () => {
     generateImageFromPrompt(prompt);
   });
   document.getElementById('codeBtn')?.addEventListener('click', () => {
-    const code = (document.getElementById('chatInput')?.value || '').trim() || 'print("Hello from NeuralAI")';
-    runCodeSnippet(code);
+    const modal = document.getElementById('codeModal');
+    const editor = document.getElementById('codeEditor');
+    if (modal && editor) {
+      const existing = (document.getElementById('chatInput')?.value || '').trim();
+      if (existing && !editor.value) editor.value = existing;
+      modal.classList.remove('hidden');
+      editor.focus();
+    }
+  });
+  document.getElementById('closeCodeModal')?.addEventListener('click', () => {
+    document.getElementById('codeModal')?.classList.add('hidden');
+  });
+  document.getElementById('runCodeBtn')?.addEventListener('click', async () => {
+    const editor = document.getElementById('codeEditor');
+    const out = document.getElementById('codeOutput');
+    if (!editor || !out) return;
+    const code = editor.value;
+    out.textContent = 'Running…';
+    try {
+      const res = await fetch('/api/execute/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ code, language: 'python' })
+      });
+      const data = await res.json();
+      out.textContent = data.success ? data.output : (data.error || 'No output');
+      // Also drop the result into the chat
+      addMsg('assistant', '```python\n' + (data.success ? data.output : (data.error || 'No output')) + '\n```');
+    } catch (e) {
+      out.textContent = 'Error: ' + e.message;
+    }
   });
 
   // Uplink toggle

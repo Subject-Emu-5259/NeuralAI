@@ -1048,6 +1048,57 @@ body:not(.dark-mode) .msg code {
 }
 .stop-btn:hover { background: #dc2626; }
 
+/* ===== MODAL (Code Editor) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-box {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 14px;
+  width: min(640px, 92vw);
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e4e4e7;
+  margin-bottom: 12px;
+}
+#codeEditor {
+  width: 100%;
+  height: 200px;
+  background: #09090b;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px;
+  color: #e4e4e7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+#codeOutput {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
 /* ===== EXECUTION OUTPUT STYLING ===== */
 
 .exec-output {
@@ -3253,6 +3304,21 @@ body.dark-mode .onboarding-close:hover {
     <span class="prompt">$</span>
     <input id="popupTerminalInput" type="text" placeholder="Enter command..." autocomplete="off" />
     <button id="popupTerminalRun">Run</button>
+  </div>
+</div>
+
+<!-- CODE EDITOR MODAL -->
+<div id="codeModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>💻 Code Runner</span>
+      <button id="closeCodeModal" class="term-close">×</button>
+    </div>
+    <textarea id="codeEditor" spellcheck="false" placeholder="print('Hello from NeuralAI')"></textarea>
+    <div class="modal-actions">
+      <button id="runCodeBtn" class="auth-btn" style="background:#10b981;">Run Code</button>
+    </div>
+    <pre id="codeOutput" class="exec-output" style="white-space:pre-wrap;"></pre>
   </div>
 </div>
 

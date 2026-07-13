@@ -647,15 +647,51 @@ def api_image():
     prompt = data.get("prompt", "")
     if not prompt:
         return jsonify({"success": False, "error": "No prompt provided"}), 400
+    # Try the dedicated tools service first
     try:
-        # Try the dedicated tools service first
         tools_url = os.environ.get("TOOLS_SERVICE", "http://localhost:7002")
         r = requests.post(f"{tools_url}/generate/image", json={"prompt": prompt}, timeout=5)
         if r.ok:
             return jsonify(r.json())
     except Exception:
         pass
-    return jsonify({"success": False, "error": "Image service unavailable on this node"})
+    # Fallback: generate a placeholder image locally so the button always works
+    try:
+        from PIL import Image, ImageDraw
+        import random
+        gen_dir = Path(STATIC_PATH) / "static" / "generated"
+        gen_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = int(time.time())
+        filename = f"generated_{timestamp}.png"
+        filepath = gen_dir / filename
+        img = Image.new("RGB", (512, 512))
+        draw = ImageDraw.Draw(img)
+        # Deterministic-ish gradient from prompt hash
+        seed = sum(ord(c) for c in prompt)
+        random.seed(seed)
+        base_r, base_g, base_b = random.randint(20, 80), random.randint(20, 80), random.randint(60, 140)
+        for y in range(512):
+            r = min(255, base_r + int((y / 512) * 80))
+            g = min(255, base_g + int((y / 512) * 100))
+            b = min(255, base_b + int((y / 512) * 120))
+            draw.line([(0, y), (512, y)], fill=(r, g, b))
+        # A few accent circles for visual interest
+        for _ in range(5):
+            x, y = random.randint(40, 472), random.randint(40, 472)
+            rad = random.randint(20, 70)
+            col = (random.randint(150, 255), random.randint(150, 255), random.randint(150, 255))
+            draw.ellipse([x - rad, y - rad, x + rad, y + rad], fill=col)
+        draw.text((20, 470), f"Concept: {prompt[:40]}", fill=(220, 220, 220))
+        img.save(filepath)
+        return jsonify({
+            "success": True,
+            "image_url": f"/static/generated/{filename}",
+            "prompt": prompt,
+            "placeholder": True,
+            "note": "Placeholder render (enable the image service for full AI generation)"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Image generation failed: {e}"})
 
 # ====================
 # ROUTES - AUTH

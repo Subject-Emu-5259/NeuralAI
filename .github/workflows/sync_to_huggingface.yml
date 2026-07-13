@@ -42,14 +42,26 @@ jobs:
           api = HfApi(token=os.environ["HF_TOKEN"])
           src = os.environ["ADAPTER_SRC"]
           repo = os.environ["HF_REPO_ID"]
-          # Upload only the small adapter files (config + weights + tokenizer).
-          # .safetensors (~35MB) is allowed through the Hub API (no 10MiB git limit).
-          allowed = (".safetensors", ".json", ".bin", ".jinja", ".md", ".txt")
+
+          # 1) ALWAYS push the model card / README first (small, critical).
+          #    This prevents the card from ever reverting to the default template.
+          card = os.path.join(src, "README.md")
+          if os.path.exists(card):
+              api.upload_file(
+                  path_or_fileobj=card,
+                  path_in_repo="README.md",
+                  repo_id=repo,
+                  repo_type="model",
+                  commit_message="Sync model card (README.md)",
+              )
+              print("  uploaded README.md (model card)")
+
+          # 2) Push the remaining small adapter files (config + tokenizer + json).
+          small = (".json", ".bin", ".jinja", ".txt")
           for root, _, files in os.walk(src):
               for f in files:
-                  if f.endswith(allowed):
+                  if f.endswith(small):
                       local = os.path.join(root, f)
-                      # Flatten into repo root so PeftModel.from_pretrained(repo) works
                       api.upload_file(
                           path_or_fileobj=local,
                           path_in_repo=f,
@@ -58,5 +70,24 @@ jobs:
                           commit_message=f"Sync LoRA adapter: {f}",
                       )
                       print(f"  uploaded {f}")
+
+          # 3) Attempt the large .safetensors weights LAST, in its own try so a
+          #    size/limit failure does not roll back the card + config above.
+          weights = [os.path.join(root, f)
+                     for root, _, files in os.walk(src)
+                     for f in files if f.endswith(".safetensors")]
+          for local in weights:
+              try:
+                  api.upload_file(
+                      path_or_fileobj=local,
+                      path_in_repo=os.path.basename(local),
+                      repo_id=repo,
+                      repo_type="model",
+                      commit_message=f"Sync LoRA weights: {os.path.basename(local)}",
+                  )
+                  print(f"  uploaded {os.path.basename(local)}")
+              except Exception as e:
+                  print(f"  ⚠️ skipped weights {local}: {e}")
+
           print("✅ Adapter sync to Hugging Face complete")
           PY

@@ -33,6 +33,7 @@ torch.set_num_threads(4)
 
 # Config (portable: resolve REPO_ROOT from this file's location)
 REPO_ROOT = os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parent.parent))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_PATH = os.path.join(REPO_ROOT, "from-scratch", "web_ui")
 DATA_DIR = Path(REPO_ROOT) / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,6 +69,54 @@ for d in [GENERATED_DIR, UPLOADS_DIR, TTS_DIR]:
 MODEL_PATH = os.environ.get("MODEL_PATH", str(Path(REPO_ROOT) / "checkpoints" / "v2_model"))
 BASE_MODEL = "HuggingFaceTB/SmolLM2-360M-Instruct"
 DPO_MODEL_PATH = os.environ.get("DPO_MODEL_PATH", str(Path(REPO_ROOT) / "checkpoints" / "dpo_model"))
+
+# ====================
+# PLUGGABLE LLM BACKEND
+# ====================
+# Set LLM_BACKEND to "ollama", "lmstudio", "openai_compatible", or "local" (default).
+# When set to anything other than "local", the service will forward requests to the
+# configured API instead of loading the model locally. This lets you run inference on
+# your MacBook (Ollama/LM Studio) while the web UI is hosted on ZO Computer.
+#
+# Examples:
+#   LLM_BACKEND=ollama  LLM_API_URL=http://localhost:11434/v1  LLM_MODEL=smollm2:360m
+#   LLM_BACKEND=lmstudio  LLM_API_URL=http://localhost:1234/v1  LLM_MODEL=SmolLM2-360M-Instruct
+#   LLM_BACKEND=openai_compatible  LLM_API_URL=https://api-inference.huggingface.co/models/HuggingFaceTB/SmolLM2-360M-Instruct  LLM_MODEL=HuggingFaceTB/SmolLM2-360M-Instruct
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # "local" | "ollama" | "lmstudio" | "openai_compatible"
+LLM_API_URL = os.environ.get("LLM_API_URL", "")       # e.g. http://localhost:11434/v1
+LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
+
+# Start the voice service automatically if it's not already running
+def _ensure_voice_service():
+    """Start NeuralVoice on port 5001 if it's not already listening."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect(("127.0.0.1", 5001))
+        s.close()
+        logger.info("[Voice] NeuralVoice already running on port 5001")
+        return
+    except (ConnectionRefusedError, OSError):
+        pass
+
+    voice_script = os.path.join(SCRIPT_DIR, "neural_voice", "start_voice.sh")
+    if os.path.isfile(voice_script):
+        logger.info("[Voice] Starting NeuralVoice service...")
+        try:
+            subprocess.Popen(
+                ["bash", voice_script],
+                cwd=os.path.join(SCRIPT_DIR, "neural_voice"),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+        except Exception as e:
+            logger.warning("[Voice] Could not start voice service: %s", e)
+    else:
+        logger.info("[Voice] No voice service found at %s — voice features disabled", voice_script)
+
 DATABASE = os.path.join(DATA_DIR, "neuralai.db")
 
 # Model globals
@@ -236,7 +285,57 @@ def load_model():
         print(f"[ERROR] Model Loading Failed: {e}")
 
 def generate_response_stream(messages, max_tokens=512, temperature=0.7):
-    global model, tokenizer, inference_count
+    global model, tokenizer, inference_count, LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY
+
+    # ===== EXTERNAL LLM BACKEND (Ollama / LM Studio / OpenAI-compatible) =====
+    if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
+        try:
+            import httpx
+            api_url = LLM_API_URL.rstrip("/")
+            # All three backends use the OpenAI-compatible /v1/chat/completions endpoint
+            endpoint = f"{api_url}/chat/completions"
+            headers = {"Content-Type": "application/json"}
+            if LLM_API_KEY:
+                headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+
+            # Convert messages to the expected format (already compatible)
+            body = {
+                "model": LLM_MODEL,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": True,
+            }
+
+            logger.info("[LLM] Forwarding to %s backend at %s", LLM_BACKEND, endpoint)
+
+            with httpx.Client(timeout=120.0) as client:
+                with client.stream("POST", endpoint, json=body, headers=headers) as resp:
+                    if resp.status_code != 200:
+                        error_text = resp.read().decode()
+                        yield f"Backend error ({resp.status_code}): {error_text[:200]}"
+                        return
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        payload = line[6:].strip()
+                        if payload == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(payload)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+            inference_count += 1
+            return
+        except Exception as e:
+            yield f"Backend error: {e}"
+            return
+
+    # ===== LOCAL MODEL INFERENCE =====
     if model is None or tokenizer is None:
         yield "Model not loaded."
         return
@@ -247,8 +346,8 @@ def generate_response_stream(messages, max_tokens=512, temperature=0.7):
         else:
             full = ""
             for m in messages:
-                full += f"<|im_start|>{m['role']}\\n{m['content']}<|im_end|>\\n"
-            full += "<|im_start|>assistant\\n"
+                full += f"\\n<|im_start|> {m['role']}\\n{m['content']}\\n<|im_end|>\\n"
+            full += "\\n<|im_start|>assistant\\n"
         
         # Safe truncation for SmolLM2 context window
         inputs = tokenizer(full, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
@@ -264,7 +363,7 @@ def generate_response_stream(messages, max_tokens=512, temperature=0.7):
         
         for text in streamer:
             if text:
-                text = text.replace("<|im_end|>", "").replace("<|endoftext|>", "")
+                text = text.replace("<|im_end|>","").replace("'<|endoftext|>'","")
                 if text:
                     yield text
         inference_count += 1
@@ -404,6 +503,22 @@ def index():
 @app.route("/api/status")
 def status():
     from peft import PeftModel
+
+    if LLM_BACKEND != "local":
+        # External backend — show remote info
+        backend_status = "ready" if LLM_BACKEND else model_status
+        return jsonify({
+            "status": backend_status,
+            "model": LLM_MODEL,
+            "backend": LLM_BACKEND,
+            "api_url": LLM_API_URL,
+            "inference_count": inference_count,
+            "uplink": "integrated",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "uptime": "running",
+            "version": "7.1.0-stable"
+        })
+
     model_name = "NeuralAI DPO v13.0" if is_dpo else BASE_MODEL
     if isinstance(model, PeftModel):
         model_name += " + LoRA Adapter"
@@ -411,6 +526,7 @@ def status():
     return jsonify({
         "status": model_status,
         "model": model_name,
+        "backend": "local",
         "inference_count": inference_count,
         "uplink": "integrated",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -948,5 +1064,16 @@ def voice_proxy(ws):
 
 if __name__ == "__main__":
     init_db()
-    threading.Thread(target=load_model).start()
+
+    # Auto-start the voice service if not running
+    _ensure_voice_service()
+
+    # If using an external backend, we don't need to load the local model
+    if LLM_BACKEND != "local":
+        model_status = "ready"
+        print(f"[NeuralAI] Using external backend: {LLM_BACKEND} at {LLM_API_URL}")
+        print(f"[NeuralAI] Model: {LLM_MODEL}")
+    else:
+        threading.Thread(target=load_model).start()
+
     app.run(host="0.0.0.0", port=PORT, threaded=True)

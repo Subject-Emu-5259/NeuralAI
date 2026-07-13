@@ -1,6 +1,6 @@
 #!/bin/bash
 # NeuralAI Unified Service Startup Script
-# Starts the single unified service (model + tools + UI)
+# Starts the core service + voice service
 
 set -e
 
@@ -9,7 +9,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="/dev/shm"
 
 echo "========================================="
-echo "NeuralAI Unified Startup (v5.1)"
+echo "NeuralAI Unified Startup (v6.0)"
 echo "========================================="
 
 # Function to wait for service
@@ -32,18 +32,48 @@ wait_for_service() {
     return 1
 }
 
+# Function to wait for voice health endpoint
+wait_for_voice() {
+    local name=$1
+    local port=$2
+    local max_wait=${3:-30}
+    
+    echo "[Startup] Waiting for $name on port $port..."
+    
+    for i in $(seq 1 $max_wait); do
+        if curl -s "http://localhost:$port/health" > /dev/null 2>&1; then
+            echo "[Startup] ✓ $name is ready!"
+            return 0
+        fi
+        sleep 1
+    done
+    
+    echo "[Startup] ⚠ $name not available (voice features will be disabled)"
+    return 1
+}
+
 # Kill existing
-echo "[Startup] Stopping any existing core service..."
+echo "[Startup] Stopping any existing services..."
 pkill -f "neural_core_service.py" 2>/dev/null || true
+pkill -f "neural_voice_service.py" 2>/dev/null || true
 sleep 2
 
-# Start Unified Service
+# Start Voice Service (port 5001) — lightweight, starts fast
+echo ""
+echo "[Startup] Starting NeuralVoice Service (port 5001)..."
+cd "$SCRIPT_DIR/neural_voice"
+nohup python3 neural_voice_service.py > "$LOG_DIR/neural_voice.log" 2> "$LOG_DIR/neural_voice_err.log" &
+VOICE_PID=$!
+echo "[Startup] Voice PID: $VOICE_PID"
+wait_for_voice "NeuralVoice" 5001 15 || true
+
+# Start Unified Service (port 5000)
 echo ""
 echo "[Startup] Starting Neural Core Service (port 5000)..."
 echo "[Startup] This may take 30-60 seconds to load the model..."
 
 cd "$SCRIPT_DIR"
-nohup python3.12 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
+nohup python3 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
 CORE_PID=$!
 echo "[Startup] Core PID: $CORE_PID"
 
@@ -56,6 +86,8 @@ fi
 echo ""
 echo "========================================="
 echo "✓ NeuralAI Unified Service running!"
+echo "  Core: port 5000 (PID: $CORE_PID)"
+echo "  Voice: port 5001 (PID: $VOICE_PID)"
 echo "========================================="
 echo ""
 echo "URL: https://neuralai-deandrewharris.zocomputer.io"

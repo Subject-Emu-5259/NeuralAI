@@ -30,6 +30,8 @@ PORT = int(os.environ.get("PORT", "5000"))
 MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
 BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
 STATIC_PATH = os.environ.get("STATIC_PATH", "/home/workspace/Projects/NeuralAI/from-scratch/web_ui")
+# Zo Computer API identity token (used by the host's native image generator)
+ZO_API_TOKEN = os.environ.get("ZO_API_TOKEN", os.environ.get("ZO_CLIENT_IDENTITY_TOKEN", ""))
 DATA_DIR = Path("/home/workspace/Projects/NeuralAI/data")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE = str(DATA_DIR / "neuralai.db")
@@ -710,7 +712,8 @@ def api_image():
     # /home/.z/tools/generate_image.py — the host's real image generation tool.
     try:
         script = (
-            "import sys\n"
+            "import sys, os\n"
+            "os.environ['ZO_CLIENT_IDENTITY_TOKEN'] = " + repr(ZO_API_TOKEN) + "\n"
             "sys.path.insert(0, '/home/.z/tools')\n"
             "try:\n"
             "    from generate_image import generate_image as _gen\n"
@@ -724,8 +727,10 @@ def api_image():
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tf:
             tf.write(script)
             script_path = tf.name
+        env = dict(os.environ)
+        env["ZO_CLIENT_IDENTITY_TOKEN"] = ZO_API_TOKEN
         try:
-            r = subprocess.run(["python3", script_path], capture_output=True, text=True, timeout=150)
+            r = subprocess.run(["python3", script_path], capture_output=True, text=True, timeout=150, env=env)
         finally:
             try:
                 os.unlink(script_path)

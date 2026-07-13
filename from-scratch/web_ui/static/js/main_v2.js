@@ -377,7 +377,11 @@ async function sendMessage(textOverride = null) {
 
   // Intent detection: trigger image/code "upon request" instead of a composer button
   const lower = text.toLowerCase();
-  const imageIntent = /\b(image|picture|photo|draw|render|paint|depict|visualiz)\b/.test(lower) && /(generat|creat|make|draw|render|show me|of a|an image)/.test(lower);
+  // Image intent: a generation verb + a subject, OR any explicit image noun.
+  // Covers "generate a dog", "make a cat", "draw a sunset", "image of a car", etc.
+  const imageVerb = /(generat|creat|make|draw|render|paint|produce|show me|give me|design)/.test(lower);
+  const imageNoun = /\b(image|picture|photo|drawing|render|painting|pic|gif|meme)\b/.test(lower);
+  const imageIntent = (imageVerb && lower.length > 3) || imageNoun;
   const codeIntent = /\b(run|execute|eval|compute|calculate|code|python|script|function|def |print\()/.test(lower) && /(run|execute|this|code|script|calculate|compute)/.test(lower);
   if (imageIntent && !lower.includes('chat') && !lower.includes('explain')) {
     if (!textOverride && input) input.value = '';

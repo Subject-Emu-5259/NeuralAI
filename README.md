@@ -1,3 +1,21 @@
+---
+language:
+  - en
+library_name: peft
+license: apache-2.0
+tags:
+  - lora
+  - conversational
+  - text-generation
+  - peft
+  - smollm2
+  - dpo
+  - fine-tuned
+model_id: Subject-Emu-5259/NeuralAI
+base_model: HuggingFaceTB/SmolLM2-360M-Instruct
+inference: false
+---
+
 # 🧠 NeuralAI: The Generative AI Engine
 
 <img src="neuralai_banner.svg" alt="NeuralAI - Your AI. On your hardware. In your browser." />

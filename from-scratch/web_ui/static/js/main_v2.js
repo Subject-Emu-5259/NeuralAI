@@ -374,6 +374,29 @@ async function sendMessage(textOverride = null) {
     console.warn("SendMessage: No text to send");
     return;
   }
+
+  // Intent detection: trigger image/code "upon request" instead of a composer button
+  const lower = text.toLowerCase();
+  const imageIntent = /\b(image|picture|photo|draw|render|paint|depict|visualiz)\b/.test(lower) && /(generat|creat|make|draw|render|show me|of a|an image)/.test(lower);
+  const codeIntent = /\b(run|execute|eval|compute|calculate|code|python|script|function|def |print\()/.test(lower) && /(run|execute|this|code|script|calculate|compute)/.test(lower);
+  if (imageIntent && !lower.includes('chat') && !lower.includes('explain')) {
+    if (!textOverride && input) input.value = '';
+    generateImageFromPrompt(text);
+    return;
+  }
+  if (codeIntent) {
+    const modal = document.getElementById('codeModal');
+    const editor = document.getElementById('codeEditor');
+    if (modal && editor) {
+      // Extract a fenced code block if present, else use the whole prompt
+      const fence = text.match(/```(?:python)?\s*([\s\S]*?)```/i);
+      editor.value = fence ? fence[1].trim() : text.replace(/run (this )?code:?/i, '').trim();
+      modal.classList.remove('hidden');
+      editor.focus();
+      if (!textOverride && input) input.value = '';
+      return;
+    }
+  }
   
   if (isStreaming) {
     console.warn("SendMessage: Already streaming");
@@ -1090,20 +1113,28 @@ function renderFiles(files) {
   const container = document.getElementById("filesGrid");
   if (!container) return;
   if (!files || files.length === 0) {
-    container.innerHTML = '<div class="empty-state">NeuralDrive is empty.</div>';
+    container.innerHTML = '<div class="empty-state">NeuralDrive is empty. Drag a file here or use Upload.</div>';
     return;
   }
-  container.innerHTML = files.map(f => `
-    <div class="file-card" onclick="previewFile('${f.type}', '${f.name}')">
+  container.innerHTML = files.map(f => {
+    const isImage = f.type === 'image';
+    const icon = isImage ? '🖼️' : (f.type === 'dir' ? '📁' : '📄');
+    const thumb = isImage ? `<img class="file-thumb" src="/api/files/${encodeURIComponent(f.name)}" loading="lazy" alt="${escHtml(f.name)}">` : `<div class="file-icon">${icon}</div>`;
+    const sizeStr = f.is_dir ? 'folder' : (f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' : f.size > 1024 ? (f.size/1024).toFixed(1)+' KB' : f.size+' B');
+    return `
+    <div class="file-card" onclick="previewFile('${encodeURIComponent(f.name)}')">
+      <div class="file-preview">${thumb}</div>
       <div class="file-info">
-        <div class="file-icon">${f.name.endsWith('.png') || f.name.endsWith('.jpg') ? '🖼️' : '📄'}</div>
-        <div class="file-name">${f.name}</div>
+        <div class="file-name" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
+        <div class="file-meta">${sizeStr}</div>
       </div>
       <div class="file-actions">
-        <button class="file-action-btn" onclick="event.stopPropagation(); window.open('/api/files/${f.type}/${f.name}', '_blank')">⬇️</button>
+        <button class="file-action-btn" title="Download" onclick="event.stopPropagation(); window.open('/api/files/${encodeURIComponent(f.name)}', '_blank')">⬇️</button>
+        <button class="file-action-btn" title="Delete" onclick="event.stopPropagation(); deleteFile('${encodeURIComponent(f.name)}')">🗑️</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function filterFiles() {
@@ -1112,13 +1143,47 @@ function filterFiles() {
   renderFiles(filtered);
 }
 
-function previewFile(folder, filename) {
-  const url = `/api/files/${folder}/${filename}`;
+function previewFile(filename) {
+  const url = `/api/files/${filename}`;
   window.open(url, '_blank');
+}
+
+async function deleteFile(filename) {
+  if (!confirm(`Delete ${decodeURIComponent(filename)}?`)) return;
+  try {
+    const res = await fetch(`/api/files/${filename}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+    const data = await res.json().catch(() => ({}));
+    if (data.success) {
+      showToast('Deleted', 'success');
+      loadFiles();
+    } else {
+      showToast('Delete failed: ' + (data.error || 'unknown'), 'error');
+    }
+  } catch (e) {
+    showToast('Delete failed: ' + e.message, 'error');
+  }
 }
 
 // Upload Logic
 function initUploadListeners() {
+  const newFolderBtn = document.getElementById("newFolderBtn");
+  if (newFolderBtn) {
+    newFolderBtn.addEventListener("click", async () => {
+      const name = prompt("New folder name:");
+      if (!name || !name.trim()) return;
+      try {
+        const res = await fetch("/api/files/mkdir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+          body: JSON.stringify({ name: name.trim() })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) { showToast("Folder created", "success"); loadFiles(); }
+        else showToast("Failed: " + (data.error || "unknown"), "error");
+      } catch (e) { showToast("Failed: " + e.message, "error"); }
+    });
+  }
+
   const uploadBtn = document.getElementById("uploadBtn");
   const fileInput = document.getElementById("fileInputHidden");
   const dropZone = document.getElementById("dropZone");
@@ -1598,21 +1663,7 @@ document.addEventListener('DOMContentLoaded', () => {
     abortStream = true;
   });
 
-  // Feature buttons: image + code
-  document.getElementById('imageBtn')?.addEventListener('click', () => {
-    const prompt = (document.getElementById('chatInput')?.value || '').trim() || 'a serene mountain landscape at sunset';
-    generateImageFromPrompt(prompt);
-  });
-  document.getElementById('codeBtn')?.addEventListener('click', () => {
-    const modal = document.getElementById('codeModal');
-    const editor = document.getElementById('codeEditor');
-    if (modal && editor) {
-      const existing = (document.getElementById('chatInput')?.value || '').trim();
-      if (existing && !editor.value) editor.value = existing;
-      modal.classList.remove('hidden');
-      editor.focus();
-    }
-  });
+  // Code editor modal wiring (triggered on request, not a composer button)
   document.getElementById('closeCodeModal')?.addEventListener('click', () => {
     document.getElementById('codeModal')?.classList.add('hidden');
   });

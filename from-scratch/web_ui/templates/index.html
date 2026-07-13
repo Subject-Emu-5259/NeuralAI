@@ -1414,11 +1414,11 @@ body.dark-mode .drop-zone {
 .file-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
   background: #fff;
   border: 1px solid #dadce0;
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
@@ -1441,28 +1441,30 @@ body.dark-mode .file-card:hover {
   background: #1c2128;
 }
 
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-  overflow: hidden;
-}
-
-.file-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+.file-preview {
+  width: 56px;
+  height: 56px;
   border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
   display: flex;
   align-items: center;
   justify-content: center;
   color: #3b82f6;
-  font-size: 24px;
-  flex-shrink: 0;
+  font-size: 26px;
 }
 
-.file-name-wrapper {
+.file-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
   overflow: hidden;
 }
@@ -1474,7 +1476,6 @@ body.dark-mode .file-card:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
 }
 
 .file-meta {
@@ -3060,10 +3061,13 @@ body.dark-mode .onboarding-close:hover {
       <section class="files-section">
         <div class="files-header">
           <h2><span style="font-size:28px;">🗂️</span> NeuralDrive</h2>
-          <button class="upload-btn" id="uploadBtn">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            Upload File
-          </button>
+          <div style="display:flex; gap:10px;">
+            <button class="upload-btn" id="newFolderBtn" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">📁 New Folder</button>
+            <button class="upload-btn" id="uploadBtn">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+              Upload File
+            </button>
+          </div>
         </div>
         
         <div class="neural-drive-toolbar">
@@ -3286,9 +3290,7 @@ body.dark-mode .onboarding-close:hover {
 <!-- Bottom input bar -->
 <section class="chat-input-bar">
   <button id="voiceBtn" class="voice-btn" title="Live Conversation">🎤</button>
-  <button id="imageBtn" class="feature-btn" title="Generate Image">🖼️</button>
-  <button id="codeBtn" class="feature-btn" title="Run Code">💻</button>
-  <textarea id="chatInput" placeholder="Ask NeuralAI anything..." rows="1"></textarea>
+  <textarea id="chatInput" placeholder="Ask NeuralAI anything... (try: 'generate an image of a sunset' or 'run this code: print(42)')" rows="1"></textarea>
   <button id="stopBtn" class="stop-btn" style="display:none;" title="Stop generating">■</button>
   <button id="sendBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 4px 14px rgba(239,68,68,0.3);">Send</button>
 </section>

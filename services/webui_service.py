@@ -552,39 +552,57 @@ def manage_files():
         if request.method == "POST":
             if 'file' not in request.files: return jsonify({"error": "No file"}), 400
             file = request.files['file']
-            files = {'file': (file.filename, file.read(), file.content_type)}
-            r = requests.post(f"{STORAGE_SERVICE}/api/storage/upload", files=files)
-            return jsonify(r.json()), r.status_code
-        
-        r = requests.get(f"{STORAGE_SERVICE}/api/storage/list")
-        if r.status_code == 200:
-            data = r.json()
-            legacy_files = []
-            for item in data.get("items", []):
-                legacy_files.append({
-                    "name": item["name"],
-                    "size": item["size"],
-                    "path": item["name"],
-                    "is_dir": item["is_dir"]
-                })
-            return jsonify(legacy_files)
-        return jsonify(r.json()), r.status_code
-    except Exception as e:
-        print(f"[WARN] Storage service down: {e}")
+            save_path = STORAGE_ROOT / file.filename
+            file.save(str(save_path))
+            return jsonify({"success": True, "name": file.filename, "size": save_path.stat().st_size})
+        # List files directly from STORAGE_ROOT (no external dependency)
         files = []
-        for f in STORAGE_ROOT.iterdir():
-            files.append({"name": f.name, "size": f.stat().st_size, "path": f.name})
+        for f in sorted(STORAGE_ROOT.iterdir(), key=lambda p: (p.is_dir(), p.name.lower())):
+            if f.name.startswith("."):
+                continue
+            files.append({
+                "name": f.name,
+                "size": f.stat().st_size,
+                "path": f.name,
+                "is_dir": f.is_dir(),
+                "type": "image" if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".webp") else ("dir" if f.is_dir() else "file")
+            })
         return jsonify(files)
+    except Exception as e:
+        logger.error(f"File management error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/files/mkdir", methods=["POST"])
+def make_dir():
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip().replace("/", "").replace("..", "")
+    if not name:
+        return jsonify({"error": "No folder name"}), 400
+    try:
+        (STORAGE_ROOT / name).mkdir(parents=True, exist_ok=True)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/files/<path:filename>", methods=["GET", "DELETE"])
 def handle_file(filename):
     try:
+        target = (STORAGE_ROOT / filename).resolve()
+        if not str(target).startswith(str(STORAGE_ROOT)):
+            return jsonify({"error": "Unauthorized path"}), 403
         if request.method == "DELETE":
-            r = requests.delete(f"{STORAGE_SERVICE}/api/storage/delete", params={"path": filename})
-            return jsonify(r.json()), r.status_code
-        
-        r = requests.get(f"{STORAGE_SERVICE}/api/storage/download", params={"path": filename}, stream=True)
-        return Response(r.iter_content(chunk_size=1024), content_type=r.headers.get('Content-Type'))
+            if not target.exists():
+                return jsonify({"error": "Not found"}), 404
+            if target.is_dir():
+                import shutil
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+            return jsonify({"success": True})
+        # GET -> serve the file directly
+        if not target.exists():
+            return jsonify({"error": "Not found"}), 404
+        return send_from_directory(str(STORAGE_ROOT), filename)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -1,56 +1,38 @@
 #!/usr/bin/env python3
 """
-NeuralAI Image LoRA Training Script
-===================================
-Builds a NeuralAI-style (dark / neon "vibe stack") image dataset and fine-tunes
-an SDXL LoRA so the local diffusion sidecar (services/diffusion_engine.py) can
-load it via NEURALAI_LORA_PATH.
+NeuralAI Image LoRA Training — ENTRY POINT
+==========================================
+Image LoRA training is done on **Google Colab via Unsloth Studio** (free T4 GPU),
+NOT locally, to avoid CPU-only training pain.
 
-Two modes:
-  1. --synthetic   Generate a prompt-only dataset from curated NeuralAI themes
-                  (no real images needed; trains text-encoder LoRA on captions).
-  2. --dataset DIR Train on a folder of <image.png> + <image.txt> caption pairs
-                  (full LoRA on UNet + text encoder).
+>>> Open the notebook: training/NeuralAI_Image_LoRA_Colab.ipynb
+>>> Or the hosted Unsloth Colab:
+>>> https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb
 
-Backends:
-  - diffusers + peft (LoRA) for SDXL
-  - Optional: kohya_ss / accelerate if available (auto-detected)
+The notebook:
+  1. Installs Unsloth + launches Unsloth Studio on Colab.
+  2. Loads stabilityai/stable-diffusion-xl-base-1.0.
+  3. Builds the NeuralAI "vibe stack" caption dataset (dark/neon aesthetic).
+  4. Trains an SDXL LoRA (no-code UI or scripted diffusers+PEFT fallback).
+  5. Exports a safetensors LoRA.
 
-Usage:
-  python training/train_image_lora.py --synthetic --steps 500
-  python training/train_image_lora.py --dataset ./my_images --epochs 10
+To USE the trained LoRA in the local NeuralAI sidecar (services/diffusion_engine.py):
+
+    export NEURALAI_DIFFUSION=1
+    export NEURALAI_LORA_PATH=/path/to/neuralai_sdxl_lora
+
+The sidecar calls pipe.load_lora_weights(NEURALAI_LORA_PATH) automatically.
 """
 
-import argparse
-import json
-import random
-import torch
-from pathlib import Path
-from datetime import datetime
+import sys
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+if __name__ == "__main__":
+    print("NeuralAI image LoRA training runs on Google Colab via Unsloth Studio.")
+    print("Open: training/NeuralAI_Image_LoRA_Colab.ipynb")
+    print("Or the Unsloth Colab: "
+          "https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb")
+    sys.exit(0)
 
-# ---------------------------------------------------------------------------
-# NeuralAI brand theme pool — the signature "vibe stack" aesthetic.
-# ---------------------------------------------------------------------------
-NEURALAI_THEMES = [
-    "a sentient AI core glowing in a dark server room",
-    "neon-lit cyberpunk city skyline at night",
-    "abstract neural network visualized as flowing neon threads",
-    "a holographic assistant avatar with cyan rim light",
-    "futuristic HUD interface floating in dark space",
-    "a lone explorer on a neon alien landscape",
-    "quantum computer cooling towers with vapor and blue glow",
-    "a robotic owl perched on a glowing data monolith",
-    "cosmic brain made of stars and electric veins",
-    "minimalist logo mark pulsing with magenta energy",
-]
-
-BRAND_SUFFIX = (
-    "cinematic dark mode, neon accent lighting, high contrast, "
-    "hyper-detailed, 8k, volumetric fog, vibe stack aesthetic, "
-    "professional concept art"
-)
 
 
 def build_synthetic_dataset(out_dir: Path, n: int = 300):

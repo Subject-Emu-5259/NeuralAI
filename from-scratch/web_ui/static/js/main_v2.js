@@ -1101,7 +1101,8 @@ async function loadFiles() {
     const res = await fetch("/api/files", { headers: { "Authorization": `Bearer ${authToken}` } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    window.neuralFiles = data.files || [];
+    // Backend returns either a raw array or {files: [...]} — handle both
+    window.neuralFiles = Array.isArray(data) ? data : (data.files || []);
     renderFiles(window.neuralFiles);
   } catch (err) { 
     console.error("NeuralDrive access error:", err);
@@ -1579,6 +1580,15 @@ function closeOnboarding() {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
   console.log("NeuralAI Core UI Initializing...");
+  // Restore saved theme (default to dark to match the app's design language)
+  try {
+    const saved = window.localStorage.getItem('neural_theme');
+    if (saved === 'light') {
+      document.body.classList.remove('dark-mode');
+    } else {
+      document.body.classList.add('dark-mode');
+    }
+  } catch (e) { document.body.classList.add('dark-mode'); }
   initAuth();
   initUploadListeners();
   

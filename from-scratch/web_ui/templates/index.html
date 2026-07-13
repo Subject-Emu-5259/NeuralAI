@@ -1425,30 +1425,32 @@ body.dark-mode .drop-zone {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #fff;
-  border: 1px solid #dadce0;
+  background: #161b22;
+  border: 1px solid #30363d;
   border-radius: 16px;
   padding: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .file-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-  border-color: #3b82f6;
-}
-
-body.dark-mode .file-card {
-  background: #161b22;
-  border-color: #30363d;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-body.dark-mode .file-card:hover {
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
   border-color: #3b82f6;
   background: #1c2128;
+}
+
+/* Light mode override (only when explicitly not dark) */
+body:not(.dark-mode) .file-card {
+  background: #fff;
+  border-color: #dadce0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+body:not(.dark-mode) .file-card:hover {
+  border-color: #3b82f6;
+  background: #f8f9fa;
 }
 
 .file-preview {
@@ -1482,7 +1484,7 @@ body.dark-mode .file-card:hover {
 .file-name {
   font-size: 15px;
   font-weight: 500;
-  color: #202124;
+  color: #e4e4e7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1490,6 +1492,14 @@ body.dark-mode .file-card:hover {
 
 .file-meta {
   font-size: 12px;
+  color: #8b949e;
+}
+
+body:not(.dark-mode) .file-name {
+  color: #202124;
+}
+
+body:not(.dark-mode) .file-meta {
   color: #5f6368;
 }
 
@@ -1507,7 +1517,7 @@ body.dark-mode .file-card:hover {
 .file-action-btn {
   border: none;
   background: rgba(139, 148, 158, 0.1);
-  color: #5f6368;
+  color: #8b949e;
   cursor: pointer;
   padding: 8px;
   border-radius: 8px;
@@ -1517,22 +1527,29 @@ body.dark-mode .file-card:hover {
   justify-content: center;
 }
 
-body.dark-mode .file-action-btn {
-  color: #8b949e;
+body:not(.dark-mode) .file-action-btn {
+  color: #5f6368;
 }
 
 .file-action-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.file-action-btn.delete:hover {
+  background: rgba(234, 67, 53, 0.15);
+  color: #ea4335;
+}
+
+body:not(.dark-mode) .file-action-btn:hover {
   background: #e8f0fe;
   color: #1a73e8;
 }
 
-.file-action-btn.delete:hover {
+body:not(.dark-mode) .file-action-btn.delete:hover {
   background: #fce8e6;
   color: #ea4335;
 }
-
-body.dark-mode .file-action-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
 }
 

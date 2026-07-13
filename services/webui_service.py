@@ -601,7 +601,7 @@ def handle_file(filename):
             return jsonify({"success": True})
         # GET -> serve the file directly
         if not target.exists():
-            return jsonify({"error": "Not found", "debug_target": str(target), "debug_exists": target.exists(), "debug_root": str(STORAGE_ROOT), "debug_filename": filename}), 404
+            return jsonify({"error": "Not found"}), 404
         return send_from_directory(str(STORAGE_ROOT), filename)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

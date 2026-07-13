@@ -330,6 +330,48 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         yield "I encountered an error generating a response. Please try again."
 
 # ====================
+# IMAGE PROMPT ENHANCER
+# ====================
+def enhance_image_prompt(prompt):
+    """Expand a short user request into a detailed, brand-styled image prompt.
+
+    Uses the local LLM when available; otherwise falls back to a deterministic
+    template so 'generate a dog' still becomes a rich NeuralAI-styled prompt.
+    """
+    tmpl = (
+        "Rewrite the user's short image request into a single detailed, "
+        "photorealistic image-generation prompt in NeuralAI's signature dark/neon "
+        "'vibe stack' aesthetic. Add lighting, mood, composition, and medium. "
+        "Output ONLY the prompt, no quotes, no commentary.\n\n"
+        f"User request: {prompt}\n\nDetailed prompt:"
+    )
+    # Try the LLM first (kept in-memory in this process).
+    try:
+        if model is not None and tokenizer is not None:
+            inputs = tokenizer(tmpl, return_tensors="pt")
+            with torch.no_grad():
+                out = model.generate(
+                    **inputs, max_new_tokens=80, do_sample=False,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
+            txt = tokenizer.decode(out[0][inputs["input_ids"].shape[-1]:],
+                                   skip_special_tokens=True).strip()
+            txt = txt.split("\n")[0].strip().strip('"').strip("'")
+            if txt and len(txt) > len(prompt):
+                return txt
+    except Exception as e:
+        logger.warning(f"[enhance_image_prompt] LLM enhance failed, using template: {e}")
+
+    # Template fallback: brand-styled expansion.
+    subject = prompt.strip().strip(".").lower()
+    return (
+        f"{prompt}, cinematic dark-mode composition, neon accent rim lighting, "
+        f"high contrast, hyper-detailed, 8k, volumetric fog, vibe stack aesthetic, "
+        f"centered subject, professional concept art"
+    )
+
+
+# ====================
 # ROUTES - STATIC
 # ====================
 import time
@@ -761,13 +803,16 @@ def api_image():
             if _svc_dir not in _sys.path:
                 _sys.path.insert(0, _svc_dir)
             from diffusion_engine import NeuralAIDiffusion
+            # Expand the short user prompt into a brand-styled image prompt.
+            enhanced = enhance_image_prompt(prompt)
             engine = NeuralAIDiffusion()
             out_path = gen_dir / f"{file_stem}.png"
-            if engine.generate(prompt, str(out_path)):
+            if engine.generate(enhanced, str(out_path)):
                 return jsonify({
                     "success": True,
                     "image_url": f"/static/generated/{file_stem}.png",
-                    "prompt": prompt,
+                    "prompt": enhanced,
+                    "raw_prompt": prompt,
                     "placeholder": False,
                     "provider": "diffusion"
                 })

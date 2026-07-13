@@ -391,6 +391,25 @@ def health():
                     "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.1.0-stable"})
 
 # ====================
+# ROUTES - RELEASE NOTES
+# ====================
+@app.route("/api/release-notes", methods=["GET"])
+def api_release_notes():
+    notes_path = DATA_DIR / "release_notes.json"
+    try:
+        if notes_path.exists():
+            with open(notes_path) as f:
+                return jsonify(json.load(f))
+    except Exception as e:
+        logger.warning(f"Failed to read release notes: {e}")
+    return jsonify({
+        "version": "v7.3.0",
+        "title": "NeuralAI v7.3.0 — Release Notes",
+        "released": "2026-07-13",
+        "notes": []
+    })
+
+# ====================
 # ROUTES - MODEL
 # ====================
 @app.route("/generate", methods=["POST"])

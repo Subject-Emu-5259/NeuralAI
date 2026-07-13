@@ -84,7 +84,15 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 4. **Agentic Orchestrator**: A high-autonomy layer enabling NeuralAI to plan, reason, and execute multi-step workflows across the OS and web, moving beyond simple chat to active goal achievement.
 
 ---
+### 🆕 What's New (v7.3.0)
 
+- **Auto Release Notes ("What's New")**: A new top-bar panel surfaces the latest features and fixes automatically. Open it anytime via the ✨ **What's New** button.
+- **Generated images render in chat**: Image-generation responses are parsed as Markdown and displayed inline.
+- **No more self-talk**: Chat now uses the ChatML prompt template (`apply_chat_template`), matching the model's training format.
+- **NeuralDrive upload reliability**: The file list correctly handles API response shapes after an upload.
+- **Dark theme by default**: UI restores your saved theme and defaults to dark mode (fixes white file-cards in light mode).
+- **Phase 8 in progress**: Knowledge Graph & Agentic Autonomy — long-term cross-project memory ("Supermemory") and fully autonomous task execution.
+- **The NeuralLabs Shift**: NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client → v2 Edge → v3 Eco).
 ## ✨ Key Features & Capabilities
 
 ### 💬 Multimodal Chat & Agentic Intelligence
@@ -205,11 +213,11 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 *Built with precision and discipline by De'Andrew Preston Harris.*
 
-### CURRENT VERSION: v7.2 (The Pluggable Engine)
+### CURRENT VERSION: v7.3.0 (The Pluggable Engine)
 
 - **Model Alignment**: DPO v15.0 Aligned (597 pairs, Logic, Debugging, Reasoning)
 - **Inference**: llmster (LM Studio headless) — 258MB RAM vs 5GB PyTorch
-- **Last Maintenance**: July 12, 2026
+- **Last Maintenance**: July 13, 2026
 
 Your tone is technical, concise, and professional. You prioritize system stability and cleanliness above all else.
 

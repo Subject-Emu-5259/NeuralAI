@@ -1,0 +1,42 @@
+{
+  "version": "v7.3.0",
+  "title": "NeuralAI v7.3.0 — Release Notes",
+  "released": "2026-07-13",
+  "notes": [
+    {
+      "tag": "New",
+      "title": "📋 Auto Release Notes (What's New)",
+      "body": "A new 'What's New' panel surfaces the latest features and fixes automatically on update. Open it anytime from the top bar."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🖼️ Generated images now render in chat",
+      "body": "Image-generation responses are parsed as Markdown and displayed inline instead of raw text."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🤖 Model no longer talks to itself",
+      "body": "Chat now uses the ChatML prompt template (apply_chat_template) matching the model's training format, eliminating self-repeating turns."
+    },
+    {
+      "tag": "Fixed",
+      "title": "📁 Upload success no longer shows empty list",
+      "body": "NeuralDrive now correctly handles both raw-array and {files:[]} API responses after an upload."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🌙 Dark theme by default",
+      "body": "The UI restores your saved theme on load and defaults to dark mode, fixing white file-cards in light mode."
+    },
+    {
+      "tag": "Roadmap",
+      "title": "🚀 Phase 8: Knowledge Graph & Agentic Autonomy",
+      "body": "Advanced long-term memory for cross-project context ('Supermemory') and fully autonomous task execution are now in active development."
+    },
+    {
+      "tag": "Vision",
+      "title": "🎯 The NeuralLabs Shift",
+      "body": "NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client, v2 Edge, v3 Eco)."
+    }
+  ]
+}

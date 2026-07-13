@@ -73,10 +73,19 @@ if ! pgrep -f "lmstudio" > /dev/null 2>&1; then
 fi
 
 # Load model if not loaded
-if ! curl -s "http://localhost:1234/v1/models" | grep -q "data"; then
+if ! curl -s "http://localhost:1234/v1/models" | grep -q "smollm2"; then
     echo "[Startup] Loading SmolLM2-360M-Instruct..."
-    "$LMS_BIN" load smollm2 -y 2>/dev/null || true
-    sleep 5
+    "$LMS_BIN" load smollm2-360m-instruct -y 2>&1 || true
+    sleep 3
+    
+    # Verify model loaded
+    if curl -s "http://localhost:1234/v1/models" | grep -q "smollm2"; then
+        echo "[Startup] ✓ Model loaded successfully"
+    else
+        echo "[Startup] ✗ Model failed to load! Trying alternative identifier..."
+        "$LMS_BIN" load smollm2 -y 2>&1 || true
+        sleep 3
+    fi
 fi
 
 # Verify llmster is serving
@@ -104,7 +113,7 @@ echo "[Startup] Backend: ${LLM_BACKEND:-lmstudio}"
 cd "$SCRIPT_DIR"
 LLM_BACKEND="${LLM_BACKEND:-lmstudio}" \
 LLM_API_URL="http://localhost:1234/v1" \
-LLM_MODEL="smollm2" \
+LLM_MODEL="smollm2-360m-instruct" \
 nohup python3 neural_core_service.py > "$LOG_DIR/neuralai.log" 2> "$LOG_DIR/neuralai_err.log" &
 CORE_PID=$!
 echo "[Startup] Core PID: $CORE_PID"

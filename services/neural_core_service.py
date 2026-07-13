@@ -8,7 +8,7 @@ NeuralAI Unified Service - ALL IN ONE
 - Web UI & API
 """
 import os, sys, json, asyncio, requests, threading, logging
-import torch, sqlite3, subprocess, tempfile, uuid, jwt
+import sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
 # Diffusion is optional: it pulls in diffusers + a large model download and is
 # not required for the chat UI. Import lazily/guarded so the service boots
@@ -22,14 +22,15 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context, render_template
 from flask_sock import Sock
-from transformers import TextIteratorStreamer
 import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NeuralCore")
 
-torch.set_num_threads(4)
+# Lazy-loaded modules: only imported when LLM_BACKEND == "local"
+torch = None
+TextIteratorStreamer = None
 
 # Config (portable: resolve REPO_ROOT from this file's location)
 REPO_ROOT = os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parent.parent))
@@ -224,6 +225,7 @@ def token_required(f):
 def load_model():
     global model, tokenizer, model_status, is_dpo
     try:
+        import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
 
@@ -341,6 +343,8 @@ def generate_response_stream(messages, max_tokens=512, temperature=0.7):
         return
     
     try:
+        import torch
+        from transformers import TextIteratorStreamer
         if hasattr(tokenizer, "chat_template") and tokenizer.chat_template:
             full = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         else:

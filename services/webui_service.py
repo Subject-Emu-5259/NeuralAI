@@ -7,7 +7,7 @@ NeuralAI Unified Service - ALL IN ONE
 - Tools (code, terminal)
 - Web UI
 """
-import os, sys, json, asyncio, requests, logging
+import os, sys, json, asyncio, requests, logging, threading
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -39,6 +39,9 @@ model = None
 tokenizer = None
 model_status = "loading"
 inference_count = 0
+
+# Streaming abort control: conv_id -> threading.Event
+stop_events = {}
 
 # Terminal sessions
 terminal_sessions = {}
@@ -274,6 +277,41 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         logger.error(f"Generation error: {e}")
         return "I encountered an error generating a response. Please try again."
 
+def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
+    """Real token streaming via TextIteratorStreamer (drastically cuts time-to-first-token)."""
+    global model, tokenizer, inference_count
+    if model is None or tokenizer is None:
+        yield "Model not loaded. Please wait a moment and try again."
+        return
+    stop_event = stop_events.get(conv_id) if conv_id else None
+    try:
+        from transformers import TextIteratorStreamer
+        full = build_prompt_with_context(prompt, conv_id)
+        inputs = tokenizer(full, return_tensors="pt")
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        gen_kwargs = dict(
+            **inputs,
+            streamer=streamer,
+            max_new_tokens=max_tokens,
+            do_sample=True,
+            temperature=temperature,
+            top_p=0.95,
+            pad_token_id=tokenizer.eos_token_id,
+            repetition_penalty=1.1,
+        )
+        thread = threading.Thread(target=model.generate, kwargs=gen_kwargs, daemon=True)
+        thread.start()
+        for token in streamer:
+            if stop_event and stop_event.is_set():
+                break
+            if token:
+                yield token
+        thread.join()
+        inference_count += 1
+    except Exception as e:
+        logger.error(f"Stream generation error: {e}")
+        yield "I encountered an error generating a response. Please try again."
+
 # ====================
 # ROUTES - STATIC
 # ====================
@@ -367,10 +405,10 @@ def api_chat(current_user):
     prompt = data.get("prompt", "")
     use_uplink = data.get("use_uplink", False)
     conv_id = data.get("conversation_id")
-    
+
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
-    
+
     # Save user message to DB if conversation_id provided
     if conv_id:
         try:
@@ -379,7 +417,7 @@ def api_chat(current_user):
             db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
                        (conv_id, prompt, now))
             db.execute("UPDATE conversations SET updated_at = ?, message_count = message_count + 1 WHERE id = ?", (now, conv_id))
-            
+
             # Auto-generate title from first message
             msg_count = db.execute("SELECT COUNT(*) as cnt FROM messages WHERE conversation_id = ?", (conv_id,)).fetchone()["cnt"]
             if msg_count <= 1:
@@ -390,12 +428,12 @@ def api_chat(current_user):
                         auto_title = auto_title[:last_space]
                     auto_title += "..."
                 db.execute("UPDATE conversations SET title = ? WHERE id = ?", (auto_title, conv_id))
-            
+
             db.commit()
             db.close()
         except Exception as e:
             logger.error(f"Failed to save user message: {e}")
-    
+
     def generate_unified():
         if use_uplink:
             for agent_name, agent in UPLINK_AGENTS.items():
@@ -406,7 +444,12 @@ def api_chat(current_user):
                         yield f"data: {json.dumps({'content': chunk})}\n\n"
                 except: pass
         else:
-            response = generate_response(prompt, conv_id=conv_id)
+            # Real token streaming — first token arrives in <1s instead of after full generation
+            full_response = []
+            for token in stream_response(prompt, conv_id=conv_id):
+                full_response.append(token)
+                yield f"data: {json.dumps({'content': token})}\n\n"
+            response = "".join(full_response)
             # Save assistant response
             if conv_id and response:
                 try:
@@ -418,13 +461,23 @@ def api_chat(current_user):
                     db.close()
                 except Exception as e:
                     logger.error(f"Failed to save assistant message: {e}")
-            # Stream word by word
-            for word in response.split():
-                yield f"data: {json.dumps({'content': word + ' '})}\n\n"
-        
+            # Clear any stop event for this conversation
+            stop_events.pop(conv_id, None)
+
         yield "data: [DONE]\n\n"
 
     return Response(generate_unified(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+@app.route("/api/chat/stop", methods=["POST"])
+@token_required
+def api_chat_stop(current_user):
+    data = request.get_json() or {}
+    conv_id = data.get("conversation_id")
+    if conv_id:
+        stop_events[conv_id] = threading.Event()
+        stop_events[conv_id].set()
+        return jsonify({"success": True, "stopped": conv_id})
+    return jsonify({"success": False, "error": "No conversation_id provided"}), 400
 
 # ====================
 # ROUTES - MONITORING
@@ -584,6 +637,25 @@ def execute_code():
         return jsonify({"success": False, "output": "", "error": str(e)})
     finally:
         os.unlink(path)
+
+# ====================
+# ROUTES - IMAGE GENERATION (proxy to tools_service if available)
+# ====================
+@app.route("/api/image", methods=["POST"])
+def api_image():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return jsonify({"success": False, "error": "No prompt provided"}), 400
+    try:
+        # Try the dedicated tools service first
+        tools_url = os.environ.get("TOOLS_SERVICE", "http://localhost:7002")
+        r = requests.post(f"{tools_url}/generate/image", json={"prompt": prompt}, timeout=5)
+        if r.ok:
+            return jsonify(r.json())
+    except Exception:
+        pass
+    return jsonify({"success": False, "error": "Image service unavailable on this node"})
 
 # ====================
 # ROUTES - AUTH

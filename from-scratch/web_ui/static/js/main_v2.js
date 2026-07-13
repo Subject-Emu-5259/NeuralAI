@@ -10,9 +10,11 @@ let authToken = window.localStorage.getItem("neural_token");
 let currentUser = null;
 let currentConversationId = null;
 let isStreaming = false;
+let abortStream = false;
+let lastSeen = {};
 let conversation = [];
 let attachedFiles = {};
-let uplinkEnabled = true;
+let uplinkEnabled = false;
 let termSid = null;
 let termPoll = null;
 let authMode = "login";
@@ -283,6 +285,7 @@ async function createNewConversation() {
 
 async function loadConversation(id) {
   currentConversationId = id;
+  lastSeen[id] = new Date().toISOString();
   try {
     const res = await fetch(`/api/conversations/${id}`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
@@ -333,16 +336,22 @@ async function renameConversation(id) {
 function renderConversationList(convs) {
   const list = document.getElementById('sidebarHistoryList');
   if (!list) return;
-  list.innerHTML = convs.map(c => `
+  list.innerHTML = convs.map(c => {
+    const isUnread = c.id !== currentConversationId && c.updated_at && lastSeen[c.id] && c.updated_at > lastSeen[c.id];
+    return `
     <div class="history-item ${currentConversationId === c.id ? 'active' : ''}" onclick="loadConversation('${c.id}')">
       <span class="history-item-text">${escHtml(c.title)}</span>
+      ${isUnread ? '<span class="unread-badge">NEW</span>' : ''}
       <div class="history-item-actions">
         <button class="history-item-rename" onclick="event.stopPropagation(); renameConversation('${c.id}')">✏️</button>
         <button class="history-item-delete" onclick="event.stopPropagation(); deleteConversation('${c.id}')">&times;</button>
       </div>
     </div>
-  `).join('') || '<p style="font-size:12px;color:#555;padding:10px;">No logs found.</p>';
-  
+  `}).join('') || '<p style="font-size:12px;color:#555;padding:10px;">No logs found.</p>';
+
+  // Track last-seen timestamps for unread detection
+  convs.forEach(c => { if (!lastSeen[c.id]) lastSeen[c.id] = c.updated_at; });
+
   // Update dropdown too
   const dropList = document.getElementById('historyDropdownList');
   if (dropList) {
@@ -403,12 +412,16 @@ async function sendMessage(textOverride = null) {
   const assistantMsg = addMsg('assistant', '');
   const bubble = assistantMsg.querySelector('.msg-bubble');
   bubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+  const typingLabel = assistantMsg.querySelector('.typing-label');
+  if (typingLabel) typingLabel.style.display = 'block';
+  abortStream = false;
+  showStopButton(true);
 
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-      body: JSON.stringify({ prompt: text, conversation_id: currentConversationId, messages: conversation })
+      body: JSON.stringify({ prompt: text, conversation_id: currentConversationId, messages: conversation, use_uplink: uplinkEnabled })
     });
     
     if (!res.ok) {
@@ -419,9 +432,18 @@ async function sendMessage(textOverride = null) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let full = '';
+    let firstToken = true;
     bubble.innerHTML = '';
 
     while (true) {
+      if (abortStream) {
+        await fetch('/api/chat/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+          body: JSON.stringify({ conversation_id: currentConversationId })
+        }).catch(() => {});
+        break;
+      }
       const { done, value } = await reader.read();
       if (done) break;
       const chunk = decoder.decode(value);
@@ -433,8 +455,17 @@ async function sendMessage(textOverride = null) {
           try {
             const data = JSON.parse(raw);
             if (data.content) {
+              if (firstToken) {
+                firstToken = false;
+                if (typingLabel) typingLabel.style.display = 'none';
+              }
               full += data.content;
-              bubble.innerHTML = fmt(full);
+              // Render tool-cards when an uplink agent emits a 🔧 marker
+              if (data.content.includes('🔧') || full.includes('🔧 NeuralAI is processing tool')) {
+                bubble.innerHTML = renderToolCard(full);
+              } else {
+                bubble.innerHTML = fmt(full);
+              }
               const msgs = document.getElementById('messages');
               msgs.scrollTop = msgs.scrollHeight;
             }
@@ -466,12 +497,78 @@ async function sendMessage(textOverride = null) {
     bubble.innerHTML = `<span style="color:#ff6b6b">Generation failed: ${e.message}</span>`;
   } finally {
     isStreaming = false;
+    abortStream = false;
+    showStopButton(false);
     const sendBtn = document.getElementById('sendBtn');
     if (sendBtn) {
       sendBtn.disabled = false;
       sendBtn.innerHTML = 'Send';
     }
   }
+}
+
+function showStopButton(show) {
+  const stopBtn = document.getElementById('stopBtn');
+  if (stopBtn) stopBtn.style.display = show ? 'inline-flex' : 'none';
+}
+
+async function generateImageFromPrompt(prompt) {
+  if (isStreaming) return;
+  showToast('Generating image…', 'info');
+  try {
+    const res = await fetch('/api/execute/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ code: `import requests\nr=requests.post('${location.origin}/api/image', json={'prompt': ${JSON.stringify(prompt)}})\nprint(r.status_code, r.text[:200])`, language: 'python' })
+    });
+    const data = await res.json();
+    if (data.success) showToast('Image task dispatched', 'success');
+    else showToast('Image generation unavailable: ' + (data.error || 'unknown'), 'error');
+  } catch (e) {
+    showToast('Image generation failed: ' + e.message, 'error');
+  }
+}
+
+async function runCodeSnippet(code) {
+  if (isStreaming) return;
+  showToast('Running code…', 'info');
+  try {
+    const res = await fetch('/api/execute/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ code, language: 'python' })
+    });
+    const data = await res.json();
+    const out = data.success ? data.output : (data.error || 'No output');
+    addMsg('assistant', '```\n' + out + '\n```');
+  } catch (e) {
+    showToast('Code execution failed: ' + e.message, 'error');
+  }
+}
+
+function renderToolCard(text) {
+  // Extract the 🔧 processing line and render a styled tool-card
+  const lines = text.split('\n');
+  const toolLine = lines.find(l => l.includes('🔧'));
+  if (toolLine) {
+    const label = toolLine.replace('🔧', '').replace('NeuralAI is processing tool:', '').trim();
+    return `<div class="tool-card"><span class="tool-icon">🔧</span><span class="tool-text">Processing tool: ${escHtml(label)}</span></div>` + fmt(lines.filter(l => l !== toolLine).join('\n'));
+  }
+  return fmt(text);
+}
+
+function updateModelStatus() {
+  fetch('/api/health').then(r => r.json()).then(d => {
+    const dot = document.getElementById('uplinkDot');
+    const label = document.getElementById('uplinkLabel');
+    if (dot) dot.className = 'status-dot ' + (d.status === 'ready' ? 'online' : 'offline');
+    if (label) label.textContent = d.status === 'ready' ? 'Ready' : (d.status || 'Offline');
+  }).catch(() => {
+    const dot = document.getElementById('uplinkDot');
+    const label = document.getElementById('uplinkLabel');
+    if (dot) dot.className = 'status-dot offline';
+    if (label) label.textContent = 'Offline';
+  });
 }
 
 function addMsg(role, content) {
@@ -482,6 +579,7 @@ function addMsg(role, content) {
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   div.innerHTML = `
     <div class="msg-meta"><span>${role === 'assistant' ? 'NeuralAI' : 'You'}</span><span class="msg-timestamp">${time}</span></div>
+    ${role === 'assistant' ? '<div class="typing-label" style="display:none;font-size:12px;color:#8a8a9a;margin-bottom:4px;">NeuralAI is typing…</div>' : ''}
     <div class="msg-bubble">${content ? fmt(content) : ''}</div>
   `;
   container.appendChild(div);
@@ -1490,6 +1588,37 @@ document.addEventListener('DOMContentLoaded', () => {
       sendMessage(card.dataset.prompt);
     });
   });
+
+  // Stop button (appears during streaming)
+  document.getElementById('stopBtn')?.addEventListener('click', () => {
+    abortStream = true;
+  });
+
+  // Feature buttons: image + code
+  document.getElementById('imageBtn')?.addEventListener('click', () => {
+    const prompt = (document.getElementById('chatInput')?.value || '').trim() || 'a serene mountain landscape at sunset';
+    generateImageFromPrompt(prompt);
+  });
+  document.getElementById('codeBtn')?.addEventListener('click', () => {
+    const code = (document.getElementById('chatInput')?.value || '').trim() || 'print("Hello from NeuralAI")';
+    runCodeSnippet(code);
+  });
+
+  // Uplink toggle
+  const uplinkToggle = document.getElementById('uplinkToggle');
+  if (uplinkToggle) {
+    uplinkToggle.checked = uplinkEnabled;
+    uplinkToggle.addEventListener('change', e => {
+      uplinkEnabled = e.target.checked;
+      window.localStorage.setItem('neural_uplink', uplinkEnabled ? '1' : '0');
+    });
+  }
+  const savedUplink = window.localStorage.getItem('neural_uplink');
+  if (savedUplink !== null) uplinkEnabled = savedUplink === '1';
+
+  // Model status polling
+  updateModelStatus();
+  setInterval(updateModelStatus, 30000);
 });
 
 // Global Exports

@@ -985,6 +985,69 @@ body:not(.dark-mode) .msg code {
   40% { transform: scale(1); opacity: 1; }
 }
 
+/* ===== TYPING LABEL ===== */
+.typing-label {
+  font-style: italic;
+}
+
+/* ===== TOOL CARD ===== */
+.tool-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  font-size: 13px;
+  color: #c4b5fd;
+}
+.tool-icon { font-size: 15px; }
+.tool-text { font-weight: 500; }
+
+/* ===== UNREAD BADGE ===== */
+.unread-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* ===== CHAT INPUT FEATURE BUTTONS ===== */
+.feature-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #e4e4e7;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 10px;
+  height: 40px;
+  transition: background 0.15s ease;
+}
+.feature-btn:hover { background: rgba(255,255,255,0.12); }
+
+.stop-btn {
+  background: #ef4444;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 14px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.stop-btn:hover { background: #dc2626; }
+
 /* ===== EXECUTION OUTPUT STYLING ===== */
 
 .exec-output {
@@ -3129,6 +3192,15 @@ body.dark-mode .onboarding-close:hover {
         </div>
 
         <div class="settings-card">
+          <h3 style="font-size:14px; color:#a78bfa; margin-bottom:12px;">Neural Uplink (Multi-Agent)</h3>
+          <p style="font-size:12px; color:#8a8a9a; margin-bottom:12px;">Route your prompt through 4 parallel expert agents (DIALOG, DATA, OPS, WORLD) for richer answers.</p>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+            <input type="checkbox" id="uplinkToggle" style="width:18px; height:18px; accent-color:#a78bfa;" />
+            <span style="font-size:14px; color:#e4e4e7;">Enable Neural Uplink</span>
+          </label>
+        </div>
+
+        <div class="settings-card">
           <h3>Architecture & Node Status</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
               <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
@@ -3163,7 +3235,10 @@ body.dark-mode .onboarding-close:hover {
 <!-- Bottom input bar -->
 <section class="chat-input-bar">
   <button id="voiceBtn" class="voice-btn" title="Live Conversation">🎤</button>
+  <button id="imageBtn" class="feature-btn" title="Generate Image">🖼️</button>
+  <button id="codeBtn" class="feature-btn" title="Run Code">💻</button>
   <textarea id="chatInput" placeholder="Ask NeuralAI anything..." rows="1"></textarea>
+  <button id="stopBtn" class="stop-btn" style="display:none;" title="Stop generating">■</button>
   <button id="sendBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 4px 14px rgba(239,68,68,0.3);">Send</button>
 </section>
 

@@ -10,13 +10,10 @@ NeuralAI Unified Service - ALL IN ONE
 import os, sys, json, asyncio, requests, threading, logging
 import sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
-# Diffusion is optional: it pulls in diffusers + a large model download and is
-# not required for the chat UI. Import lazily/guarded so the service boots
-# even when diffusers is unavailable (e.g. on a slim HF Space image).
-try:
-    from diffusion_engine import NeuralAIDiffusion
-except Exception:
-    NeuralAIDiffusion = None
+# Lazy-loaded modules: only imported when LLM_BACKEND == "local"
+torch = None
+TextIteratorStreamer = None
+NeuralAIDiffusion = None
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -443,9 +440,14 @@ class Tools:
 
     @staticmethod
     def image_gen(prompt):
-        global diffusion_engine
+        global diffusion_engine, NeuralAIDiffusion
         try:
             if diffusion_engine is None:
+                try:
+                    from diffusion_engine import NeuralAIDiffusion as _ND
+                    NeuralAIDiffusion = _ND
+                except Exception:
+                    return "❌ Diffusion engine not available."
                 diffusion_engine = NeuralAIDiffusion()
             
             prompt = prompt.strip()

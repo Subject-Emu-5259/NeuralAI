@@ -2,18 +2,19 @@
 """
 NeuralAI Image LoRA Training — ENTRY POINT
 ==========================================
-Image LoRA training is done on **Google Colab via Unsloth Studio** (free T4 GPU),
-NOT locally, to avoid CPU-only training pain.
+Image LoRA training is done on **Google Colab** (free T4 GPU) with the official
+**diffusers** SDXL LoRA trainer — NOT Unsloth Studio (Studio cannot train diffusion
+models; its Train UI only supports Text/Vision/Audio/Embeddings/BERT).
 
->>> Open the notebook: training/NeuralAI_Image_LoRA_Colab.ipynb
->>> Or the hosted Unsloth Colab:
->>> https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb
+>>> Open the notebook: training/NeuralAI_SDXL_LoRA_Colab.ipynb
+>>> Or directly on Colab:
+>>> https://colab.research.google.com/github/Subject-Emu-5259/NeuralAI/blob/master/training/NeuralAI_SDXL_LoRA_Colab.ipynb
 
 The notebook:
-  1. Installs Unsloth + launches Unsloth Studio on Colab.
-  2. Loads stabilityai/stable-diffusion-xl-base-1.0.
-  3. Builds the NeuralAI "vibe stack" caption dataset (dark/neon aesthetic).
-  4. Trains an SDXL LoRA (no-code UI or scripted diffusers+PEFT fallback).
+  1. Installs the diffusers SDXL training stack.
+  2. Uploads 20-50 brand images (the style source).
+  3. Builds the NeuralAI "vibe stack" dataset (image + caption).
+  4. Trains an SDXL LoRA (rank 16, ~10 epochs) -> neuralai_sdxl_lora/.
   5. Exports a safetensors LoRA.
 
 To USE the trained LoRA in the local NeuralAI sidecar (services/diffusion_engine.py):
@@ -27,10 +28,10 @@ The sidecar calls pipe.load_lora_weights(NEURALAI_LORA_PATH) automatically.
 import sys
 
 if __name__ == "__main__":
-    print("NeuralAI image LoRA training runs on Google Colab via Unsloth Studio.")
-    print("Open: training/NeuralAI_Image_LoRA_Colab.ipynb")
-    print("Or the Unsloth Colab: "
-          "https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb")
+    print("NeuralAI image LoRA training runs on Google Colab (diffusers SDXL trainer).")
+    print("Open: training/NeuralAI_SDXL_LoRA_Colab.ipynb")
+    print("Or the Colab link: "
+          "https://colab.research.google.com/github/Subject-Emu-5259/NeuralAI/blob/master/training/NeuralAI_SDXL_LoRA_Colab.ipynb")
     sys.exit(0)
 
 

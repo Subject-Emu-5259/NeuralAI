@@ -1536,10 +1536,33 @@ function escHtml(text) {
 }
 
 function fmt(text) {
-  let out = escHtml(text);
+  if (!text) return '';
+  // First, extract and render markdown images ![alt](url) as real <img> tags.
+  // We build the HTML in a safe way: escape everything, then swap image tokens.
+  const imagePlaceholders = [];
+  let escaped = escHtml(text);
+  // Find markdown image syntax in the ORIGINAL text (before escaping) to get raw URLs
+  const imgRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+  let m;
+  while ((m = imgRegex.exec(text)) !== null) {
+    const alt = m[1] || 'image';
+    const url = m[2];
+    // Only allow http(s) and same-origin relative paths (no javascript: etc.)
+    if (/^(https?:\/\/|\/)/i.test(url)) {
+      const token = `\u0000IMG${imagePlaceholders.length}\u0000`;
+      imagePlaceholders.push(`<img class="gen-image" src="${escHtml(url)}" alt="${escHtml(alt)}" style="max-width:100%;border-radius:12px;margin:8px 0;">`);
+      // Replace the markdown in the escaped string with the token
+      const escapedMd = escHtml(m[0]);
+      escaped = escaped.split(escapedMd).join(token);
+    }
+  }
+  // Convert remaining markdown
+  let out = escaped;
   out = out.replace(/\n/g, '<br>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Restore image placeholders
+  out = out.replace(/\u0000IMG(\d+)\u0000/g, (_, i) => imagePlaceholders[Number(i)] || '');
   return out;
 }
 

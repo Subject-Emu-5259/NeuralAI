@@ -230,21 +230,36 @@ def get_conversation_history(conv_id, limit=10):
         return []
 
 def build_prompt_with_context(prompt, conv_id=None, max_history=8):
-    """Build a prompt with system prompt and conversation history"""
+    """Build a ChatML-formatted prompt (matching the model's trained chat template).
+
+    The model (SmolLM2-360M-Instruct + NeuralAI LoRA) was trained on ChatML:
+        <|im_start|>system\n...\n<|im_end|>\n
+        <|im_start|>user\n...\n<|im_end|>\n
+        <|im_start|>assistant\n
+    Feeding it freeform "User:/NeuralAI:" text caused the model to not recognize
+    turn boundaries and "talk to itself". Using the correct template fixes that.
+    """
     history = get_conversation_history(conv_id, max_history) if conv_id else []
-    parts = [NEURALAI_SYSTEM_PROMPT, ""]
-    if history:
-        parts.append("## Conversation History")
-        for msg in history:
-            role = "User" if msg["role"] == "user" else "NeuralAI"
-            content_preview = msg["content"][:200]
-            parts.append(f"{role}: {content_preview}")
-        parts.append("")
-    parts.append("## Current Request")
-    parts.append(f"User: {prompt}")
-    parts.append("")
-    parts.append("NeuralAI:")
-    return "\n".join(parts)
+    messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "assistant"
+        messages.append({"role": role, "content": msg["content"]})
+    messages.append({"role": "user", "content": prompt})
+
+    # Use the tokenizer's native chat template so formatting exactly matches training.
+    try:
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+    except Exception:
+        # Fallback manual ChatML assembly (mirrors chat_template.jinja)
+        out = []
+        for i, msg in enumerate(messages):
+            if i == 0 and msg["role"] != "system":
+                out.append("<|im_start|>system\nYou are a helpful AI assistant named NeuralAI<|im_end|>\n")
+            out.append(f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n")
+        out.append("<|im_start|>assistant\n")
+        return "".join(out)
 
 def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
     """Enhanced response generation with system prompt and context"""
@@ -266,11 +281,11 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             )
         new_tokens = out[0][inputs["input_ids"].shape[-1]:]
         response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-        # Clean up response - remove any echo of system prompt or markers
+        # Clean up any stray generation-prompt echo the model may emit
+        if response.startswith("<|im_start|>assistant"):
+            response = response[len("<|im_start|>assistant"):].strip()
         if response.startswith("NeuralAI:"):
             response = response[len("NeuralAI:"):].strip()
-        if "## Current Request" in response:
-            response = response.split("## Current Request")[0].strip()
         inference_count += 1
         return response
     except Exception as e:

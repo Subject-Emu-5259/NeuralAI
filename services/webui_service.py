@@ -318,6 +318,39 @@ def build_prompt_with_context(prompt, conv_id=None, max_history=8):
         out.append("<|im_start|>assistant\n")
         return "".join(out)
 
+def _truncate_to_fit(messages, tokenizer_obj, context_limit=7500):
+    """Truncate a list of ChatML messages so tokenized length fits within context_limit.
+
+    Always keeps the system prompt. Drops oldest user/assistant turns when the
+    total token count exceeds the limit, keeping at least the most recent pair.
+    SmolLM2-360M-Instruct has a 8192-token context window; we use 7500 as a
+    safe ceiling to leave room for generated tokens.
+    """
+    if not messages or tokenizer_obj is None:
+        return messages
+    # Tokenize the full prompt to check length
+    try:
+        full = tokenizer_obj.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        token_count = len(tokenizer_obj.encode(full))
+    except Exception:
+        return messages  # if we can't count, just pass through
+    if token_count <= context_limit:
+        return messages
+    # Separate system prompt (always keep) from conversation turns
+    system_msgs = [m for m in messages if m.get("role") == "system"]
+    turns = [m for m in messages if m.get("role") != "system"]
+    # Greedily drop oldest turns until we fit
+    while turns and token_count > context_limit:
+        dropped = turns.pop(0)
+        try:
+            full = tokenizer_obj.apply_chat_template(system_msgs + turns, tokenize=False, add_generation_prompt=True)
+            token_count = len(tokenizer_obj.encode(full))
+        except Exception:
+            break
+    logger.info(f"[TRUNC] Input {token_count} tokens → kept {len(turns)} turns (limit {context_limit})")
+    return system_msgs + turns
+
+
 def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
     """Enhanced response generation with system prompt and context."""
     global model, tokenizer, inference_count
@@ -343,6 +376,12 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
     try:
         full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
+        # Safety: if prompt exceeds model context, truncate from the front
+        max_input = 7500  # SmolLM2-360M has 8192 context; reserve 692 for generation
+        if inputs["input_ids"].shape[-1] > max_input:
+            inputs["input_ids"] = inputs["input_ids"][:, -max_input:]
+            inputs["attention_mask"] = inputs["attention_mask"][:, -max_input:]
+            logger.warning(f"[TRUNC] Input truncated to {max_input} tokens (was {inputs['input_ids'].shape[-1]})")
         with torch.no_grad():
             out = model.generate(
                 **inputs,
@@ -409,6 +448,12 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         from transformers import TextIteratorStreamer
         full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
+        # Safety: if prompt exceeds model context, truncate from the front
+        max_input = 7500
+        if inputs["input_ids"].shape[-1] > max_input:
+            inputs["input_ids"] = inputs["input_ids"][:, -max_input:]
+            inputs["attention_mask"] = inputs["attention_mask"][:, -max_input:]
+            logger.warning(f"[TRUNC] Stream input truncated to {max_input} tokens")
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
         gen_kwargs = dict(
             **inputs,
@@ -1215,6 +1260,9 @@ def openai_chat_completions(model_id=None):
         if isinstance(content, list):  # handle multimodal content arrays
             content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
         chat_messages.append({"role": role, "content": content})
+
+    # Truncate to fit the model's context window (prevent OOM from 50K+ token payloads)
+    chat_messages = _truncate_to_fit(chat_messages, tokenizer)
 
     # === External backend: forward messages directly (no tokenizer needed) ===
     if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):

@@ -45,11 +45,10 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # ====================
 # LLM BACKEND CONFIG
 # ====================
-# LLM BACKEND CONFIG
-# ====================
-# On ZO Computer: use Groq's free OpenAI-compatible API (pre-configured env var GROQ_API_KEY).
-# PyTorch + SmolLM2-360M = ~6.2GB which exceeds ZO's 4GB RAM limit and causes OOM crashes.
-# Groq provides free, fast inference via llama — no local model needed.
+# On ZO Computer (4 GB RAM): PyTorch + SmolLM2-360M = ~6.2 GB → OOM kill loop.
+# PRIMARY:   ZO native /zo/ask API (GPT-5.4, etc. — billed to Zo plan, zero local RAM).
+# FALLBACK:  llmster (llama.cpp headless) on localhost:1234 if available.
+# LOCAL:     PyTorch — ONLY on non-ZO machines with ≥8 GB RAM.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
 LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")
@@ -58,32 +57,23 @@ LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 _USE_FLOAT16 = _is_zo or os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
 
-# === ZO Computer: auto-detect Groq API (pre-configured by ZO) ===
-if _is_zo and LLM_BACKEND == "local":
-    _groq_key = os.environ.get("GROQ_API_KEY", "")
-    if _groq_key:
+# === ZO Computer: PERMANENTLY block PyTorch — use ZO native API ===
+if _is_zo:
+    # On ZO Computer, never load PyTorch (4 GB RAM cannot hold 6.2 GB model).
+    # Priority: explicit env override > ZO native /zo/ask > llmster > lightweight.
+    if LLM_BACKEND in ("local", ""):
+        LLM_BACKEND = "zo"  # ZO native inference — zero local RAM
+        LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-5.4")
+        logger.info(f"[BOOT] ZO Computer detected — using ZO native /zo/ask ({LLM_MODEL}). PyTorch permanently disabled.")
+    elif LLM_BACKEND == "llmster":
+        LLM_API_URL = LLM_API_URL or "http://localhost:1234/v1"
         LLM_BACKEND = "openai_compatible"
-        LLM_API_URL = "https://api.groq.com/openai/v1"
-        LLM_API_KEY = _groq_key
-        LLM_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
-        logger.info(f"[BOOT] ZO Computer: Groq API detected — using {LLM_MODEL} (zero local RAM)")
+        logger.info(f"[BOOT] ZO Computer: llmster fallback at {LLM_API_URL}")
+    elif LLM_BACKEND == "none":
+        logger.info("[BOOT] ZO Computer: lightweight mode (no inference backend)")
+    # If user explicitly set openai_compatible or zo via env, respect it
     else:
-        # No Groq key — try memory check before PyTorch
-        def _check_available_memory_mb():
-            try:
-                with open("/proc/meminfo") as f:
-                    for line in f:
-                        if line.startswith("MemAvailable:"):
-                            return int(line.split()[1]) // 1024
-            except Exception:
-                pass
-            return -1
-        avail = _check_available_memory_mb()
-        if avail > 0 and avail < 1500:
-            LLM_BACKEND = "none"
-            logger.warning(f"[BOOT] ZO Computer: only {avail}MB free — no Groq key, no RAM for PyTorch. Lightweight mode.")
-        else:
-            logger.info(f"[BOOT] ZO Computer: {avail}MB free, loading PyTorch in float16")
+        logger.info(f"[BOOT] ZO Computer: using explicit backend={LLM_BACKEND} model={LLM_MODEL}")
 
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None
@@ -342,6 +332,8 @@ def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
     no external API key — only the platform identity token for auth.  This avoids
     loading PyTorch (6 GB) on the 4 GB ZO Computer.
 
+    Falls back to llmster (localhost:1234) if the ZO API is unreachable.
+
     Returns a requests.Response (streaming) or a dict (non-streaming).
     """
     token = ZO_API_TOKEN
@@ -359,13 +351,33 @@ def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
         "Accept": "application/json",
     }
     logger.info("[LLM] Forwarding to ZO /zo/ask (model=%s, stream=%s)", model_name, stream)
-    if stream:
-        return requests.post(ZO_ASK_URL, json=body, headers=headers, stream=True, timeout=120)
-    resp = requests.post(ZO_ASK_URL, json=body, headers=headers, timeout=120)
-    resp.raise_for_status()
-    data = resp.json()
-    # /zo/ask returns {"output": "..."} — normalise to OpenAI-style dict
-    return {"choices": [{"message": {"content": data.get("output", "")}}]}
+    try:
+        if stream:
+            resp = requests.post(ZO_ASK_URL, json=body, headers=headers, stream=True, timeout=120)
+        else:
+            resp = requests.post(ZO_ASK_URL, json=body, headers=headers, timeout=120)
+        resp.raise_for_status()
+        if not stream:
+            data = resp.json()
+            return {"choices": [{"message": {"content": data.get("output", "")}}]}
+        return resp
+    except Exception as e:
+        logger.warning("[LLM] ZO /zo/ask failed (%s) — falling back to llmster", e)
+        # Fallback: try llmster on localhost:1234
+        fallback_url = "http://localhost:1234/v1/chat/completions"
+        fb_headers = {"Content-Type": "application/json"}
+        fb_body = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": stream,
+        }
+        if stream:
+            return requests.post(fallback_url, json=fb_body, headers=fb_headers, stream=True, timeout=120)
+        resp = requests.post(fallback_url, json=fb_body, headers=fb_headers, timeout=120)
+        resp.raise_for_status()
+        return resp.json()
 
 def load_model():
     global model, tokenizer, model_status

@@ -53,14 +53,35 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # External API forwarding is NOT used because ZO blocks api-inference DNS.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # always local on ZO (external APIs blocked)
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # default: local PyTorch; override to skip
 LLM_API_URL = os.environ.get("LLM_API_URL", "")        # only used when LLM_BACKEND != local
 LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
 # On ZO: use float16 to fit in 4GB RAM (float32 = ~1.4GB, float16 = ~700MB)
 _USE_FLOAT16 = _is_zo or os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
-if _is_zo:
-    logger.info("[BOOT] ZO Computer detected — using local PyTorch in float16")
+
+# === MEMORY-AWARE BOOT on ZO Computer ===
+# ZO free tier has 4GB RAM. PyTorch + model = ~6.2GB which causes OOM kills.
+# Check available memory BEFORE deciding to load PyTorch.
+def _check_available_memory_mb():
+    """Return available system memory in MB, or -1 if unable to determine."""
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024  # kB -> MB
+    except Exception:
+        pass
+    return -1
+
+if _is_zo and LLM_BACKEND == "local":
+    avail = _check_available_memory_mb()
+    if avail > 0 and avail < 1500:
+        # Less than 1.5GB free — PyTorch will OOM. Skip model loading.
+        LLM_BACKEND = "none"  # lightweight mode: no model, no external API
+        logger.warning(f"[BOOT] ZO Computer: only {avail}MB free — skipping PyTorch (would need ~2GB). Running in lightweight mode.")
+    else:
+        logger.info(f"[BOOT] ZO Computer detected — {avail}MB free, loading PyTorch in float16")
 
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None
@@ -296,6 +317,10 @@ def _forward_to_external_llm(messages, max_tokens=256, temperature=0.7, stream=F
 
 def load_model():
     global model, tokenizer, model_status
+    if LLM_BACKEND in ("none",):
+        model_status = "ready (lightweight mode — no model loaded)"
+        logger.info("[OK] Lightweight mode active — no model loaded. Chat will use template responses.")
+        return
     if LLM_BACKEND != "local":
         model_status = "ready (external backend)"
         print(f"[OK] Using external LLM backend: {LLM_BACKEND} @ {LLM_API_URL}")
@@ -404,6 +429,9 @@ def _truncate_to_fit(messages, tokenizer_obj, context_limit=6000):
 def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
     """Enhanced response generation with system prompt and context."""
     global model, tokenizer, inference_count
+    # === No backend (lightweight mode) ===
+    if LLM_BACKEND == "none":
+        return "I'm NeuralAI. The AI model isn't loaded due to memory constraints. I can't generate AI responses in this mode."
     # === External LLM backend ===
     if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
         try:
@@ -423,7 +451,7 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             return f"Backend error: {e}"
     # === Local PyTorch inference ===
     if model is None or tokenizer is None:
-        return "Model not loaded. Please wait a moment and try again."
+        return "I'm NeuralAI. The AI model isn't loaded due to memory constraints on this machine (4GB ZO Computer). The model needs ~2GB but only less is available. Please try again later or contact support."
     try:
         full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
@@ -500,7 +528,8 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
             return
     # === Local PyTorch streaming ===
     if model is None or tokenizer is None:
-        yield "Model not loaded. Please wait a moment and try again."
+        # Lightweight mode: return a helpful response without the model
+        yield f"I'm NeuralAI. I received your message but the AI model isn't loaded (memory-limited environment). Here's what I can tell you: I'm a fine-tuned SmolLM2-360M with NeuralAI LoRA. On this ZO Computer (4GB RAM), the model can't run due to memory constraints. Please check back when more resources are available."
         return
     stop_event = stop_events.get(conv_id) if conv_id else None
     try:

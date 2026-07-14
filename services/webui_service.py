@@ -1083,10 +1083,13 @@ def openai_chat_completions(model_id=None):
 
     data = request.get_json(silent=True) or {}
     messages = data.get("messages", [])
-    model = data.get("model", "neuralai")
-    max_tokens = int(data.get("max_tokens", 512))
+    model_id = data.get("model", "neuralai")  # request model ID (not the global model object)
+    max_tokens = min(int(data.get("max_tokens", 128)), 256)  # cap for CPU inference
     temperature = float(data.get("temperature", 0.7))
-    stream = bool(data.get("stream", False))
+    # Always stream — BYO API hosts (e.g. ZO Computer) expect SSE to show
+    # tokens arriving; non-streaming blocks until full response which can
+    # exceed upstream timeouts on CPU-only inference.
+    stream = True
 
     # Build the same system prompt the in-app chat uses
     db = get_db()
@@ -1126,22 +1129,10 @@ def openai_chat_completions(model_id=None):
         out.append("<|im_start|>assistant\n")
         prompt = "".join(out)
 
-    if not stream:
-        full = generate_response(prompt, max_tokens=max_tokens, temperature=temperature)
-        clean = re.sub(r"<tool>.*?</tool>", "", full, flags=re.DOTALL).strip()
-        return jsonify({
-            "id": "chatcmpl-" + secrets.token_hex(8),
-            "object": "chat.completion",
-            "created": int(datetime.now(timezone.utc).timestamp()),
-            "model": model,
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": clean}, "finish_reason": "stop"}],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-        })
-
-    # Streaming (SSE) — OpenAI-compatible delta format
+    # Streaming (SSE) — always enabled for BYO API compatibility
     def gen():
         yield "data: " + json.dumps({"id": "chatcmpl-" + secrets.token_hex(8), "object": "chat.completion.chunk",
-                                      "created": int(datetime.now(timezone.utc).timestamp()), "model": model,
+                                      "created": int(datetime.now(timezone.utc).timestamp()), "model": model_id,
                                       "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}) + "\n\n"
         for chunk in stream_response(prompt, max_tokens=max_tokens, temperature=temperature):
             content = re.sub(r"<tool>.*?</tool>", "", chunk, flags=re.DOTALL)

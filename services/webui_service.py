@@ -49,16 +49,18 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # LLM BACKEND CONFIG
 # ====================
 # Auto-detect: when running on ZO Computer (ZO_CLIENT_IDENTITY_TOKEN is set),
-# use an external inference API instead of loading PyTorch (~7.5GB) which
-# exceeds ZO's 8GB RAM limit and gets the service OOM-killed.
+# use PyTorch in float16 to stay within the 4GB RAM limit.
+# External API forwarding is NOT used because ZO blocks api-inference DNS.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "openai_compatible" if _is_zo else "local")
-LLM_API_URL = os.environ.get("LLM_API_URL", "https://api-inference.huggingface.co/models/HuggingFaceTB/SmolLM2-360M-Instruct" if _is_zo else "")
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # always local on ZO (external APIs blocked)
+LLM_API_URL = os.environ.get("LLM_API_URL", "")        # only used when LLM_BACKEND != local
 LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
+# On ZO: use float16 to fit in 4GB RAM (float32 = ~1.4GB, float16 = ~700MB)
+_USE_FLOAT16 = _is_zo or os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
 if _is_zo:
-    logger.info("[BOOT] ZO Computer detected — using external LLM backend (%s @ %s)", LLM_BACKEND, LLM_API_URL)
+    logger.info("[BOOT] ZO Computer detected — using local PyTorch in float16")
 
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None
@@ -255,9 +257,13 @@ def load_model():
         tokenizer.pad_token = tokenizer.eos_token
         adapter = Path(MODEL_PATH)
         has_adapter = any((adapter / f).exists() for f in ["adapter_model.bin", "adapter_model.safetensors"])
+        # Use float16 on ZO to fit in 4GB RAM (~700MB vs ~1.4GB float32)
+        dtype = torch.float16 if _USE_FLOAT16 else torch.float32
         if adapter.exists() and has_adapter:
-            base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
-            model = PeftModel.from_pretrained(base, str(adapter))
+            base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=dtype, device_map=None, low_cpu_mem_usage=True)
+            model = PeftModel.from_pretrained(base, str(adapter), torch_dtype=dtype)
+        else:
+            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=dtype, device_map=None, low_cpu_mem_usage=True)
         else:
             model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
         model.eval()

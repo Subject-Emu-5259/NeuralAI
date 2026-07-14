@@ -1,0 +1,27 @@
+name: NeuralAI Keep-Alive
+
+on:
+  schedule:
+    # Every 5 minutes (GitHub Actions minimum interval)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping NeuralAI health endpoint
+        run: |
+          echo "Pinging NeuralAI host at $(date -u +%Y-%m-%dT%H:%M:%SZ)..."
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://neuralai-web-ui-deandrewharris.zocomputer.io/health)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Host is awake ✓"
+              exit 0
+            fi
+            echo "Host sleeping or slow, retrying in 10s..."
+            sleep 10
+          done
+          echo "Host did not respond after 3 attempts"
+          exit 1

@@ -8,7 +8,7 @@ NeuralAI Unified Service - ALL IN ONE
 - Web UI
 """
 import os, sys, json, asyncio, requests, logging, threading, secrets, re
-import torch, sqlite3, subprocess, tempfile, uuid, jwt
+import sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -20,7 +20,12 @@ import websocket  # websocket-client for proxying
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NeuralAI")
 
-torch.set_num_threads(4)
+# Optional: torch only needed when LLM_BACKEND=local (PyTorch mode)
+try:
+    import torch
+    torch.set_num_threads(4)
+except ImportError:
+    torch = None
 
 app = Flask(__name__, static_folder=None)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
@@ -40,10 +45,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Founder account — auto-promoted to founder on login/signup
 FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 
-# Model globals
+# ====================
+# LLM BACKEND CONFIG
+# ====================
+# Set LLM_BACKEND to "ollama", "lmstudio", "openai_compatible", or "local" (default).
+# When set to anything other than "local", the service forwards inference to the
+# configured API instead of loading PyTorch (~7.5GB) — critical for ZO Computer's
+# free tier (8GB RAM limit).
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # "local" | "ollama" | "lmstudio" | "openai_compatible"
+LLM_API_URL = os.environ.get("LLM_API_URL", "")        # e.g. http://localhost:1234/v1
+LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
+
+# Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None
 tokenizer = None
-model_status = "loading"
+model_status = "loading" if LLM_BACKEND == "local" else "ready (external backend)"
 inference_count = 0
 
 # Streaming abort control: conv_id -> threading.Event
@@ -199,8 +216,35 @@ UPLINK_AGENTS = {
 # ====================
 # MODEL LOADING
 # ====================
+def _forward_to_external_llm(messages, max_tokens=256, temperature=0.7, stream=False):
+    """Forward inference to an external OpenAI-compatible API (Ollama, LM Studio, etc.).
+    Returns a requests.Response (streaming) or a dict (non-streaming).
+    """
+    api_url = LLM_API_URL.rstrip("/")
+    endpoint = f"{api_url}/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+    body = {
+        "model": LLM_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": stream,
+    }
+    logger.info("[LLM] Forwarding to %s backend at %s", LLM_BACKEND, endpoint)
+    if stream:
+        return requests.post(endpoint, json=body, headers=headers, stream=True, timeout=120)
+    resp = requests.post(endpoint, json=body, headers=headers, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
 def load_model():
     global model, tokenizer, model_status
+    if LLM_BACKEND != "local":
+        model_status = "ready (external backend)"
+        print(f"[OK] Using external LLM backend: {LLM_BACKEND} @ {LLM_API_URL}")
+        return
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
@@ -268,8 +312,25 @@ def build_prompt_with_context(prompt, conv_id=None, max_history=8):
         return "".join(out)
 
 def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
-    """Enhanced response generation with system prompt and context"""
+    """Enhanced response generation with system prompt and context."""
     global model, tokenizer, inference_count
+    # === External LLM backend ===
+    if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
+        try:
+            # Build OpenAI-format messages for the external API
+            history = get_conversation_history(conv_id, 8) if conv_id else []
+            api_messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
+            for h in history:
+                api_messages.append({"role": h["role"], "content": h["content"]})
+            api_messages.append({"role": "user", "content": prompt})
+            data = _forward_to_external_llm(api_messages, max_tokens=max_tokens, temperature=temperature, stream=False)
+            content = data["choices"][0]["message"]["content"]
+            inference_count += 1
+            return content.strip()
+        except Exception as e:
+            logger.error(f"[LLM] External backend error: {e}")
+            return f"Backend error: {e}"
+    # === Local PyTorch inference ===
     if model is None or tokenizer is None:
         return "Model not loaded. Please wait a moment and try again."
     try:
@@ -287,7 +348,6 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             )
         new_tokens = out[0][inputs["input_ids"].shape[-1]:]
         response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-        # Clean up any stray generation-prompt echo the model may emit
         if response.startswith("<|im_start|>assistant"):
             response = response[len("<|im_start|>assistant"):].strip()
         if response.startswith("NeuralAI:"):
@@ -299,8 +359,41 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         return "I encountered an error generating a response. Please try again."
 
 def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
-    """Real token streaming via TextIteratorStreamer (drastically cuts time-to-first-token)."""
+    """Token streaming — external backend or local TextIteratorStreamer."""
     global model, tokenizer, inference_count
+    # === External LLM backend ===
+    if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
+        try:
+            history = get_conversation_history(conv_id, 8) if conv_id else []
+            api_messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
+            for h in history:
+                api_messages.append({"role": h["role"], "content": h["content"]})
+            api_messages.append({"role": "user", "content": prompt})
+            resp = _forward_to_external_llm(api_messages, max_tokens=max_tokens, temperature=temperature, stream=True)
+            if resp.status_code != 200:
+                yield f"Backend error ({resp.status_code}): {resp.text[:200]}"
+                return
+            for line in resp.iter_lines():
+                if not line or not line.startswith(b"data: "):
+                    continue
+                payload = line[6:].decode().strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        yield content
+                except json.JSONDecodeError:
+                    continue
+            inference_count += 1
+            return
+        except Exception as e:
+            logger.error(f"[LLM] External backend stream error: {e}")
+            yield f"Backend error: {e}"
+            return
+    # === Local PyTorch streaming ===
     if model is None or tokenizer is None:
         yield "Model not loaded. Please wait a moment and try again."
         return
@@ -1116,7 +1209,36 @@ def openai_chat_completions(model_id=None):
             content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
         chat_messages.append({"role": role, "content": content})
 
-    # Render to a single prompt string via the tokenizer's chat template
+    # === External backend: forward messages directly (no tokenizer needed) ===
+    if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
+        def gen_external():
+            try:
+                resp = _forward_to_external_llm(chat_messages, max_tokens=max_tokens, temperature=temperature, stream=True)
+                if resp.status_code != 200:
+                    err = f"Backend error ({resp.status_code}): {resp.text[:200]}"
+                    yield "data: " + json.dumps({"choices": [{"delta": {"content": err}, "finish_reason": None}]}) + "\n\n"
+                else:
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith(b"data: "):
+                            continue
+                        payload = line[6:].decode().strip()
+                        if payload == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(payload)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}]}) + "\n\n"
+                        except json.JSONDecodeError:
+                            continue
+            except Exception as e:
+                yield "data: " + json.dumps({"choices": [{"delta": {"content": f"Error: {e}"}, "finish_reason": None}]}) + "\n\n"
+            yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(stream_with_context(gen_external()), mimetype="text/event-stream")
+
+    # === Local PyTorch: render via tokenizer ===
     try:
         prompt = tokenizer.apply_chat_template(chat_messages, tokenize=False, add_generation_prompt=True)
     except Exception:

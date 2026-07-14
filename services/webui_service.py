@@ -48,40 +48,45 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # ====================
 # LLM BACKEND CONFIG
 # ====================
-# Auto-detect: when running on ZO Computer (ZO_CLIENT_IDENTITY_TOKEN is set),
-# use PyTorch in float16 to stay within the 4GB RAM limit.
-# External API forwarding is NOT used because ZO blocks api-inference DNS.
+# LLM BACKEND CONFIG
+# ====================
+# On ZO Computer: use Groq's free OpenAI-compatible API (pre-configured env var GROQ_API_KEY).
+# PyTorch + SmolLM2-360M = ~6.2GB which exceeds ZO's 4GB RAM limit and causes OOM crashes.
+# Groq provides free, fast inference via llama — no local model needed.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # default: local PyTorch; override to skip
-LLM_API_URL = os.environ.get("LLM_API_URL", "")        # only used when LLM_BACKEND != local
-LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
-# On ZO: use float16 to fit in 4GB RAM (float32 = ~1.4GB, float16 = ~700MB)
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")
+LLM_API_URL = os.environ.get("LLM_API_URL", "")
+LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 _USE_FLOAT16 = _is_zo or os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
 
-# === MEMORY-AWARE BOOT on ZO Computer ===
-# ZO free tier has 4GB RAM. PyTorch + model = ~6.2GB which causes OOM kills.
-# Check available memory BEFORE deciding to load PyTorch.
-def _check_available_memory_mb():
-    """Return available system memory in MB, or -1 if unable to determine."""
-    try:
-        with open("/proc/meminfo") as f:
-            for line in f:
-                if line.startswith("MemAvailable:"):
-                    return int(line.split()[1]) // 1024  # kB -> MB
-    except Exception:
-        pass
-    return -1
-
+# === ZO Computer: auto-detect Groq API (pre-configured by ZO) ===
 if _is_zo and LLM_BACKEND == "local":
-    avail = _check_available_memory_mb()
-    if avail > 0 and avail < 1500:
-        # Less than 1.5GB free — PyTorch will OOM. Skip model loading.
-        LLM_BACKEND = "none"  # lightweight mode: no model, no external API
-        logger.warning(f"[BOOT] ZO Computer: only {avail}MB free — skipping PyTorch (would need ~2GB). Running in lightweight mode.")
+    _groq_key = os.environ.get("GROQ_API_KEY", "")
+    if _groq_key:
+        LLM_BACKEND = "openai_compatible"
+        LLM_API_URL = "https://api.groq.com/openai/v1"
+        LLM_API_KEY = _groq_key
+        LLM_MODEL = os.environ.get("LLM_MODEL", "llama-3.1-8b-instant")
+        logger.info(f"[BOOT] ZO Computer: Groq API detected — using {LLM_MODEL} (zero local RAM)")
     else:
-        logger.info(f"[BOOT] ZO Computer detected — {avail}MB free, loading PyTorch in float16")
+        # No Groq key — try memory check before PyTorch
+        def _check_available_memory_mb():
+            try:
+                with open("/proc/meminfo") as f:
+                    for line in f:
+                        if line.startswith("MemAvailable:"):
+                            return int(line.split()[1]) // 1024
+            except Exception:
+                pass
+            return -1
+        avail = _check_available_memory_mb()
+        if avail > 0 and avail < 1500:
+            LLM_BACKEND = "none"
+            logger.warning(f"[BOOT] ZO Computer: only {avail}MB free — no Groq key, no RAM for PyTorch. Lightweight mode.")
+        else:
+            logger.info(f"[BOOT] ZO Computer: {avail}MB free, loading PyTorch in float16")
 
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None

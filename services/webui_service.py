@@ -71,6 +71,53 @@ inference_count = 0
 # Streaming abort control: conv_id -> threading.Event
 stop_events = {}
 
+# ====================
+# DEFENSE 1: KEEP-ALIVE PINGER
+# ====================
+# Prevents ZO Computer from putting the service to sleep by pinging /health
+# every 5 minutes in a background thread.
+def _keep_alive_pinger():
+    """Background thread: pings own /health endpoint every 5 min to prevent ZO sleep."""
+    import urllib.request
+    while True:
+        try:
+            time.sleep(300)  # 5 minutes
+            urllib.request.urlopen(f"http://127.0.0.1:{PORT}/health", timeout=10)
+            logger.info("[KEEPALIVE] Health ping OK")
+        except Exception as e:
+            logger.warning(f"[KEEPALIVE] Ping failed (non-fatal): {e}")
+
+# ====================
+# DEFENSE 2: MEMORY WATCHDOG
+# ====================
+# Monitors RAM usage; if >85% used, forces garbage collection and logs a warning.
+# If >95%, disables new inference requests to prevent OOM kill.
+def _memory_watchdog():
+    """Background thread: monitors system memory every 60s."""
+    global model_status
+    while True:
+        try:
+            time.sleep(60)
+            import re as _re
+            with open("/proc/meminfo") as f:
+                mem = f.read()
+            total = int(_re.search(r'MemTotal:\s+(\d+)', mem).group(1))
+            avail = int(_re.search(r'MemAvailable:\s+(\d+)', mem).group(1))
+            used_pct = (1 - avail / total) * 100
+            if used_pct > 95:
+                logger.critical(f"[WATCHDOG] CRITICAL: Memory at {used_pct:.0f}% — pausing inference")
+                model_status = "overloaded"
+                import gc; gc.collect()
+            elif used_pct > 85:
+                logger.warning(f"[WATCHDOG] High memory: {used_pct:.0f}% — running GC")
+                import gc; gc.collect()
+            else:
+                if model_status == "overloaded":
+                    model_status = "ready"
+                    logger.info(f"[WATCHDOG] Memory recovered ({used_pct:.0f}%) — resuming inference")
+        except Exception:
+            pass  # /proc not available (non-Linux), skip silently
+
 # Terminal sessions
 terminal_sessions = {}
 # Conversations storage (Simple JSON file)
@@ -286,7 +333,7 @@ def get_conversation_history(conv_id, limit=10):
     except Exception:
         return []
 
-def build_prompt_with_context(prompt, conv_id=None, max_history=8):
+def build_prompt_with_context(prompt, conv_id=None, max_history=5):
     """Build a ChatML-formatted prompt (matching the model's trained chat template).
 
     The model (SmolLM2-360M-Instruct + NeuralAI LoRA) was trained on ChatML:
@@ -318,13 +365,13 @@ def build_prompt_with_context(prompt, conv_id=None, max_history=8):
         out.append("<|im_start|>assistant\n")
         return "".join(out)
 
-def _truncate_to_fit(messages, tokenizer_obj, context_limit=7500):
+def _truncate_to_fit(messages, tokenizer_obj, context_limit=6000):
     """Truncate a list of ChatML messages so tokenized length fits within context_limit.
 
     Always keeps the system prompt. Drops oldest user/assistant turns when the
     total token count exceeds the limit, keeping at least the most recent pair.
-    SmolLM2-360M-Instruct has a 8192-token context window; we use 7500 as a
-    safe ceiling to leave room for generated tokens.
+    SmolLM2-360M-Instruct has a 8192-token context window; we use 6000 as a
+    safe ceiling to leave room for generated tokens and prevent ZO 120s timeout.
     """
     if not messages or tokenizer_obj is None:
         return messages
@@ -585,14 +632,25 @@ def terms():
     return "Terms of service not found", 404
 
 # ====================
+# DEFENSE 3: REJECT IF OVERLOADED
+# ====================
+@app.before_request
+def _reject_if_overloaded():
+    if model_status == "overloaded":
+        from flask import abort
+        abort(503)
+
+# ====================
 # ROUTES - HEALTH
 # ====================
 @app.route("/health")
 @app.route("/api/health")
 @app.route("/api/status")
 def health():
+    # Defense 2 integration: reject requests if memory overloaded
     return jsonify({"status": model_status, "model": BASE_MODEL, "inference_count": inference_count, "uplink": "integrated",
-                    "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.1.0-stable"})
+                    "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.2.0-resilient",
+                    "llm_backend": LLM_BACKEND})
 
 # ====================
 # ROUTES - RELEASE NOTES
@@ -1528,4 +1586,8 @@ if __name__ == "__main__":
     print(f"NeuralAI Unified Service starting on port {PORT}...")
     init_db()
     load_model()
+    # Launch defense threads: keep-alive + memory watchdog
+    threading.Thread(target=_keep_alive_pinger, daemon=True).start()
+    threading.Thread(target=_memory_watchdog, daemon=True).start()
+    logger.info("[BOOT] Defense threads launched: keep-alive pinger + memory watchdog")
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

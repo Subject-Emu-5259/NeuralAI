@@ -1005,9 +1005,23 @@ def manage_api_key(current_user):
         db.close()
 
 def _user_for_api_key(api_key: str):
-    """Resolve a raw API key to a user_id, or None if invalid."""
+    """Resolve a raw API key to a user_id, or None if invalid.
+
+    Accepts two credential types:
+      1. A NeuralAI-generated personal API key (stored hashed in user_settings).
+      2. The ZO Computer platform identity token (ZO_CLIENT_IDENTITY_TOKEN) — required
+         when the request passes through ZO's hosting gateway, which rejects any call
+         lacking a valid platform Authorization header. When the platform token is
+         presented, we resolve to the founder account so the gateway's auth and the
+         app's auth both succeed.
+    """
     if not api_key:
         return None
+    # 1) ZO platform token (gateway auth)
+    zo_token = os.environ.get("ZO_CLIENT_IDENTITY_TOKEN", "")
+    if zo_token and api_key == zo_token:
+        return "founder"
+    # 2) NeuralAI personal API key (hashed lookup)
     h = _hash_key(api_key)
     db = get_db()
     try:

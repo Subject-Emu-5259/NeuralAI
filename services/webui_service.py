@@ -7,13 +7,13 @@ NeuralAI Unified Service - ALL IN ONE
 - Tools (code, terminal)
 - Web UI
 """
-import os, sys, json, asyncio, requests, logging, threading
+import os, sys, json, asyncio, requests, logging, threading, secrets, re
 import torch, sqlite3, subprocess, tempfile, uuid, jwt
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 from flask_sock import Sock
 import websocket  # websocket-client for proxying
 
@@ -972,6 +972,148 @@ def manage_settings(current_user):
         return jsonify({"success": True, "settings": settings})
     finally:
         db.close()
+
+# ====================
+# ROUTES - API KEY (BYO API)
+# ====================
+# NeuralAI can act as an OpenAI-compatible backend for external hosts (e.g. ZO Computer
+# "BYO API"). A user generates a personal API key here; the key is stored hashed and used
+# to authenticate requests to /v1/chat/completions. The raw key is shown only once.
+def _hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+@app.route("/api/settings/api-key", methods=["POST", "DELETE"])
+@token_required
+def manage_api_key(current_user):
+    db = get_db()
+    try:
+        if request.method == "DELETE":
+            db.execute("DELETE FROM user_settings WHERE user_id = ? AND key = 'api_key_hash'", (current_user,))
+            db.commit()
+            return jsonify({"success": True, "message": "API key revoked."})
+
+        # POST -> generate a new key (revoking any previous one)
+        raw = "nai_" + secrets.token_urlsafe(32)
+        db.execute("INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                   (current_user, "api_key_hash", _hash_key(raw), datetime.now(timezone.utc).isoformat()))
+        db.commit()
+        # Return the raw key ONCE. It is never stored or retrievable again.
+        return jsonify({"success": True, "api_key": raw})
+    finally:
+        db.close()
+
+def _user_for_api_key(api_key: str):
+    """Resolve a raw API key to a user_id, or None if invalid."""
+    if not api_key:
+        return None
+    h = _hash_key(api_key)
+    db = get_db()
+    try:
+        row = db.execute("SELECT user_id FROM user_settings WHERE key = 'api_key_hash' AND value = ?", (h,)).fetchone()
+        return row["user_id"] if row else None
+    finally:
+        db.close()
+
+@app.route("/v1/models", methods=["GET"])
+def list_models():
+    """OpenAI-compatible model listing for BYO API hosts."""
+    return jsonify({
+        "object": "list",
+        "data": [{
+            "id": "neuralai",
+            "object": "model",
+            "created": 1700000000,
+            "owned_by": "neuralai",
+            "root": "neuralai",
+            "parent": None,
+        }]
+    })
+
+@app.route("/v1/chat/completions", methods=["POST"])
+def openai_chat_completions():
+    """OpenAI-compatible chat completions endpoint for external BYO API hosts (e.g. ZO Computer).
+
+    Auth: Authorization: Bearer <api_key>  OR  ?api_key=<api_key>
+    Accepts {model, messages, max_tokens, temperature, stream}.
+    Uses the same local model + NeuralAI system prompt as the in-app chat.
+    """
+    # --- API key auth ---
+    auth = request.headers.get("Authorization", "")
+    api_key = auth.replace("Bearer ", "").strip() or request.args.get("api_key", "") or (request.get_json(silent=True) or {}).get("api_key", "")
+    user_id = _user_for_api_key(api_key)
+    if not user_id:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    data = request.get_json(silent=True) or {}
+    messages = data.get("messages", [])
+    model = data.get("model", "neuralai")
+    max_tokens = int(data.get("max_tokens", 512))
+    temperature = float(data.get("temperature", 0.7))
+    stream = bool(data.get("stream", False))
+
+    # Build the same system prompt the in-app chat uses
+    db = get_db()
+    try:
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        mem_rows = db.execute("SELECT fact FROM memory_facts WHERE user_id = ?", (user_id,)).fetchall()
+        rule_rows = db.execute("SELECT rule FROM active_rules WHERE user_id = ? AND active = 1", (user_id,)).fetchall()
+    finally:
+        db.close()
+    mem_facts = [r["fact"] for r in mem_rows]
+    active_rules = [r["rule"] for r in rule_rows]
+    system_content = NEURALAI_SYSTEM_PROMPT
+    if mem_facts:
+        system_content += "\n\n## User Memory\n" + "\n".join(f"- {m}" for m in mem_facts)
+    if active_rules:
+        system_content += "\n\n## Active Rules\n" + "\n".join(f"- {r}" for r in active_rules)
+
+    # Assemble ChatML messages for the local model
+    chat_messages = [{"role": "system", "content": system_content}]
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if isinstance(content, list):  # handle multimodal content arrays
+            content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+        chat_messages.append({"role": role, "content": content})
+
+    # Render to a single prompt string via the tokenizer's chat template
+    try:
+        prompt = tokenizer.apply_chat_template(chat_messages, tokenize=False, add_generation_prompt=True)
+    except Exception:
+        # Fallback manual ChatML assembly
+        out = []
+        for i, msg in enumerate(chat_messages):
+            if i == 0 and msg["role"] != "system":
+                out.append("<|im_start|>system\nYou are a helpful AI assistant named NeuralAI<|im_end|>\n")
+            out.append(f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n")
+        out.append("<|im_start|>assistant\n")
+        prompt = "".join(out)
+
+    if not stream:
+        full = generate_response(prompt, max_tokens=max_tokens, temperature=temperature)
+        clean = re.sub(r"<tool>.*?</tool>", "", full, flags=re.DOTALL).strip()
+        return jsonify({
+            "id": "chatcmpl-" + secrets.token_hex(8),
+            "object": "chat.completion",
+            "created": int(datetime.now(timezone.utc).timestamp()),
+            "model": model,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": clean}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        })
+
+    # Streaming (SSE) — OpenAI-compatible delta format
+    def gen():
+        yield "data: " + json.dumps({"id": "chatcmpl-" + secrets.token_hex(8), "object": "chat.completion.chunk",
+                                      "created": int(datetime.now(timezone.utc).timestamp()), "model": model,
+                                      "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}) + "\n\n"
+        for chunk in stream_response(prompt, max_tokens=max_tokens, temperature=temperature):
+            content = re.sub(r"<tool>.*?</tool>", "", chunk, flags=re.DOTALL)
+            if content:
+                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}]}) + "\n\n"
+        yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}) + "\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(gen()), mimetype="text/event-stream")
 
 # ====================
 # ROUTES - MEMORY

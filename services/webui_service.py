@@ -404,8 +404,13 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         logger.error(f"Generation error: {e}")
         return "I encountered an error generating a response. Please try again."
 
-def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
-    """Token streaming — external backend or local TextIteratorStreamer."""
+def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, already_rendered=False):
+    """Token streaming — external backend or local TextIteratorStreamer.
+
+    When *already_rendered* is True, *prompt* is a fully-rendered ChatML string
+    (from apply_chat_template) and must NOT be passed through build_prompt_with_context
+    again.  This prevents the double-wrapping bug that blew up token counts.
+    """
     global model, tokenizer, inference_count
     # === External LLM backend ===
     if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
@@ -446,7 +451,11 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
     stop_event = stop_events.get(conv_id) if conv_id else None
     try:
         from transformers import TextIteratorStreamer
-        full = build_prompt_with_context(prompt, conv_id)
+        # If already rendered (from BYO API path), use directly to avoid double ChatML wrapping
+        if already_rendered:
+            full = prompt
+        else:
+            full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
         # Safety: if prompt exceeds model context, truncate from the front
         max_input = 7500
@@ -454,16 +463,18 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             inputs["input_ids"] = inputs["input_ids"][:, -max_input:]
             inputs["attention_mask"] = inputs["attention_mask"][:, -max_input:]
             logger.warning(f"[TRUNC] Stream input truncated to {max_input} tokens")
+        logger.info(f"[INFER] Input tokens: {inputs['input_ids'].shape[-1]}, generating up to {max_tokens} new tokens")
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        # Use greedy decoding (do_sample=False) for faster CPU inference
         gen_kwargs = dict(
             **inputs,
             streamer=streamer,
             max_new_tokens=max_tokens,
-            do_sample=True,
-            temperature=temperature,
-            top_p=0.95,
+            do_sample=False if temperature <= 0.1 else True,
+            temperature=max(temperature, 0.3),
+            top_p=0.9,
             pad_token_id=tokenizer.eos_token_id,
-            repetition_penalty=1.1,
+            repetition_penalty=1.05,
         )
         thread = threading.Thread(target=model.generate, kwargs=gen_kwargs, daemon=True)
         thread.start()
@@ -1230,7 +1241,7 @@ def openai_chat_completions(model_id=None):
     messages = data.get("messages", [])
     model_id = data.get("model", "neuralai")  # request model ID (not the global model object)
     max_tokens = min(int(data.get("max_tokens", 128)), 256)  # cap for CPU inference
-    temperature = float(data.get("temperature", 0.7))
+    temperature = float(data.get("temperature", 0.3))  # lower default for faster CPU inference
     # Always stream — BYO API hosts (e.g. ZO Computer) expect SSE to show
     # tokens arriving; non-streaming blocks until full response which can
     # exceed upstream timeouts on CPU-only inference.
@@ -1307,11 +1318,13 @@ def openai_chat_completions(model_id=None):
         prompt = "".join(out)
 
     # Streaming (SSE) — always enabled for BYO API compatibility
+    # CRITICAL: already_rendered=True because prompt was built via apply_chat_template above.
+    # Passing it through build_prompt_with_context again would double-wrap in ChatML.
     def gen():
         yield "data: " + json.dumps({"id": "chatcmpl-" + secrets.token_hex(8), "object": "chat.completion.chunk",
                                       "created": int(datetime.now(timezone.utc).timestamp()), "model": model_id,
                                       "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}) + "\n\n"
-        for chunk in stream_response(prompt, max_tokens=max_tokens, temperature=temperature):
+        for chunk in stream_response(prompt, max_tokens=max_tokens, temperature=temperature, already_rendered=True):
             content = re.sub(r"<tool>.*?</tool>", "", chunk, flags=re.DOTALL)
             if content:
                 yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}]}) + "\n\n"

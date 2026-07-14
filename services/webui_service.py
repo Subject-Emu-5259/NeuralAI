@@ -37,6 +37,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE = str(DATA_DIR / "neuralai.db")
 # Repository root (parent of services/) — used by the self-update endpoint
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Founder account — auto-promoted to founder on login/signup
+FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 
 # Model globals
 model = None
@@ -874,7 +876,7 @@ def signup():
     password = data.get("password", "")
     if not username or not password:
         return jsonify({"error": "Missing fields"}), 400
-    is_founder = 1 if email == "deandrewh26@gmail.com" else 0
+    is_founder = 1 if email == FOUNDER_EMAIL else 0
     hashed = generate_password_hash(password)
     uid = "user_" + uuid.uuid4().hex[:8]
     now = datetime.now(timezone.utc).isoformat()
@@ -903,6 +905,11 @@ def login():
     try:
         user = db.execute("SELECT * FROM users WHERE username = ? OR email = ?", (identity, identity)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
+            # Auto-promote the founder account on login (in case it predates the flag)
+            if user["email"] == FOUNDER_EMAIL and not user["is_founder"]:
+                db.execute("UPDATE users SET is_founder = 1 WHERE id = ?", (user["id"],))
+                db.commit()
+                user = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             token = jwt.encode({"user_id": user["id"], "is_founder": user["is_founder"],
                                 "exp": datetime.now(timezone.utc) + timedelta(days=30)},
                                app.config["SECRET_KEY"], algorithm="HS256")

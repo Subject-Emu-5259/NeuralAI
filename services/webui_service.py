@@ -264,8 +264,6 @@ def load_model():
             model = PeftModel.from_pretrained(base, str(adapter), torch_dtype=dtype)
         else:
             model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=dtype, device_map=None, low_cpu_mem_usage=True)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=torch.float32, device_map=None)
         model.eval()
         model_status = "ready"
         print(f"[OK] Model loaded. Params: {sum(p.numel() for p in model.parameters()):,}")

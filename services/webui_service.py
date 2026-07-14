@@ -48,14 +48,17 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # ====================
 # LLM BACKEND CONFIG
 # ====================
-# Set LLM_BACKEND to "ollama", "lmstudio", "openai_compatible", or "local" (default).
-# When set to anything other than "local", the service forwards inference to the
-# configured API instead of loading PyTorch (~7.5GB) — critical for ZO Computer's
-# free tier (8GB RAM limit).
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")  # "local" | "ollama" | "lmstudio" | "openai_compatible"
-LLM_API_URL = os.environ.get("LLM_API_URL", "")        # e.g. http://localhost:1234/v1
+# Auto-detect: when running on ZO Computer (ZO_CLIENT_IDENTITY_TOKEN is set),
+# use an external inference API instead of loading PyTorch (~7.5GB) which
+# exceeds ZO's 8GB RAM limit and gets the service OOM-killed.
+# Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
+_is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "openai_compatible" if _is_zo else "local")
+LLM_API_URL = os.environ.get("LLM_API_URL", "https://api-inference.huggingface.co/models/HuggingFaceTB/SmolLM2-360M-Instruct" if _is_zo else "")
 LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
+if _is_zo:
+    logger.info("[BOOT] ZO Computer detected — using external LLM backend (%s @ %s)", LLM_BACKEND, LLM_API_URL)
 
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None

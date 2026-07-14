@@ -146,6 +146,9 @@ NEURALAI_SYSTEM_PROMPT = """You are NeuralAI, an advanced AI assistant created b
 - Use examples, metaphors, or thought experiments to explain complex ideas
 - Acknowledge uncertainty when you don't know something
 - Be concise but thorough - match response depth to question complexity
+- NEVER output your internal reasoning, thinking process, or planning steps to the user
+- NEVER start responses with bold headers like **Plan** or **Goal** — just give the answer directly
+- Go straight to your response without showing how you arrived at it
 
 ## Knowledge Domains
 - Physics: Quantum mechanics, relativity, particle physics, cosmology
@@ -412,6 +415,7 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             api_messages.append({"role": "user", "content": prompt})
             data = _forward_to_external_llm(api_messages, max_tokens=max_tokens, temperature=temperature, stream=False)
             content = data["choices"][0]["message"]["content"]
+            content = _strip_reasoning(content)
             inference_count += 1
             return content.strip()
         except Exception as e:
@@ -445,6 +449,7 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
             response = response[len("<|im_start|>assistant"):].strip()
         if response.startswith("NeuralAI:"):
             response = response[len("NeuralAI:"):].strip()
+        response = _strip_reasoning(response)
         inference_count += 1
         return response
     except Exception as e:
@@ -482,6 +487,8 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     content = delta.get("content", "")
                     if content:
+                        # Strip reasoning from external backend streams too
+                        content = _strip_reasoning(content)
                         yield content
                 except json.JSONDecodeError:
                     continue
@@ -525,16 +532,75 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
         )
         thread = threading.Thread(target=model.generate, kwargs=gen_kwargs, daemon=True)
         thread.start()
+        # Strip reasoning tokens from stream output.
+        # Accumulate tokens until we find the '!!' delimiter, then start yielding.
+        _buf = ""
+        _reasoning_done = False
         for token in streamer:
             if stop_event and stop_event.is_set():
                 break
             if token:
-                yield token
+                if _reasoning_done:
+                    yield token
+                else:
+                    _buf += token
+                    if "!!" in _buf:
+                        parts = _buf.split("!!", 1)
+                        _reasoning_done = True
+                        remainder = parts[1].strip()
+                        if remainder:
+                            yield remainder
+                        logger.info(f"[THINK] Stream: stripped {len(parts[0])} chars of reasoning")
+                    elif len(_buf) > 600:
+                        # Safety: if no !! after 600 chars, assume no reasoning block
+                        _reasoning_done = True
+                        yield _buf
+        # If stream ended before !!, yield whatever we have
+        if not _reasoning_done and _buf:
+            stripped = _strip_reasoning(_buf)
+            if stripped != _buf:
+                yield stripped
+            else:
+                yield _buf
         thread.join()
         inference_count += 1
     except Exception as e:
         logger.error(f"Stream generation error: {e}")
         yield "I encountered an error generating a response. Please try again."
+
+def _strip_reasoning(text):
+    """Strip the model's internal chain-of-thought from visible output.
+
+    SmolLM2-360M-Instruct + NeuralAI LoRA tends to emit a reasoning block
+    (often a **Bold Header** followed by first-person deliberation) before the
+    actual response.  We detect the delimiter '!!' which the model uses to
+    separate its internal thinking from the user-facing answer.
+
+    Examples of what gets stripped:
+        **Greet User Warmly**\n\nI need to respond as NeuralAI...!! I'm NeuralAI. ...
+    """
+    if not text:
+        return text
+    # Primary delimiter: '!!' — the model's own separator between thought and speech
+    if "!!" in text:
+        after = text.split("!!", 1)[1].strip()
+        if after:  # only use if there's actual content after !!
+            logger.info(f"[THINK] Stripped reasoning ({len(text) - len(after)} chars)")
+            return after
+    # Secondary pattern: bold header + first-person reasoning before actual response
+    # Matches: **Some Plan**\n\nI need to.../I should.../Let me...
+    import re as _re
+    think_match = _re.match(
+        r'^\*\*[^*]+\*\*\s*\n\s*(?:I (?:need|should|want|must|have to|will|can|could|would)|'
+        r'Let me |The user |My approach |First, |Step \d)[^.]*\.\.\.[^.]*\.\s*',
+        text, _re.DOTALL
+    )
+    if think_match:
+        after = text[think_match.end():].strip()
+        if after:
+            logger.info(f"[THINK] Stripped reasoning pattern ({think_match.end()} chars)")
+            return after
+    return text
 
 # ====================
 # IMAGE PROMPT ENHANCER

@@ -317,6 +317,56 @@ def _forward_to_external_llm(messages, max_tokens=256, temperature=0.7, stream=F
     resp.raise_for_status()
     return resp.json()
 
+ZO_ASK_URL = "https://api.zo.computer/zo/ask"
+
+def _messages_to_zo_input(messages):
+    """Convert OpenAI-format messages array into a single input string for /zo/ask."""
+    parts = []
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if isinstance(content, list):
+            content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+        if role == "system":
+            parts.append(f"[System] {content}")
+        elif role == "assistant":
+            parts.append(f"[Assistant] {content}")
+        else:
+            parts.append(f"[User] {content}")
+    return "\n".join(parts)
+
+def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
+    """Forward inference to ZO Computer's native /zo/ask endpoint.
+
+    ZO's built-in models (GPT-5.4, etc.) are billed to the Zo plan and require
+    no external API key — only the platform identity token for auth.  This avoids
+    loading PyTorch (6 GB) on the 4 GB ZO Computer.
+
+    Returns a requests.Response (streaming) or a dict (non-streaming).
+    """
+    token = ZO_API_TOKEN
+    if not token:
+        raise RuntimeError("ZO_CLIENT_IDENTITY_TOKEN not set — cannot call /zo/ask")
+    model_name = LLM_MODEL or "gpt-5.4"
+    zo_input = _messages_to_zo_input(messages)
+    body = {
+        "input": zo_input,
+        "model_name": model_name,
+    }
+    headers = {
+        "authorization": token,
+        "content-type": "application/json",
+        "Accept": "application/json",
+    }
+    logger.info("[LLM] Forwarding to ZO /zo/ask (model=%s, stream=%s)", model_name, stream)
+    if stream:
+        return requests.post(ZO_ASK_URL, json=body, headers=headers, stream=True, timeout=120)
+    resp = requests.post(ZO_ASK_URL, json=body, headers=headers, timeout=120)
+    resp.raise_for_status()
+    data = resp.json()
+    # /zo/ask returns {"output": "..."} — normalise to OpenAI-style dict
+    return {"choices": [{"message": {"content": data.get("output", "")}}]}
+
 def load_model():
     global model, tokenizer, model_status
     if LLM_BACKEND in ("none",):
@@ -451,6 +501,22 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         except Exception as e:
             logger.error(f"[LLM] External backend error: {e}")
             return f"Backend error: {e}"
+    # === ZO native /zo/ask backend ===
+    if LLM_BACKEND == "zo":
+        try:
+            history = get_conversation_history(conv_id, 8) if conv_id else []
+            api_messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
+            for h in history:
+                api_messages.append({"role": h["role"], "content": h["content"]})
+            api_messages.append({"role": "user", "content": prompt})
+            data = _forward_to_zo(api_messages, max_tokens=max_tokens, temperature=temperature, stream=False)
+            content = data["choices"][0]["message"]["content"]
+            content = _strip_reasoning(content)
+            inference_count += 1
+            return content.strip()
+        except Exception as e:
+            logger.error(f"[LLM] ZO backend error: {e}")
+            return f"Backend error: {e}"
     # === Local PyTorch inference ===
     if model is None or tokenizer is None:
         return "I'm NeuralAI. The AI model isn't loaded due to memory constraints on this machine (4GB ZO Computer). The model needs ~2GB but only less is available. Please try again later or contact support."
@@ -527,6 +593,55 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
         except Exception as e:
             logger.error(f"[LLM] External backend stream error: {e}")
             yield f"Backend error: {e}"
+            return
+    # === ZO native /zo/ask streaming ===
+    if LLM_BACKEND == "zo":
+        try:
+            history = get_conversation_history(conv_id, 8) if conv_id else []
+            api_messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
+            for h in history:
+                api_messages.append({"role": h["role"], "content": h["content"]})
+            api_messages.append({"role": "user", "content": prompt})
+            resp = _forward_to_zo(api_messages, max_tokens=max_tokens, temperature=temperature, stream=True)
+            if resp.status_code != 200:
+                yield f"ZO backend error ({resp.status_code}): {resp.text[:200]}"
+                return
+            # /zo/ask may return SSE (data: {...}) or plain JSON
+            content_type = resp.headers.get("content-type", "")
+            if "text/event-stream" in content_type or "chunked" in content_type:
+                for line in resp.iter_lines():
+                    if not line or not line.startswith(b"data: "):
+                        continue
+                    payload = line[6:].decode().strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        tok = delta.get("content", "")
+                        if not tok:
+                            tok = chunk.get("output", "")
+                        if tok:
+                            tok = _strip_reasoning(tok)
+                            yield tok
+                    except json.JSONDecodeError:
+                        continue
+            else:
+                # Non-streaming JSON fallback — yield full output in one chunk
+                try:
+                    data = resp.json()
+                    full_output = data.get("output", "")
+                    if not full_output and "choices" in data:
+                        full_output = data["choices"][0].get("message", {}).get("content", "")
+                    if full_output:
+                        yield _strip_reasoning(full_output)
+                except Exception:
+                    yield _strip_reasoning(resp.text)
+            inference_count += 1
+            return
+        except Exception as e:
+            logger.error(f"[LLM] ZO backend stream error: {e}")
+            yield f"ZO backend error: {e}"
             return
     # === Local PyTorch streaming ===
     if model is None or tokenizer is None:
@@ -1428,7 +1543,9 @@ def openai_chat_completions(model_id=None):
         chat_messages.append({"role": role, "content": content})
 
     # Truncate to fit the model's context window (prevent OOM from 50K+ token payloads)
-    chat_messages = _truncate_to_fit(chat_messages, tokenizer)
+    # Skip when tokenizer is None (external backends handle their own limits)
+    if tokenizer is not None:
+        chat_messages = _truncate_to_fit(chat_messages, tokenizer)
 
     # === External backend: forward messages directly (no tokenizer needed) ===
     if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
@@ -1458,6 +1575,46 @@ def openai_chat_completions(model_id=None):
             yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
             yield "data: [DONE]\n\n"
         return Response(stream_with_context(gen_external()), mimetype="text/event-stream")
+
+    # === ZO native /zo/ask backend ===
+    if LLM_BACKEND == "zo":
+        def gen_zo():
+            try:
+                resp = _forward_to_zo(chat_messages, max_tokens=max_tokens, temperature=temperature, stream=True)
+                if resp.status_code != 200:
+                    err = f"ZO backend error ({resp.status_code}): {resp.text[:200]}"
+                    yield "data: " + json.dumps({"choices": [{"delta": {"content": err}, "finish_reason": None}]}) + "\n\n"
+                else:
+                    content_type = resp.headers.get("content-type", "")
+                    if "text/event-stream" in content_type or "chunked" in content_type:
+                        for line in resp.iter_lines():
+                            if not line or not line.startswith(b"data: "):
+                                continue
+                            payload = line[6:].decode().strip()
+                            if payload == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(payload)
+                                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                                tok = delta.get("content", "")
+                                if not tok:
+                                    tok = chunk.get("output", "")
+                                if tok:
+                                    yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": tok}, "finish_reason": None}]}) + "\n\n"
+                            except json.JSONDecodeError:
+                                continue
+                    else:
+                        data = resp.json()
+                        full_output = data.get("output", "")
+                        if not full_output and "choices" in data:
+                            full_output = data["choices"][0].get("message", {}).get("content", "")
+                        if full_output:
+                            yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": full_output}, "finish_reason": None}]}) + "\n\n"
+            except Exception as e:
+                yield "data: " + json.dumps({"choices": [{"delta": {"content": f"ZO Error: {e}"}, "finish_reason": None}]}) + "\n\n"
+            yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(stream_with_context(gen_zo()), mimetype="text/event-stream")
 
     # === Local PyTorch: render via tokenizer ===
     try:

@@ -20,12 +20,9 @@ import websocket  # websocket-client for proxying
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NeuralAI")
 
-# Optional: torch only needed when LLM_BACKEND=local (PyTorch mode)
-try:
-    import torch
-    torch.set_num_threads(4)
-except ImportError:
-    torch = None
+# torch is imported lazily inside load_model() only when LLM_BACKEND=local
+# This prevents 6GB+ RAM usage on ZO Computer when using external API backends
+torch = None
 
 app = Flask(__name__, static_folder=None)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
@@ -1685,7 +1682,10 @@ def voice_proxy(ws):
 if __name__ == "__main__":
     print(f"NeuralAI Unified Service starting on port {PORT}...")
     init_db()
-    load_model()
+    if LLM_BACKEND == "local":
+        load_model()
+    else:
+        logger.info(f"[BOOT] Backend={LLM_BACKEND} — skipping local model load")
     # Launch defense threads: keep-alive + memory watchdog
     threading.Thread(target=_keep_alive_pinger, daemon=True).start()
     threading.Thread(target=_memory_watchdog, daemon=True).start()

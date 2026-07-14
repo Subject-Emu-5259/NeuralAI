@@ -1056,6 +1056,8 @@ def list_models():
 @app.route("/v1/chat/completions/", methods=["POST"])
 @app.route("/v1/chat/completions/<model_id>", methods=["POST"])
 @app.route("/v1/chat/completions/<model_id>/", methods=["POST"])
+@app.route("/v1/chat/completions/chat/completions", methods=["POST"])
+@app.route("/v1/chat/completions/chat/completions/", methods=["POST"])
 @app.route("/v1", methods=["POST"])
 @app.route("/v1/", methods=["POST"])
 def openai_chat_completions(model_id=None):

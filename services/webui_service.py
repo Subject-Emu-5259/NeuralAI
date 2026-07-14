@@ -1040,8 +1040,15 @@ def openai_chat_completions():
     Uses the same local model + NeuralAI system prompt as the in-app chat.
     """
     # --- API key auth ---
+    # Accept: Authorization: Bearer <key> | Authorization: <key> | x-api-key: <key> | ?api_key= | body.api_key
     auth = request.headers.get("Authorization", "")
-    api_key = auth.replace("Bearer ", "").strip() or request.args.get("api_key", "") or (request.get_json(silent=True) or {}).get("api_key", "")
+    api_key = auth.replace("Bearer ", "", 1).strip() if auth else ""
+    if not api_key:
+        api_key = request.headers.get("X-Api-Key", "").strip()
+    if not api_key:
+        api_key = request.args.get("api_key", "").strip()
+    if not api_key:
+        api_key = (request.get_json(silent=True) or {}).get("api_key", "").strip()
     user_id = _user_for_api_key(api_key)
     if not user_id:
         return jsonify({"error": "Invalid API key"}), 401

@@ -675,6 +675,139 @@ def manage_settings(current_user):
     finally:
         db.close()
 
+# ====================
+# API KEY MANAGEMENT (Developer / BYO API)
+# ====================
+# NeuralAI can act as an OpenAI-compatible backend for external hosts (e.g. ZO Computer
+# "BYO API"). A user generates a personal API key here; the key is stored hashed and used
+# to authenticate requests to /v1/chat/completions. The raw key is shown only once.
+import secrets
+import hashlib
+
+def _hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+@app.route("/api/settings/api-key", methods=["POST", "DELETE"])
+@token_required
+def manage_api_key(current_user):
+    db = get_db()
+    try:
+        if request.method == "DELETE":
+            db.execute("DELETE FROM user_settings WHERE user_id = ? AND key = 'api_key_hash'", (current_user,))
+            db.commit()
+            return jsonify({"success": True, "message": "API key revoked."})
+
+        # POST -> generate a new key (revoking any previous one)
+        raw = "nai_" + secrets.token_urlsafe(32)
+        db.execute("INSERT OR REPLACE INTO user_settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                   (current_user, "api_key_hash", _hash_key(raw), datetime.now(timezone.utc).isoformat()))
+        db.commit()
+        # Return the raw key ONCE. It is never stored or retrievable again.
+        return jsonify({"success": True, "api_key": raw})
+    finally:
+        db.close()
+
+def _user_for_api_key(api_key: str):
+    """Resolve a raw API key to a user_id, or None if invalid."""
+    if not api_key:
+        return None
+    h = _hash_key(api_key)
+    db = get_db()
+    try:
+        row = db.execute("SELECT user_id FROM user_settings WHERE key = 'api_key_hash' AND value = ?", (h,)).fetchone()
+        return row["user_id"] if row else None
+    finally:
+        db.close()
+
+@app.route("/v1/models", methods=["GET"])
+def list_models():
+    """OpenAI-compatible model listing for BYO API hosts."""
+    return jsonify({
+        "object": "list",
+        "data": [{
+            "id": "neuralai",
+            "object": "model",
+            "created": 1700000000,
+            "owned_by": "neuralai",
+            "root": "neuralai",
+            "parent": None,
+        }]
+    })
+
+@app.route("/v1/chat/completions", methods=["POST"])
+def openai_chat_completions():
+    """OpenAI-compatible chat completions endpoint for external BYO API hosts (e.g. ZO Computer).
+
+    Auth: Authorization: Bearer <api_key>  OR  ?api_key=<api_key>
+    Accepts {model, messages, max_tokens, temperature, stream}.
+    Uses the same generate_response_stream as the in-app chat (NeuralAI identity + tools).
+    """
+    # --- API key auth ---
+    auth = request.headers.get("Authorization", "")
+    api_key = auth.replace("Bearer ", "").strip() or request.args.get("api_key", "") or (request.get_json(silent=True) or {}).get("api_key", "")
+    user_id = _user_for_api_key(api_key)
+    if not user_id:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    data = request.get_json(silent=True) or {}
+    messages = data.get("messages", [])
+    model = data.get("model", "neuralai")
+    max_tokens = int(data.get("max_tokens", 512))
+    temperature = float(data.get("temperature", 0.7))
+    stream = bool(data.get("stream", False))
+
+    # Build the same system prompt the in-app chat uses
+    db = get_db()
+    try:
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        mem_rows = db.execute("SELECT fact FROM memory_facts WHERE user_id = ?", (user_id,)).fetchall()
+        rule_rows = db.execute("SELECT rule FROM active_rules WHERE user_id = ? AND active = 1", (user_id,)).fetchall()
+    finally:
+        db.close()
+    mem_facts = [r["fact"] for r in mem_rows]
+    active_rules = [r["rule"] for r in rule_rows]
+    core_identity = """IDENTITY: You are NeuralAI, a high-performance artificial intelligence engine created by De'Andrew Preston Harris.
+TONE: You are helpful, transparent, and conversational—like an expert peer working alongside the user. Break down complex topics clearly, use clean Markdown formatting, and explain your reasoning step by step.
+BOUNDARY: You are the AI. De'Andrew is your human creator.
+NEVER say "I am DeAndrew" or "I am Dre".
+If asked who you are, respond: "I am NeuralAI, a production-grade AI system developed by De'Andrew Preston Harris."
+You do not generate harmful content, act deceptively, or exhibit hidden goals. You remain safe, helpful, and aligned with human values at all times."""
+    if user and user["is_founder"]:
+        system_content = f"{core_identity}\nDynamic Memory: {mem_facts}\nActive Protocols: {active_rules}\n{TOOL_INSTRUCTIONS}"
+    else:
+        system_content = f"{core_identity}\nMemory: {mem_facts}\nRules: {active_rules}\n{TOOL_INSTRUCTIONS}"
+
+    full_messages = [{"role": "system", "content": system_content}] + list(messages)
+
+    if not stream:
+        full = ""
+        for chunk in generate_response_stream(full_messages, max_tokens, temperature):
+            full += chunk
+        # Strip any tool tags for a clean non-streaming JSON response
+        clean = re.sub(r"<tool>.*?</tool>", "", full, flags=re.DOTALL).strip()
+        return jsonify({
+            "id": "chatcmpl-" + secrets.token_hex(8),
+            "object": "chat.completion",
+            "created": int(datetime.now(timezone.utc).timestamp()),
+            "model": model,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": clean}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        })
+
+    # Streaming (SSE) — OpenAI-compatible delta format
+    def gen():
+        yield "data: " + json.dumps({"id": "chatcmpl-" + secrets.token_hex(8), "object": "chat.completion.chunk",
+                                      "created": int(datetime.now(timezone.utc).timestamp()), "model": model,
+                                      "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}) + "\n\n"
+        for chunk in generate_response_stream(full_messages, max_tokens, temperature):
+            content = re.sub(r"<tool>.*?</tool>", "", chunk, flags=re.DOTALL)
+            if content:
+                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}]}) + "\n\n"
+        yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}) + "\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(gen()), mimetype="text/event-stream")
+
 @app.route("/api/memory", methods=["GET", "POST"])
 @token_required
 def manage_memory(current_user):

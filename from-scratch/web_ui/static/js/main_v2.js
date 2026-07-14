@@ -1376,6 +1376,53 @@ async function loadBio() {
   } catch {}
 }
 
+// ========================================
+// DEVELOPER / API ACCESS (BYO API)
+// ========================================
+async function generateApiKey() {
+  try {
+    showToast('Generating API key...', 'info');
+    const res = await fetch('/api/settings/api-key', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await res.json();
+    if (!data.success || !data.api_key) throw new Error(data.error || 'Failed to generate key');
+    document.getElementById('apiKeyField').value = data.api_key;
+    document.getElementById('apiKeyResult').classList.remove('hidden');
+    document.getElementById('revokeApiKeyBtn').style.display = 'inline-block';
+    showToast('API key generated — copy it now (shown once)', 'success');
+  } catch (e) {
+    showToast(`Key generation failed: ${e.message}`, 'error');
+  }
+}
+
+async function revokeApiKey() {
+  try {
+    const res = await fetch('/api/settings/api-key', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Revoke failed');
+    document.getElementById('apiKeyResult').classList.add('hidden');
+    document.getElementById('revokeApiKeyBtn').style.display = 'none';
+    showToast('API key revoked', 'success');
+  } catch (e) {
+    showToast(`Revoke failed: ${e.message}`, 'error');
+  }
+}
+
+function copyApiKey() {
+  const f = document.getElementById('apiKeyField');
+  if (f) { f.select(); navigator.clipboard.writeText(f.value); showToast('API key copied', 'success'); }
+}
+
+function copyApiEndpoint() {
+  const f = document.getElementById('apiEndpointField');
+  if (f) { f.select(); navigator.clipboard.writeText(f.value); showToast('Endpoint copied', 'success'); }
+}
+
 async function addMemoryFromTab() {
   const input = document.getElementById('memoryInput');
   const fact = input?.value.trim();

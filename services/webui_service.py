@@ -1053,7 +1053,12 @@ def list_models():
     })
 
 @app.route("/v1/chat/completions", methods=["POST"])
-def openai_chat_completions():
+@app.route("/v1/chat/completions/", methods=["POST"])
+@app.route("/v1/chat/completions/<model_id>", methods=["POST"])
+@app.route("/v1/chat/completions/<model_id>/", methods=["POST"])
+@app.route("/v1", methods=["POST"])
+@app.route("/v1/", methods=["POST"])
+def openai_chat_completions(model_id=None):
     """OpenAI-compatible chat completions endpoint for external BYO API hosts (e.g. ZO Computer).
 
     Auth: Authorization: Bearer <api_key>  OR  ?api_key=<api_key>

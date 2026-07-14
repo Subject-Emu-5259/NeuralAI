@@ -84,8 +84,9 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 4. **Agentic Orchestrator**: A high-autonomy layer enabling NeuralAI to plan, reason, and execute multi-step workflows across the OS and web, moving beyond simple chat to active goal achievement.
 
 ---
-### 🆕 What's New (v7.3.0)
+### 🆕 What's New (v7.3.1)
 
+- **Developer / API Access (BYO API)**: Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own API"). Exposes `/v1/chat/completions` and `/v1/models`; keys are hashed and revocable.
 - **Auto Release Notes ("What's New")**: A new top-bar panel surfaces the latest features and fixes automatically. Open it anytime via the ✨ **What's New** button.
 - **Generated images render in chat**: Image-generation responses are parsed as Markdown and displayed inline.
 - **No more self-talk**: Chat now uses the ChatML prompt template (`apply_chat_template`), matching the model's training format.

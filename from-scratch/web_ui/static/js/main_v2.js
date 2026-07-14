@@ -1272,6 +1272,10 @@ async function loadUserProfile() {
       if (document.getElementById('userBioInput')) document.getElementById('userBioInput').value = data.user.bio || '';
       const initial = document.getElementById('profileInitial');
       if (initial) initial.textContent = (data.user.username || 'U')[0].toUpperCase();
+      // Reveal founder-only self-update control
+      if (data.user.is_founder && document.getElementById('selfUpdateArea')) {
+        document.getElementById('selfUpdateArea').style.display = 'block';
+      }
     }
     loadBio();
     loadMemoryList();
@@ -1421,6 +1425,25 @@ function copyApiKey() {
 function copyApiEndpoint() {
   const f = document.getElementById('apiEndpointField');
   if (f) { f.select(); navigator.clipboard.writeText(f.value); showToast('Endpoint copied', 'success'); }
+}
+
+async function selfUpdate() {
+  if (!confirm('Pull latest code from GitHub and restart the service?')) return;
+  try {
+    showToast('Updating & restarting…', 'info');
+    const res = await fetch('/api/admin/update', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.status === 403) { showToast('Founder access required', 'error'); return; }
+    // On success the process re-execs; the connection drops. Reload after a beat.
+    showToast('Update triggered — reloading…', 'success');
+    setTimeout(() => location.reload(), 2500);
+  } catch {
+    // Expected: the old process is gone after re-exec, so the fetch may abort.
+    showToast('Update triggered — reloading…', 'success');
+    setTimeout(() => location.reload(), 2500);
+  }
 }
 
 async function addMemoryFromTab() {

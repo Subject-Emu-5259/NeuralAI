@@ -35,6 +35,8 @@ ZO_API_TOKEN = os.environ.get("ZO_API_TOKEN", os.environ.get("ZO_CLIENT_IDENTITY
 DATA_DIR = Path("/home/workspace/Projects/NeuralAI/data")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE = str(DATA_DIR / "neuralai.db")
+# Repository root (parent of services/) — used by the self-update endpoint
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Model globals
 model = None
@@ -1114,6 +1116,44 @@ def openai_chat_completions():
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(gen()), mimetype="text/event-stream")
+
+# ====================
+# ROUTES - SELF UPDATE (Founder only)
+# ====================
+@app.route("/api/admin/update", methods=["POST"])
+@token_required
+def admin_self_update(current_user):
+    """Pull the latest code from origin/master and restart this service in place.
+
+    Gated to founder accounts only. The restart is performed by re-exec'ing the
+    current process (os.execv) so the host's process manager keeps the same PID/socket.
+    """
+    db = get_db()
+    try:
+        user = db.execute("SELECT is_founder FROM users WHERE id = ?", (current_user,)).fetchone()
+    finally:
+        db.close()
+    if not user or not user["is_founder"]:
+        return jsonify({"success": False, "error": "Founder access required"}), 403
+
+    try:
+        pull = subprocess.run(
+            ["git", "pull", "origin", "master"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120
+        )
+        pull_out = (pull.stdout + pull.stderr).strip()
+        if pull.returncode != 0:
+            return jsonify({"success": False, "error": "git pull failed", "detail": pull_out}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": f"git pull error: {e}"}), 500
+
+    # Restart in place: re-exec the current interpreter with the same argv.
+    # The host's process manager (or ZO entrypoint) will keep serving on the same port.
+    try:
+        logger.info("Self-update: git pull succeeded, restarting in place...")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except Exception as e:
+        return jsonify({"success": False, "error": f"restart failed: {e}", "pull": pull_out}), 500
 
 # ====================
 # ROUTES - MEMORY

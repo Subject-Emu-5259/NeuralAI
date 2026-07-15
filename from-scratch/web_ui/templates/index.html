@@ -3323,7 +3323,7 @@ body.dark-mode .onboarding-close:hover {
 
         <div class="settings-card">
           <h3 style="font-size:14px; color:#22d3ee; margin-bottom:12px;">🔌 Developer / API Access (BYO API)</h3>
-          <p style="font-size:12px; color:#8a8a9a; margin-bottom:12px;">Generate a personal API key to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own API"). Plug the endpoint + key into their BYO API field.</p>
+          <p style="font-size:12px; color:#8a8a9a; margin-bottom:12px;">Generate a personal API key to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own API"). Paste the Base URL + key into Zo's Bring Your Own Key (BYOK) “Base URL” field.</p>
 
           <div id="apiKeyArea">
             <button class="auth-btn" style="background:#0891b2; margin-top:4px;" onclick="generateApiKey()">Generate API Key</button>
@@ -3336,12 +3336,12 @@ body.dark-mode .onboarding-close:hover {
               <input type="text" id="apiKeyField" readonly style="flex:1; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#09090b; color:#22d3ee; font-family:'JetBrains Mono',monospace; font-size:12px;" />
               <button onclick="copyApiKey()" style="padding:10px 14px; background:#22d3ee; border:none; border-radius:8px; color:#04141a; cursor:pointer; font-weight:600;">Copy</button>
             </div>
-            <p style="font-size:12px; color:#8a8a9a; margin:0 0 6px;">Paste this into ZO Computer's BYO API field:</p>
+            <p style="font-size:12px; color:#8a8a9a; margin:0 0 6px;">Base URL — paste into Zo's BYOK “Base URL” field:</p>
             <div style="display:flex; gap:8px;">
-              <input type="text" id="apiEndpointField" readonly value="https://neuralai-web-ui-deandrewharris.zocomputer.io/v1/chat/completions" style="flex:1; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#09090b; color:#e4e4e7; font-family:'JetBrains Mono',monospace; font-size:12px;" />
+              <input type="text" id="apiEndpointField" readonly value="https://neuralai-web-ui-deandrewharris.zocomputer.io/v1" style="flex:1; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:#09090b; color:#e4e4e7; font-family:'JetBrains Mono',monospace; font-size:12px;" />
               <button onclick="copyApiEndpoint()" style="padding:10px 14px; background:#3b82f6; border:none; border-radius:8px; color:#fff; cursor:pointer; font-weight:600;">Copy</button>
             </div>
-            <p style="font-size:11px; color:#6b7280; margin:10px 0 0;">Model name to use on the host: <code style="color:#a78bfa;">neuralai</code></p>
+            <p style="font-size:11px; color:#6b7280; margin:10px 0 0;">Model name: <code style="color:#a78bfa;">neuralai</code> &nbsp;•&nbsp; Chat endpoint is this base URL + <code style="color:#a78bfa;">/chat/completions</code></p>
           </div>
           <div id="selfUpdateArea" style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.06); display:none;">
             <p style="font-size:12px; color:#8a8a9a; margin:0 0 8px;">Founder tools — pull latest code from GitHub and restart the service in place.</p>

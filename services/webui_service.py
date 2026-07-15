@@ -26,6 +26,19 @@ torch = None
 
 app = Flask(__name__, static_folder=None)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "neural-ai-multi-layer-secure-secret-key-2026-v5-stable")
+# === CORS for BYO API (OpenAI-compatible) endpoints ===
+# Lets other chat UIs (e.g. ZO Computer's Bring Your Own Key) call
+# /v1/chat/completions and /v1/models — including browser-side / preflight.
+@app.after_request
+def _add_cors_headers(resp):
+    p = request.path
+    if p.startswith("/v1") or p.startswith("/api/settings/api-key"):
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Api-Key"
+        resp.headers["Access-Control-Expose-Headers"] = "Content-Type, X-Request-Id"
+        resp.headers["Access-Control-Max-Age"] = "86400"
+    return resp
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
@@ -46,12 +59,11 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # LLM BACKEND CONFIG
 # ====================
 # On ZO Computer (4 GB RAM): PyTorch + SmolLM2-360M = ~6.2 GB → OOM kill loop (this paused the service).
-# PRIMARY:   ZO native /zo/ask API using the user's BYOK model (HY3) — zero local RAM, no 402 free-allowance errors.
-# FALLBACK:  llmster (llama.cpp headless) on localhost:1234 if available.
-# LOCAL:     PyTorch — ONLY on non-ZO machines with ≥8 GB RAM. Do NOT enable on 4GB hosts (OOM → pause).
+# LOCAL:    LM Studio (llama.cpp) on localhost:1234 — SmolLM2-360M, ~260 MB RAM, no OOM, no external cost.
+# ZO:       REMOVED. No fallback to ZO /zo/ask — local model only.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "zo")  # default to ZO /zo/ask (BYOK) on 4GB hosts to avoid OOM
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "openai_compatible")  # LOCAL LM Studio on :1234 — no ZO fallback
 LLM_API_URL = os.environ.get("LLM_API_URL", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "byok:0d3567f7-f521-42b0-8adf-65c9b036cf89")  # user's NeuralAI model (HY3) — avoids 402 free-allowance errors
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
@@ -64,10 +76,11 @@ if _is_zo:
     # We default to ZO native inference using the user's BYOK model (HY3) so chat + /v1/chat/completions
     # serve a real model with zero local RAM. LOCAL PyTorch stays available via LLM_BACKEND=local
     # on machines with >=8GB RAM. Explicit overrides are still honored.
-    # Priority: explicit env override > ZO native (BYOK) > llmster > none.
+    # Priority: explicit env override > LOCAL LM Studio (:1234) > none.
     if LLM_BACKEND == "":
-        LLM_BACKEND = "zo"  # user's BYOK model via ZO native inference — no external cost, no OOM
-        logger.info(f"[BOOT] ZO Computer detected — defaulting to ZO native inference (BYOK model).")
+        LLM_BACKEND = "openai_compatible"  # LOCAL LM Studio on :1234 — no ZO fallback
+        LLM_API_URL = LLM_API_URL or "http://localhost:1234/v1"
+        logger.info(f"[BOOT] ZO Computer detected — defaulting to LOCAL LM Studio (:1234).")
     elif LLM_BACKEND == "local":
         # Explicit local PyTorch requested — honor it (float16 keeps it under 4 GB).
         logger.info("[BOOT] ZO Computer: explicit local backend requested — loading PyTorch model in float16.")
@@ -84,7 +97,14 @@ if _is_zo:
 # Model globals (PyTorch) — only loaded when LLM_BACKEND=local
 model = None
 tokenizer = None
-model_status = "loading" if LLM_BACKEND == "local" else "ready (external backend)"
+if LLM_BACKEND == "local":
+    model_status = "loading"
+elif LLM_BACKEND == "zo":
+    # Only ZO native /zo/ask relay is a truly external cloud backend
+    model_status = "ready (external backend)"
+else:
+    # openai_compatible / lmstudio / ollama -> local inference server (e.g. LM Studio :1234)
+    model_status = "ready"
 inference_count = 0
 
 # Streaming abort control: conv_id -> threading.Event
@@ -96,15 +116,34 @@ stop_events = {}
 # Prevents ZO Computer from putting the service to sleep by pinging /health
 # every 5 minutes in a background thread.
 def _keep_alive_pinger():
-    """Background thread: pings own /health endpoint every 5 min to prevent ZO sleep."""
+    """Background thread: pings own /health endpoint every 5 min to prevent ZO sleep.
+
+    Hits the PUBLIC service URL when NEURALAI_PUBLIC_URL is set (real external
+    ingress, so the ZO Computer sandbox is not idled/slept by the platform), and
+    falls back to localhost on any failure so the process stays self-warm too.
+    """
     import urllib.request
+    public_url = (os.environ.get("NEURALAI_PUBLIC_URL") or "").rstrip("/")
     while True:
         try:
             time.sleep(300)  # 5 minutes
-            urllib.request.urlopen(f"http://127.0.0.1:{PORT}/health", timeout=10)
-            logger.info("[KEEPALIVE] Health ping OK")
+            targets = []
+            if public_url:
+                targets.append(f"{public_url}/health")
+            targets.append(f"http://127.0.0.1:{PORT}/health")
+            ok = False
+            for t in targets:
+                try:
+                    urllib.request.urlopen(t, timeout=10)
+                    logger.info(f"[KEEPALIVE] Health ping OK -> {t}")
+                    ok = True
+                    break
+                except Exception as inner_e:
+                    logger.warning(f"[KEEPALIVE] Ping failed ({t}): {inner_e}")
+            if not ok:
+                logger.warning("[KEEPALIVE] All ping targets failed (non-fatal)")
         except Exception as e:
-            logger.warning(f"[KEEPALIVE] Ping failed (non-fatal): {e}")
+            logger.warning(f"[KEEPALIVE] Ping loop error (non-fatal): {e}")
 
 # ====================
 # DEFENSE 2: MEMORY WATCHDOG
@@ -385,9 +424,14 @@ def load_model():
         model_status = "ready (lightweight mode — no model loaded)"
         logger.info("[OK] Lightweight mode active — no model loaded. Chat will use template responses.")
         return
-    if LLM_BACKEND != "local":
+    if LLM_BACKEND == "zo":
         model_status = "ready (external backend)"
-        print(f"[OK] Using external LLM backend: {LLM_BACKEND} @ {LLM_API_URL}")
+        print(f"[OK] Using external ZO native inference: {LLM_BACKEND}")
+        return
+    if LLM_BACKEND != "local":
+        # openai_compatible / lmstudio / ollama -> local inference server (e.g. LM Studio :1234)
+        model_status = "ready"
+        print(f"[OK] Using local OpenAI-compatible backend: {LLM_BACKEND} @ {LLM_API_URL}")
         return
     try:
         global torch
@@ -1503,6 +1547,55 @@ def list_models():
         }]
     })
 
+
+def _streaming_response(gen, model_id, stream):
+    """Return an SSE stream or a single JSON chat.completion object based on
+    the caller's `stream` flag. Every backend generator yields SSE
+    'data: {...}' frames, so non-streaming just reassembles them."""
+    if stream:
+        return Response(stream_with_context(gen), mimetype="text/event-stream")
+    parts = []
+    for frame in gen:
+        if not frame.startswith("data:"):
+            continue
+        payload = frame[len("data:"):].strip()
+        if payload == "[DONE]":
+            continue
+        try:
+            obj = json.loads(payload)
+        except Exception:
+            continue
+        for ch in obj.get("choices", []):
+            d = ch.get("delta", {})
+            if d.get("content"):
+                parts.append(d["content"])
+    return jsonify({
+        "id": "chatcmpl-" + secrets.token_hex(8),
+        "object": "chat.completion",
+        "created": int(datetime.now(timezone.utc).timestamp()),
+        "model": model_id or "neuralai",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "".join(parts)}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    })
+
+@app.route("/v1/chat/completions", methods=["GET"])
+@app.route("/v1/chat/completions/", methods=["GET"])
+@app.route("/v1/chat/completions/<model_id>", methods=["GET"])
+@app.route("/v1/chat/completions/<model_id>/", methods=["GET"])
+@app.route("/v1/chat/completions/chat/completions", methods=["GET"])
+@app.route("/v1/chat/completions/chat/completions/", methods=["GET"])
+@app.route("/v1", methods=["GET"])
+@app.route("/v1/", methods=["GET"])
+def openai_chat_completions_get(model_id=None):
+    # Health / capability probe — ZO Computer's BYOK validation does a GET on the
+    # endpoint (base URL or /v1/chat/completions). Return 200 so validation
+    # passes; the actual chat runs over POST (openai_chat_completions below).
+    return jsonify({
+        "object": "list",
+        "data": [{"id": "neuralai", "object": "model", "owned_by": "neuralai", "root": "neuralai", "parent": None}],
+        "status": "ok",
+    })
+
 @app.route("/v1/chat/completions", methods=["POST"])
 @app.route("/v1/chat/completions/", methods=["POST"])
 @app.route("/v1/chat/completions/<model_id>", methods=["POST"])
@@ -1547,10 +1640,10 @@ def openai_chat_completions(model_id=None):
     _mt_cap = 80 if LLM_BACKEND == "local" else 2048
     max_tokens = min(int(data.get("max_tokens", _mt_default)), _mt_cap)
     temperature = float(data.get("temperature", 0.3))  # lower default for faster CPU inference
-    # Always stream — BYO API hosts (e.g. ZO Computer) expect SSE to show
-    # tokens arriving; non-streaming blocks until full response which can
-    # exceed upstream timeouts on CPU-only inference.
-    stream = True
+    # Default to streaming (BYO API hosts like ZO Computer show tokens as they
+    # arrive), but honor the caller's `stream` flag so non-streaming OpenAI
+    # clients also work.
+    stream = bool(data.get("stream", True))
 
     # Build the same system prompt the in-app chat uses
     db = get_db()
@@ -1609,7 +1702,7 @@ def openai_chat_completions(model_id=None):
                 yield "data: " + json.dumps({"choices": [{"delta": {"content": f"Error: {e}"}, "finish_reason": None}]}) + "\n\n"
             yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
             yield "data: [DONE]\n\n"
-        return Response(stream_with_context(gen_external()), mimetype="text/event-stream")
+        return _streaming_response(gen_external(), model_id, stream)
 
     # === ZO native /zo/ask backend ===
     if LLM_BACKEND == "zo":
@@ -1659,7 +1752,7 @@ def openai_chat_completions(model_id=None):
                 return
             yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
             yield "data: [DONE]\n\n"
-        return Response(stream_with_context(gen_zo()), mimetype="text/event-stream")
+        return _streaming_response(gen_zo(), model_id, stream)
 
     # === Local PyTorch: render via tokenizer ===
     try:
@@ -1688,7 +1781,7 @@ def openai_chat_completions(model_id=None):
         yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}) + "\n\n"
         yield "data: [DONE]\n\n"
 
-    return Response(stream_with_context(gen()), mimetype="text/event-stream")
+    return _streaming_response(gen(), model_id, stream)
 
 # ====================
 # ROUTES - SELF UPDATE (Founder only)

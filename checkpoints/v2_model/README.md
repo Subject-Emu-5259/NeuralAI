@@ -94,3 +94,15 @@ print(tokenizer.decode(output[0][inputs.shape[-1]:], skip_special_tokens=True))
     booktitle    = {NeurIPS 2023},
 }
 ```
+
+## 🔌 Use NeuralAI as an OpenAI-compatible backend (BYO API / ZO Computer BYOK)
+
+NeuralAI's hosted service exposes an OpenAI-compatible chat API so it can power other chat UIs, including **ZO Computer's Bring Your Own Key (BYOK)**.
+
+- **Base URL**: `https://neuralai-web-ui-deandrewharris.zocomputer.io/v1`
+- **Model id**: `neuralai`
+- **Auth**: Personal API key (generate in NeuralAI Settings → Developer/API Access; keys are hashed + revocable)
+- **Endpoints**: `POST /v1/chat/completions` (SSE streaming + non-streaming JSON, CORS-enabled) and `POST /v1/models`. `GET` probes on these paths now return `200` so host validation passes.
+
+Full setup walkthrough: [`docs/BYOK_ZO_INTEGRATION.md`](https://github.com/Subject-Emu-5259/NeuralAI/blob/master/docs/BYOK_ZO_INTEGRATION.md).
+Full project documentation: [GitHub README](https://github.com/Subject-Emu-5259/NeuralAI).

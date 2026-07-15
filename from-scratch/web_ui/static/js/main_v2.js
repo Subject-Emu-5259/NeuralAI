@@ -595,8 +595,9 @@ function updateModelStatus() {
   fetch('/api/health').then(r => r.json()).then(d => {
     const dot = document.getElementById('uplinkDot');
     const label = document.getElementById('uplinkLabel');
+    const isLocal = d.llm_backend && d.llm_backend !== 'zo';
     if (dot) dot.className = 'status-dot ' + (d.status === 'ready' ? 'online' : 'offline');
-    if (label) label.textContent = d.status === 'ready' ? 'Ready' : (d.status || 'Offline');
+    if (label) label.textContent = d.status === 'ready' ? (isLocal ? 'Ready (Local)' : 'Ready (External)') : (d.status || 'Offline');
   }).catch(() => {
     const dot = document.getElementById('uplinkDot');
     const label = document.getElementById('uplinkLabel');

@@ -70,6 +70,13 @@ NeuralAI supports multiple inference backends via the `LLM_BACKEND` environment 
 | **OpenAI-compatible** | `openai_compatible` | Any OpenAI API URL | Remote/cloud inference |
 | **Local PyTorch** | `local` | Built-in transformers | Loads BASE_MODEL + LoRA at MODEL_PATH in float16 (your own model) |
 | **ZO Native (fallback)** | `zo` | `https://api.zo.computer/zo/ask` | Routes to Zo's own assistant (HY3) — **NOT** your NeuralAI model; last-resort only |
+### Resilient Launcher (2026-07-15)
+The service entrypoint is now `run_service.sh`, which auto-selects the backend at boot:
+1. Starts **llmster** (LM Studio) headless on port 1234 and loads the `smollm2-360m-instruct` GGUF.
+2. If llmster is reachable, sets `LLM_BACKEND=openai_compatible` → `http://localhost:1234/v1` (recommended; low RAM).
+3. Only if llmster is unavailable does it fall back to the local PyTorch backend.
+
+This guarantees the chat always has a live backend (no more 503/401 "model not authed" stalls) and keeps RAM low (llmster ~1.1 GB vs ~6 GB for local transformers), so the UI no longer freezes under memory pressure.
 
 > **Hosting on ZO Computer (4 GB RAM):** set `LLM_BACKEND=local`. The service loads `BASE_MODEL`
 > (default `HuggingFaceTB/SmolLM2-360M-Instruct`) and applies the LoRA at `MODEL_PATH`
@@ -93,7 +100,7 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 ---
 ### 🆕 What's New (v7.3.1)
 
-- **Developer / API Access (BYO API)**: Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own API"). Exposes `/v1/chat/completions` and `/v1/models`; keys are hashed and revocable.
+- **Developer / API Access (BYO API)**: Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own Key"). Exposes `/v1/chat/completions` (SSE, CORS-enabled) and `/v1/models`; Base URL is `https://neuralai-web-ui-deandrewharris.zocomputer.io/v1`, model id is `neuralai`. Keys are hashed and revocable. Full ZO Computer setup walkthrough: `docs/BYOK_ZO_INTEGRATION.md`.
 - **Auto Release Notes ("What's New")**: A new top-bar panel surfaces the latest features and fixes automatically. Open it anytime via the ✨ **What's New** button.
 - **Generated images render in chat**: Image-generation responses are parsed as Markdown and displayed inline.
 - **No more self-talk**: Chat now uses the ChatML prompt template (`apply_chat_template`), matching the model's training format.

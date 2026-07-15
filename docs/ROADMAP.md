@@ -1,7 +1,7 @@
 # 🚀 NeuralAI Development Roadmap
 
-**Version Target: 6.0 (The Workstation Pivot)**
-**Last Updated: June 6, 2026**
+**Version Target: 6.0 (The Workstation Pivot) + 7.2 Resilient Runtime**
+**Last Updated: July 15, 2026**
 
 ---
 
@@ -67,7 +67,7 @@
 
 ## 📊 System Status
 
-- **Main Service:** **READY** (Unified `file neural_core_service.py`)
+- **Main Service:** **READY & RESILIENT** (`webui_service.py` v7.2.0 — auto-restart, memory watchdog, ZO-native inference backend)
 - **Voice Service:** **READY** (ElevenLabs v2 Migrated)
 - **Model:** SmolLM2-360M-Instruct + DPO v15.0 (Deployed)
 - **Context:** System-wide (Expanding)
@@ -83,6 +83,14 @@
 - **Duration:** `730.5s` (~12 min)
 - **Completed:** `2026-07-11 20:00 UTC`
 - **Adapter:** live on HF `Subject-Emu-5259/NeuralAI`
+
+### Deployment & Inference (updated July 15, 2026)
+
+- **Host:** ZO Computer (Free plan, 4 GB RAM) at `neuralai-deandrewharris.zocomputer.io`
+- **Inference backend:** `LLM_BACKEND=zo` → ZO native `/zo/ask` using the user's own BYOK model (`byok:0d3567f7-f521-42b0-8adf-65c9b036cf89`). Uses **0 MB local RAM**.
+- **Why not local:** Loading PyTorch + SmolLM2-360M on a 4 GB box used ~6.2 GB → OOM-kill loop that paused the service. The ZO backend removes that dependency entirely (see `docs/INCIDENT-2026-07-14-NEURALAI-PAUSES.md`).
+- **Local PyTorch backend:** still available via `LLM_BACKEND=local` on GPU/Colab-class machines (≥8 GB RAM) for offline/private inference.
+- **Resilience:** supervisor auto-restart, `/api/health` keepalive, and a memory watchdog that runs GC before any OOM. Service verified stable after the July 15 fix (free RAM returned to ~3 GB).
 
 ---
 

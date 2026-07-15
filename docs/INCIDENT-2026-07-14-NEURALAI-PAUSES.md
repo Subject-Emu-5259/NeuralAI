@@ -98,3 +98,42 @@ model is answering, not HY3.
   (local model loads; status string is cosmetic).
 - Live chat: "hey" → coherent greeting; follow-up "your name is NeuralAI" → correct self-identification
   with model architecture. Multi-turn context preserved. No truncation, no hallucination.
+
+---
+
+## FINAL RESOLUTION (2026-07-15) — SUPERSEDES THE "local is correct" CONCLUSION ABOVE
+
+The earlier note claiming the ~6.2 GB RSS was "inaccurate" was itself wrong. Live `free`/`ps`
+measurement showed the **local transformers backend genuinely held ~6.2 GB RSS inside the 4 GB
+sandbox, leaving 0 MB available** → GC thrash → the UI froze/paused under memory pressure. That is a
+real root cause of the pauses, separate from the supervisor-pause state.
+
+### What actually fixed it (verified)
+- **Switched the active backend to llmster** (`LLM_BACKEND=openai_compatible` → `http://localhost:1234/v1`).
+  llmster serves `smollm2-360m-instruct` via llama.cpp at **~1.1 GB total** (llama-server 682 MB +
+  llmster 416 MB) — versus ~6 GB for local transformers.
+- **RAM after switch: 1.7 GB free** (was 0 MB). Memory-pressure pausing eliminated.
+- **Resilient launcher `run_service.sh`** is now the service entrypoint. At boot it: (1) starts llmster
+  headless on :1234, (2) loads the `smollm2-360m-instruct` GGUF, (3) verifies `/v1/models`, and
+  (4) only falls back to local PyTorch if llmster is unreachable. This guarantees a live backend
+  always exists — no more backend-less 503/401 "model not authed" stalls.
+- **Watchdog + 60 s keep-alive pinger** retained in `webui_service.py`.
+- **Stale env cleared**: `GROQ_API_KEY`, `LLM_API_KEY`, `LLM_API_URL`, and the `zo` backend removed, so
+  it never silently depends on a missing key again.
+
+### Verified working state
+```markdown
+LLM_BACKEND = openai_compatible   # -> llmster / LM Studio on http://localhost:1234/v1
+LLM_MODEL   = smollm2-360m-instruct
+LLM_API_URL = http://localhost:1234/v1
+LLM_API_KEY = lm-studio
+```
+- `GET /health` → `{"status":"ready (external backend)","llm_backend":"openai_compatible"}`
+- `POST /api/chat` → streams real tokens from llmster.
+- Public URL `https://neuralai-web-ui-deandrewharris.zocomputer.io` returns 200.
+
+### Note on the 1.4 GB merged model (`Subject-Emu-5259/NeuralAI`)
+The Hugging Face cache only contains a **22 KB stub** for `Subject-Emu-5259/NeuralAI`; the 1.4 GB
+weights are **not downloaded locally**, so it is not in use. The running model is
+`smollm2-360m-instruct` via llmster. To use the merged model, pull the weights (1.4 GB) and load via
+llmster; on this 4 GB sandbox that risks OOM, so a larger plan or a dedicated service is recommended.

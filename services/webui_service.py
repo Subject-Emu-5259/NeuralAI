@@ -63,7 +63,7 @@ if _is_zo:
     # Priority: explicit env override > ZO native /zo/ask > llmster > lightweight.
     if LLM_BACKEND in ("local", ""):
         LLM_BACKEND = "zo"  # ZO native inference — zero local RAM
-        LLM_MODEL = os.environ.get("LLM_MODEL", "zo:openai/gpt-5.6-luna")
+        LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
         logger.info(f"[BOOT] ZO Computer detected — using ZO native /zo/ask ({LLM_MODEL}). PyTorch permanently disabled.")
     elif LLM_BACKEND == "llmster":
         LLM_API_URL = LLM_API_URL or "http://localhost:1234/v1"
@@ -339,7 +339,7 @@ def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
     token = ZO_API_TOKEN
     if not token:
         raise RuntimeError("ZO_CLIENT_IDENTITY_TOKEN not set — cannot call /zo/ask")
-    model_name = LLM_MODEL or "zo:openai/gpt-5.6-luna"
+    model_name = LLM_MODEL or "gpt-4o-mini"
     zo_input = _messages_to_zo_input(messages)
     body = {
         "input": zo_input,

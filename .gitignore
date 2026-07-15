@@ -39,3 +39,7 @@ checkpoints/
 # The .safetensors weight is handled by Git LFS (see .gitattributes)
 !adapter/
 !adapter/**
+
+# Large model weights — never commit to git
+merge-upload/
+*.safetensors

@@ -105,7 +105,7 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 ## 🚀 Deployment & Model Distribution
 
 - **Source (GitHub)**: [Subject-Emu-5259/NeuralAI](https://github.com/Subject-Emu-5259/NeuralAI)
-- **Model (Hugging Face)**: [Subject-Emu-5259/NeuralAI](https://huggingface.co/Subject-Emu-5259/NeuralAI) — the SmolLM2-360M + SFT v16/DPO v16 LoRA adapter (`checkpoints/v2_model`).
+- **Model (Hugging Face)**: [Subject-Emu-5259/NeuralAI](https://huggingface.co/Subject-Emu-5259/NeuralAI) — merged SmolLM2-360M + SFT v16/DPO v16 LoRA weights (drop-in, no PEFT needed). The LoRA adapter is also in `checkpoints/v2_model`.
 - **Hosted demo**: `neuralai-web-ui-deandrewharris.zocomputer.io` (ZO Computer) — runs the local backend so chat uses the trained model directly.
 
 To publish the LoRA to Hugging Face:

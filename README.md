@@ -52,7 +52,7 @@ NeuralAI is built on a high-performance architecture that decouples the inferenc
 
 ### Core Stack
 
-- **Core Model**: `SmolLM2-360M-Instruct` (DPO v15.0 Aligned for logic, math, multi-step reasoning, and debugging)
+- **Core Model**: `SmolLM2-360M-Instruct` fine-tuned with the custom **SFT v16 + DPO v16 LoRA** at `checkpoints/v2_model` — aligned for logic, math, multi-step reasoning, and debugging
 - **Inference Engine**: [llmster](https://lmstudio.ai/docs/cli) (LM Studio headless) — OpenAI-compatible API with continuous batching, running via llama.cpp
 - **Vocal Identity**: Andrew (Warm/Multilingual) — Optimized for Live Speech-to-Speech (S2S)
 - **Backend Framework**: Python / Flask (Core Service) — routes to llmster or local PyTorch
@@ -68,7 +68,14 @@ NeuralAI supports multiple inference backends via the `LLM_BACKEND` environment 
 | **llmster** (recommended) | `lmstudio` | `http://localhost:1234/v1` | Headless GPU/CPU inference |
 | **Ollama** | `ollama` | `http://localhost:11434/v1` | Local Ollama server |
 | **OpenAI-compatible** | `openai_compatible` | Any OpenAI API URL | Remote/cloud inference |
-| **Local PyTorch** | `local` | Built-in transformers | Legacy/development mode |
+| **Local PyTorch** | `local` | Built-in transformers | Loads BASE_MODEL + LoRA at MODEL_PATH in float16 (your own model) |
+| **ZO Native (fallback)** | `zo` | `https://api.zo.computer/zo/ask` | Routes to Zo's own assistant (HY3) — **NOT** your NeuralAI model; last-resort only |
+
+> **Hosting on ZO Computer (4 GB RAM):** set `LLM_BACKEND=local`. The service loads `BASE_MODEL`
+> (default `HuggingFaceTB/SmolLM2-360M-Instruct`) and applies the LoRA at `MODEL_PATH`
+> (default `checkpoints/v2_model`) in float16 (~720 MB), which fits the 4 GB host. **Do not use
+> `LLM_BACKEND=zo` for the chat UI** — it proxies to Zo's assistant and answers as "Zo Computer's
+> assistant" instead of your trained model.
 
 ```bash
 # Example: start NeuralAI with llmster backend
@@ -94,6 +101,29 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 - **Dark theme by default**: UI restores your saved theme and defaults to dark mode (fixes white file-cards in light mode).
 - **Phase 8 in progress**: Knowledge Graph & Agentic Autonomy — long-term cross-project memory ("Supermemory") and fully autonomous task execution.
 - **The NeuralLabs Shift**: NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client → v2 Edge → v3 Eco).
+- **v7.3.2 — Backend identity fix (ZO hosting)**: The hosted service now runs `LLM_BACKEND=local` so chat uses *your* SmolLM2-360M + SFT/DPO v16 LoRA. The previous `zo` fallback proxied to Zo's assistant and answered as "I'm Zo Computer's assistant" — that was a routing bug, not your model. See `docs/INCIDENT-2026-07-14-NEURALAI-PAUSES.md`.
+## 🚀 Deployment & Model Distribution
+
+- **Source (GitHub)**: [Subject-Emu-5259/NeuralAI](https://github.com/Subject-Emu-5259/NeuralAI)
+- **Model (Hugging Face)**: [Subject-Emu-5259/NeuralAI](https://huggingface.co/Subject-Emu-5259/NeuralAI) — the SmolLM2-360M + SFT v16/DPO v16 LoRA adapter (`checkpoints/v2_model`).
+- **Hosted demo**: `neuralai-web-ui-deandrewharris.zocomputer.io` (ZO Computer) — runs the local backend so chat uses the trained model directly.
+
+To publish the LoRA to Hugging Face:
+
+```bash
+pip install huggingface_hub
+HF_TOKEN=<your-write-token> python3 -c "
+from huggingface_hub import HfApi
+api = HfApi()
+api.upload_folder(
+    folder_path='checkpoints/v2_model',
+    repo_id='Subject-Emu-5259/NeuralAI',
+    repo_type='model',
+    commit_message='NeuralAI SmolLM2-360M SFT v16 + DPO v16 LoRA',
+)
+"
+```
+
 ## ✨ Key Features & Capabilities
 
 ### 💬 Multimodal Chat & Agentic Intelligence

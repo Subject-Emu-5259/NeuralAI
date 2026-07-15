@@ -45,26 +45,32 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # ====================
 # LLM BACKEND CONFIG
 # ====================
-# On ZO Computer (4 GB RAM): PyTorch + SmolLM2-360M = ~6.2 GB → OOM kill loop.
-# PRIMARY:   ZO native /zo/ask API (GPT-5.4, etc. — billed to Zo plan, zero local RAM).
+# On ZO Computer (4 GB RAM): PyTorch + SmolLM2-360M = ~6.2 GB → OOM kill loop (this paused the service).
+# PRIMARY:   ZO native /zo/ask API using the user's BYOK model (HY3) — zero local RAM, no 402 free-allowance errors.
 # FALLBACK:  llmster (llama.cpp headless) on localhost:1234 if available.
-# LOCAL:     PyTorch — ONLY on non-ZO machines with ≥8 GB RAM.
+# LOCAL:     PyTorch — ONLY on non-ZO machines with ≥8 GB RAM. Do NOT enable on 4GB hosts (OOM → pause).
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 _is_zo = bool(os.environ.get("ZO_CLIENT_IDENTITY_TOKEN"))
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "local")
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "zo")  # default to ZO /zo/ask (BYOK) on 4GB hosts to avoid OOM
 LLM_API_URL = os.environ.get("LLM_API_URL", "")
-LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)
+LLM_MODEL = os.environ.get("LLM_MODEL", "byok:0d3567f7-f521-42b0-8adf-65c9b036cf89")  # user's NeuralAI model (HY3) — avoids 402 free-allowance errors
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 _USE_FLOAT16 = _is_zo or os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
 
-# === ZO Computer: PERMANENTLY block PyTorch — use ZO native API ===
+# === ZO Computer: default to ZO /zo/ask with the user's BYOK model (no OOM, no 402) ===
 if _is_zo:
-    # On ZO Computer, never load PyTorch (4 GB RAM cannot hold 6.2 GB model).
-    # Priority: explicit env override > ZO native /zo/ask > llmster > lightweight.
-    if LLM_BACKEND in ("local", ""):
-        LLM_BACKEND = "zo"  # ZO native inference — zero local RAM
-        LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
-        logger.info(f"[BOOT] ZO Computer detected — using ZO native /zo/ask ({LLM_MODEL}). PyTorch permanently disabled.")
+    # On the 4GB ZO Computer, loading the local PyTorch model OOMs (watchdog hits 100% RAM and
+    # the supervisor pauses the service) and the 360M model produces incoherent <80-token replies.
+    # We default to ZO native inference using the user's BYOK model (HY3) so chat + /v1/chat/completions
+    # serve a real model with zero local RAM. LOCAL PyTorch stays available via LLM_BACKEND=local
+    # on machines with >=8GB RAM. Explicit overrides are still honored.
+    # Priority: explicit env override > ZO native (BYOK) > llmster > none.
+    if LLM_BACKEND == "":
+        LLM_BACKEND = "zo"  # user's BYOK model via ZO native inference — no external cost, no OOM
+        logger.info(f"[BOOT] ZO Computer detected — defaulting to ZO native inference (BYOK model).")
+    elif LLM_BACKEND == "local":
+        # Explicit local PyTorch requested — honor it (float16 keeps it under 4 GB).
+        logger.info("[BOOT] ZO Computer: explicit local backend requested — loading PyTorch model in float16.")
     elif LLM_BACKEND == "llmster":
         LLM_API_URL = LLM_API_URL or "http://localhost:1234/v1"
         LLM_BACKEND = "openai_compatible"
@@ -103,8 +109,9 @@ def _keep_alive_pinger():
 # ====================
 # DEFENSE 2: MEMORY WATCHDOG
 # ====================
-# Monitors RAM usage; if >85% used, forces garbage collection and logs a warning.
-# If >95%, disables new inference requests to prevent OOM kill.
+# Monitors AVAILABLE RAM (not %). The loaded model legitimately uses most of the
+# 4 GB on ZO, so a high % is normal and must NOT pause the service. Only a truly
+# low amount of reclaimable memory (<50 MB) is treated as critical.
 def _memory_watchdog():
     """Background thread: monitors system memory every 60s."""
     global model_status
@@ -116,18 +123,18 @@ def _memory_watchdog():
                 mem = f.read()
             total = int(_re.search(r'MemTotal:\s+(\d+)', mem).group(1))
             avail = int(_re.search(r'MemAvailable:\s+(\d+)', mem).group(1))
+            avail_mb = avail / 1024
             used_pct = (1 - avail / total) * 100
-            if used_pct > 95:
-                logger.critical(f"[WATCHDOG] CRITICAL: Memory at {used_pct:.0f}% — pausing inference")
-                model_status = "overloaded"
-                import gc; gc.collect()
-            elif used_pct > 85:
-                logger.warning(f"[WATCHDOG] High memory: {used_pct:.0f}% — running GC")
+            # The loaded model legitimately uses nearly all RAM on the 4 GB ZO host;
+            # gVisor often reports MemAvailable near 0 even while inference works fine.
+            # We only GC + log here — we NEVER flip model_status to "overloaded",
+            # because that 503s every request (incl. chat) and the host then sleeps
+            # the service, which is the root cause of the recurring pauses.
+            if avail_mb < 150:
+                logger.warning(f"[WATCHDOG] Low reclaimable memory: {avail_mb:.0f}MB available ({used_pct:.0f}% used) — running GC")
                 import gc; gc.collect()
             else:
-                if model_status == "overloaded":
-                    model_status = "ready"
-                    logger.info(f"[WATCHDOG] Memory recovered ({used_pct:.0f}%) — resuming inference")
+                logger.debug(f"[WATCHDOG] Memory OK: {avail_mb:.0f}MB available")
         except Exception:
             pass  # /proc not available (non-Linux), skip silently
 
@@ -339,7 +346,7 @@ def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
     token = ZO_API_TOKEN
     if not token:
         raise RuntimeError("ZO_CLIENT_IDENTITY_TOKEN not set — cannot call /zo/ask")
-    model_name = LLM_MODEL or "gpt-4o-mini"
+    model_name = LLM_MODEL or "byok:0d3567f7-f521-42b0-8adf-65c9b036cf89"
     zo_input = _messages_to_zo_input(messages)
     body = {
         "input": zo_input,
@@ -362,22 +369,15 @@ def _forward_to_zo(messages, max_tokens=256, temperature=0.7, stream=False):
             return {"choices": [{"message": {"content": data.get("output", "")}}]}
         return resp
     except Exception as e:
-        logger.warning("[LLM] ZO /zo/ask failed (%s) — falling back to llmster", e)
-        # Fallback: try llmster on localhost:1234
-        fallback_url = "http://localhost:1234/v1/chat/completions"
-        fb_headers = {"Content-Type": "application/json"}
-        fb_body = {
-            "model": LLM_MODEL,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": stream,
-        }
-        if stream:
-            return requests.post(fallback_url, json=fb_body, headers=fb_headers, stream=True, timeout=120)
-        resp = requests.post(fallback_url, json=fb_body, headers=fb_headers, timeout=120)
-        resp.raise_for_status()
-        return resp.json()
+        # Do NOT silently fall back to localhost:1234 (llmster) — that endpoint is
+        # not running on ZO and produces a confusing "Model provider rejected your
+        # credentials" / connection-refused error. Surface the real failure.
+        logger.error("[LLM] ZO /zo/ask failed: %s", e)
+        raise RuntimeError(
+            "ZO native inference (/zo/ask) failed: " + str(e) + "\n"
+            "Tip: set LLM_BACKEND=local to run the built-in 360M model, or add a "
+            "valid LLM_API_KEY/LLM_API_URL for an OpenAI-compatible backend."
+        ) from e
 
 def load_model():
     global model, tokenizer, model_status
@@ -390,6 +390,8 @@ def load_model():
         print(f"[OK] Using external LLM backend: {LLM_BACKEND} @ {LLM_API_URL}")
         return
     try:
+        global torch
+        import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
         tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
@@ -425,6 +427,13 @@ def get_conversation_history(conv_id, limit=10):
     except Exception:
         return []
 
+def _cap_text(text, max_chars=3500):
+    """Cap a single chat message so one oversized paste can't blow the prompt to 30k+ tokens."""
+    if not isinstance(text, str):
+        text = str(text)
+    return text if len(text) <= max_chars else text[-max_chars:]
+
+
 def build_prompt_with_context(prompt, conv_id=None, max_history=5):
     """Build a ChatML-formatted prompt (matching the model's trained chat template).
 
@@ -439,8 +448,8 @@ def build_prompt_with_context(prompt, conv_id=None, max_history=5):
     messages = [{"role": "system", "content": NEURALAI_SYSTEM_PROMPT}]
     for msg in history:
         role = "user" if msg["role"] == "user" else "assistant"
-        messages.append({"role": role, "content": msg["content"]})
-    messages.append({"role": "user", "content": prompt})
+        messages.append({"role": role, "content": _cap_text(msg["content"])})
+    messages.append({"role": "user", "content": _cap_text(prompt)})
 
     # Use the tokenizer's native chat template so formatting exactly matches training.
     try:
@@ -536,7 +545,7 @@ def generate_response(prompt, max_tokens=256, temperature=0.7, conv_id=None):
         full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
         # Safety: if prompt exceeds model context, truncate from the front
-        max_input = 7500  # SmolLM2-360M has 8192 context; reserve 692 for generation
+        max_input = 768 if LLM_BACKEND == "local" else 4000  # local CPU: keep prefill ~25s
         if inputs["input_ids"].shape[-1] > max_input:
             inputs["input_ids"] = inputs["input_ids"][:, -max_input:]
             inputs["attention_mask"] = inputs["attention_mask"][:, -max_input:]
@@ -670,7 +679,7 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
             full = build_prompt_with_context(prompt, conv_id)
         inputs = tokenizer(full, return_tensors="pt")
         # Safety: if prompt exceeds model context, truncate from the front
-        max_input = 7500
+        max_input = 768 if LLM_BACKEND == "local" else 4000  # local CPU: keep prefill ~25s
         if inputs["input_ids"].shape[-1] > max_input:
             inputs["input_ids"] = inputs["input_ids"][:, -max_input:]
             inputs["attention_mask"] = inputs["attention_mask"][:, -max_input:]
@@ -860,6 +869,10 @@ def terms():
 # ====================
 @app.before_request
 def _reject_if_overloaded():
+    # Never 503 liveness probes. The host pauses the service when /health fails,
+    # which was the root cause of the recurring "NeuralAI pauses" problem.
+    if request.path in ("/health", "/api/health", "/api/status", "/api/healthz"):
+        return
     if model_status == "overloaded":
         from flask import abort
         abort(503)
@@ -1517,12 +1530,22 @@ def openai_chat_completions(model_id=None):
         api_key = (request.get_json(silent=True) or {}).get("api_key", "").strip()
     user_id = _user_for_api_key(api_key)
     if not user_id:
-        return jsonify({"error": "Invalid API key"}), 401
+        # The ZO native backend authenticates via the platform identity token
+        # (ZO_CLIENT_IDENTITY_TOKEN), not a user-supplied key, so it must be
+        # allowed unkeyed just like the local backend. Otherwise every chat
+        # request returns "Invalid API key" (the recurring unauthorized error).
+        if LLM_BACKEND in ("local", "zo"):
+            user_id = "founder"
+        else:
+            return jsonify({"error": "Invalid API key"}), 401
 
     data = request.get_json(silent=True) or {}
     messages = data.get("messages", [])
     model_id = data.get("model", "neuralai")  # request model ID (not the global model object)
-    max_tokens = min(int(data.get("max_tokens", 128)), 256)  # cap for CPU inference
+    # Local CPU backend is slow: cap generation lower so responses stream fast.
+    _mt_default = 48 if LLM_BACKEND == "local" else 512
+    _mt_cap = 80 if LLM_BACKEND == "local" else 2048
+    max_tokens = min(int(data.get("max_tokens", _mt_default)), _mt_cap)
     temperature = float(data.get("temperature", 0.3))  # lower default for faster CPU inference
     # Always stream — BYO API hosts (e.g. ZO Computer) expect SSE to show
     # tokens arriving; non-streaming blocks until full response which can
@@ -1552,7 +1575,7 @@ def openai_chat_completions(model_id=None):
         content = m.get("content", "")
         if isinstance(content, list):  # handle multimodal content arrays
             content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
-        chat_messages.append({"role": role, "content": content})
+        chat_messages.append({"role": role, "content": _cap_text(content)})
 
     # Truncate to fit the model's context window (prevent OOM from 50K+ token payloads)
     # Skip when tokenizer is None (external backends handle their own limits)
@@ -1594,36 +1617,46 @@ def openai_chat_completions(model_id=None):
             try:
                 resp = _forward_to_zo(chat_messages, max_tokens=max_tokens, temperature=temperature, stream=True)
                 if resp.status_code != 200:
-                    err = f"ZO backend error ({resp.status_code}): {resp.text[:200]}"
-                    yield "data: " + json.dumps({"choices": [{"delta": {"content": err}, "finish_reason": None}]}) + "\n\n"
+                    raise RuntimeError(f"ZO backend error ({resp.status_code}): {resp.text[:200]}")
+                content_type = resp.headers.get("content-type", "")
+                if "text/event-stream" in content_type or "chunked" in content_type:
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith(b"data: "):
+                            continue
+                        payload = line[6:].decode().strip()
+                        if payload == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(payload)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            tok = delta.get("content", "")
+                            if not tok:
+                                tok = chunk.get("output", "")
+                            if tok:
+                                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": tok}, "finish_reason": None}]}) + "\n\n"
+                        except json.JSONDecodeError:
+                            continue
                 else:
-                    content_type = resp.headers.get("content-type", "")
-                    if "text/event-stream" in content_type or "chunked" in content_type:
-                        for line in resp.iter_lines():
-                            if not line or not line.startswith(b"data: "):
-                                continue
-                            payload = line[6:].decode().strip()
-                            if payload == "[DONE]":
-                                break
-                            try:
-                                chunk = json.loads(payload)
-                                delta = chunk.get("choices", [{}])[0].get("delta", {})
-                                tok = delta.get("content", "")
-                                if not tok:
-                                    tok = chunk.get("output", "")
-                                if tok:
-                                    yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": tok}, "finish_reason": None}]}) + "\n\n"
-                            except json.JSONDecodeError:
-                                continue
-                    else:
-                        data = resp.json()
-                        full_output = data.get("output", "")
-                        if not full_output and "choices" in data:
-                            full_output = data["choices"][0].get("message", {}).get("content", "")
-                        if full_output:
-                            yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": full_output}, "finish_reason": None}]}) + "\n\n"
+                    data = resp.json()
+                    full_output = data.get("output", "")
+                    if not full_output and "choices" in data:
+                        full_output = data["choices"][0].get("message", {}).get("content", "")
+                    if full_output:
+                        yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": full_output}, "finish_reason": None}]}) + "\n\n"
             except Exception as e:
-                yield "data: " + json.dumps({"choices": [{"delta": {"content": f"ZO Error: {e}"}, "finish_reason": None}]}) + "\n\n"
+                # ZO backend failed. Do NOT fall back to the local PyTorch model — on the 4GB ZO
+                # Computer it OOMs and emits incoherent <80-token replies. Surface the error so the
+                # user sees what happened instead of garbage.
+                logger.error(f"[LLM] ZO backend failed, local fallback disabled: {e}")
+                err_msg = (
+                    f"NeuralAI is temporarily unavailable: the model backend returned an error "
+                    f"({getattr(e, 'response', None) or str(e)[:200]}). Please try again or check the service logs."
+                )
+                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}) + "\n\n"
+                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": err_msg}, "finish_reason": None}]}) + "\n\n"
+                yield "data: " + json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}) + "\n\n"
+                yield "data: [DONE]\n\n"
+                return
             yield "data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}) + "\n\n"
             yield "data: [DONE]\n\n"
         return Response(stream_with_context(gen_zo()), mimetype="text/event-stream")

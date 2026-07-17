@@ -596,13 +596,23 @@ function updateModelStatus() {
     const dot = document.getElementById('uplinkDot');
     const label = document.getElementById('uplinkLabel');
     const isLocal = d.llm_backend && d.llm_backend !== 'zo';
-    if (dot) dot.className = 'status-dot ' + (d.status === 'ready' ? 'online' : 'offline');
-    if (label) label.textContent = d.status === 'ready' ? (isLocal ? 'Ready (Local)' : 'Ready (External)') : (d.status || 'Offline');
+    // Friendly, human-readable labels — never dump raw backend error text.
+    const detail = (d.backend_probe && d.backend_probe.detail) ? d.backend_probe.detail : '';
+    let cls, text;
+    if (d.status === 'ready') {
+      cls = 'online'; text = isLocal ? 'Ready (Local)' : 'Ready (External)';
+    } else if (d.status === 'degraded' || d.status === 'error' || d.status === 'loading') {
+      cls = 'degraded'; text = d.status === 'loading' ? 'Loading model…' : 'Degraded — model server restarting';
+    } else {
+      cls = 'offline'; text = 'Offline';
+    }
+    if (dot) { dot.className = 'status-dot ' + cls; dot.title = detail || text; }
+    if (label) { label.textContent = text; label.title = detail || ''; }
   }).catch(() => {
     const dot = document.getElementById('uplinkDot');
     const label = document.getElementById('uplinkLabel');
-    if (dot) dot.className = 'status-dot offline';
-    if (label) label.textContent = 'Offline';
+    if (dot) { dot.className = 'status-dot offline'; dot.title = 'Could not reach status endpoint'; }
+    if (label) { label.textContent = 'Offline'; label.title = ''; }
   });
 }
 
@@ -1851,6 +1861,17 @@ function fmt(text) {
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   // Restore image placeholders
   out = out.replace(/\u0000IMG(\d+)\u0000/g, (_, i) => imagePlaceholders[Number(i)] || '');
+  // Render markdown links [label](url) with the label as visible text
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (_, label, url) => {
+    const clean = url.replace(/[).,;]+$/, '');
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  });
+  // Linkify bare URLs (skip anything already inside an anchor or code/pre)
+  out = out.replace(/(<a\b[^>]*>.*?<\/a>)|(https?:\/\/[^\\s<]+)/gi, (m, a, u) => {
+    if (a) return a;
+    const clean = u.replace(/[).,;]+$/, '');
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>`;
+  });
   return out;
 }
 

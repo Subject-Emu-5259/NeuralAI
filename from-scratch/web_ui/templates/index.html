@@ -401,6 +401,10 @@ body.dark-mode .history-item.active {
   background: #34a853;
 }
 
+.status-dot.degraded {
+  background: var(--amber, #f59e0b);
+}
+
 .status-label {
   font-size: 13px;
   color: #5f6368;
@@ -3102,6 +3106,7 @@ body.dark-mode .onboarding-close:hover {
       <button class="nav-item active" data-tab="chat" onclick="switchTab('chat')">💬 Chat</button>
       <button class="nav-item" data-tab="files" onclick="switchTab('files')">📁 Files</button>
       <button class="nav-item" data-tab="terminal" onclick="switchTab('terminal')">💻 Terminal</button>
+      <button class="nav-item" data-tab="browser" onclick="switchTab('browser')">🌐 Browser</button>
       <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</button>
     </div>
     <div class="sidebar-section">
@@ -3274,7 +3279,61 @@ body.dark-mode .onboarding-close:hover {
         <div id="snippetsList" class="panel-content"></div>
       </div>    </div>
 
-    <!-- Settings Tab (Unified & Consolidated) -->
+        <!-- Browser Tab (Embedded Web Browser: Mirror + Standalone) -->
+    <div id="tab-browser" class="hidden">
+      <section class="browser-section">
+        <div class="browser-header">
+          <div class="browser-brand">
+            <span class="terminal-brand-name">NeuralBrowser</span>
+            <span class="terminal-brand-sub">AI-driven · live web view</span>
+          </div>
+          <div class="browser-mode-toggle" id="brModeTabs">
+            <button class="br-mode active" data-mode="standalone" onclick="brSetMode('standalone')">🧭 User Browser</button>
+            <button class="br-mode" data-mode="mirror" onclick="brSetMode('mirror')">🤖 AI Mirror</button>
+          </div>
+          <div class="browser-status" id="brStatus">Idle</div>
+          <button class="browser-nav-btn" onclick="brClose()" title="Close session">✕</button>
+        </div>
+
+        <div class="browser-toolbar">
+          <button class="browser-nav-btn" onclick="brAction('back')" title="Back">◀</button>
+          <button class="browser-nav-btn" onclick="brAction('forward')" title="Forward">▶</button>
+          <button class="browser-nav-btn" onclick="brAction('reload')" title="Reload">⟳</button>
+          <input type="text" id="brUrl" placeholder="Enter URL or search… (e.g. example.com)" onkeydown="if(event.key==='Enter') brNavigate()" />
+          <button class="browser-go" onclick="brNavigate()">Go</button>
+        </div>
+
+        <div class="browser-viewport-wrap">
+          <div class="browser-viewport" id="browserViewport">
+            <div class="browser-placeholder" id="browserPlaceholder">
+              <div style="font-size:42px;margin-bottom:12px;">🌐</div>
+              <h3>Embedded NeuralBrowser</h3>
+              <p>Type a URL above to open a live, in-app browser. Switch to <b>AI Mirror</b> mode and describe a task (e.g. "search for NeuralAI news") to watch the AI drive the page in real time.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;">
+                <button class="browser-go" onclick="document.getElementById('brUrl').value='https://example.com';brNavigate()">Open example.com</button>
+                <button class="browser-go" onclick="brSetMode('mirror');document.getElementById('brTask').focus()">Try AI Mirror</button>
+              </div>
+            </div>
+            <img id="brShot" class="browser-screenshot" alt="live browser view" style="display:none" />
+            <div class="browser-current" id="brCurInfo" style="display:none">
+              <span id="brCurUrl"></span> · <span id="brCurTitle"></span>
+            </div>
+          </div>
+          <div class="browser-side" id="browserSide">
+            <div class="browser-side-head"><span>Session</span></div>
+            <div class="browser-ai-log" id="brEvents"></div>
+            <div class="browser-ai-input" id="brAiBar" style="display:none">
+              <input type="text" id="brTask" placeholder="Tell the AI what to do… (e.g. search NeuralAI news)" onkeydown="if(event.key==='Enter') brRunTask()" />
+              <button class="browser-go" onclick="brRunTask()">Run AI</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+
+
+<!-- Settings Tab (Unified & Consolidated) -->
     <div id="tab-settings" class="hidden">
       <section class="settings-section">
         <div class="settings-header">
@@ -3481,6 +3540,7 @@ body.dark-mode .onboarding-close:hover {
   <button class="close-live-btn" id="closeLiveBtn">End Conversation</button>
 </div>
 
+<script src="/static/js/browser.js?v={{BUILD_VERSION}}"></script>
 <script src="/static/js/main_v2.js?v={{BUILD_VERSION}}"></script>
 </body>
 </html>

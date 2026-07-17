@@ -26,6 +26,9 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 from tools.tool_handler import run_tool as _run_tool
+from tools.tool_router import route as _route_nl_tool
+from tools import refine as _refine
+from tools import web_browser as _web_browser
 
 # torch is imported lazily inside load_model() only when LLM_BACKEND=local
 # This prevents 6GB+ RAM usage on ZO Computer when using external API backends
@@ -1019,6 +1022,39 @@ def api_chat(current_user):
             logger.error(f"Failed to save user message: {e}")
 
     def generate_unified():
+        # --- NL -> tool routing (agentic router) ---
+        # Plain-English web/image/news requests are intercepted here so they hit
+        # the real tools instead of the 360M model (which has no tools and would
+        # hallucinate a news list or fall through to the placeholder image path).
+        try:
+            routed = _route_nl_tool(prompt)
+        except Exception as _re:
+            logger.warning(f"[api_chat] tool routing failed, using model: {_re}")
+            routed = None
+        if routed:
+            tool_name, tool_params = routed
+            try:
+                res = _run_tool(tool_name, tool_params)
+                raw = (res.get("output") or "") if isinstance(res, dict) else str(res)
+                if not raw and isinstance(res, dict) and res.get("error"):
+                    raw = "⚠️ " + res["error"]
+                kind = "news" if tool_name in ("news",) else ("web_search" if tool_name in ("web_search", "research") else "")
+                out = _refine.refine_text(raw, kind) if raw else "(no result)"
+            except Exception as _te:
+                out = f"⚠️ Tool error: {_te}"
+            yield f"data: {json.dumps({'content': out})}\n\n"
+            if conv_id and out:
+                try:
+                    db = get_db()
+                    now = datetime.now(timezone.utc).isoformat()
+                    db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
+                               (conv_id, out, now))
+                    db.commit()
+                    db.close()
+                except Exception as _e:
+                    logger.error(f"Failed to save tool assistant message: {_e}")
+            yield "data: [DONE]\n\n"
+            return
         if use_uplink:
             for agent_name, agent in UPLINK_AGENTS.items():
                 try:
@@ -1028,6 +1064,49 @@ def api_chat(current_user):
                         yield f"data: {json.dumps({'content': chunk})}\n\n"
                 except: pass
         else:
+            # ---- NL -> tool routing (agentic) ----
+            # Plain-English web/image/news/research requests are intercepted BEFORE
+            # they reach the 360M model, so the assistant actually uses its tools
+            # instead of hallucinating a news list or returning a placeholder image.
+            # tool_router.route() falls back to the keyword router (and ultimately
+            # None) on any LLM failure, so a missing key never breaks normal chat.
+            try:
+                routed = _route_nl_tool(prompt)
+            except Exception as _re:
+                logger.warning(f"[api_chat] NL routing failed, falling back to model: {_re}")
+                routed = None
+            if routed:
+                tool_name, tool_params = routed
+                try:
+                    res = _run_tool(tool_name, tool_params or {})
+                    raw = (res.get("output") or "").strip()
+                    if not raw and res.get("error"):
+                        raw = f"⚠️ {res['error']}"
+                    # Refine web/news/research output into clean markdown.
+                    kind = tool_name if tool_name in ("news", "web_search", "research", "web_fetcher") else ""
+                    if kind and raw:
+                        try:
+                            raw = _refine.refine_text(raw, kind)
+                        except Exception:
+                            pass
+                    if raw:
+                        yield f"data: {json.dumps({'content': raw})}\n\n"
+                        if conv_id:
+                            try:
+                                db = get_db()
+                                now = datetime.now(timezone.utc).isoformat()
+                                db.execute("INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
+                                           (conv_id, raw, now))
+                                db.commit()
+                                db.close()
+                            except Exception as e:
+                                logger.error(f"Failed to save tool-routed message: {e}")
+                        stop_events.pop(conv_id, None)
+                        yield "data: [DONE]\n\n"
+                        return
+                except Exception as _te:
+                    logger.error(f"[api_chat] tool '{tool_name}' failed: {_te}")
+                    # fall through to model generation below
             # Real token streaming — first token arrives in <1s instead of after full generation
             full_response = []
             for token in stream_response(prompt, conv_id=conv_id):
@@ -1383,6 +1462,180 @@ def api_tool(current_user):
     except Exception as e:
         logger.error(f"[api_tool] {tool} failed: {e}")
         return jsonify({"success": False, "error": f"Tool error: {e}", "data": {}}), 500
+
+# ====================
+# ROUTES - EMBEDDED BROWSER (Mirror + Standalone)
+# ====================
+# A single Playwright session (tools/web_browser.BrowserSession) is shared per
+# client so the embedded browser panel in the UI can both (A) mirror the AI's
+# automation steps live AND (B) act as a standalone user-controlled browser.
+# Screenshots are returned as base64 PNG data URLs so the SPA can render them
+# without any extra static-file wiring.
+
+def _browser_session(uid):
+    """Get (creating if needed) the per-user browser session."""
+    sid = "ui_" + str(uid or "anon")
+    return _web_browser.get_session(sid)
+
+def _shoot(page, sess=None, max_w=900):
+    """Return a base64 JPEG data URL of the current page.
+    The Playwright page is bound to a dedicated owner thread, so the screenshot
+    MUST run via `sess._run`. When a session is passed we route it there; as a
+    fallback for same-thread callers we call page.screenshot directly."""
+    import base64
+    def _cap():
+        return page.screenshot(type="jpeg", quality=70, full_page=False)
+    try:
+        if sess is not None:
+            try:
+                buf = sess._run(_cap)
+            except Exception:
+                buf = _cap()
+        else:
+            buf = _cap()
+        return "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
+    except Exception as e:
+        svg = f'<svg xmlns="http://www.w3.org/2000/svg"><text>shot failed: {e}</text></svg>'.encode()
+        return "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+
+@app.route("/api/browser/health", methods=["GET"])
+@token_required
+def api_browser_health(current_user):
+    with _web_browser._LOCK:
+        live = sum(1 for sess in _web_browser._SESSIONS.values() if sess is not None)
+    return jsonify({"success": True, "active_sessions": live})
+
+@app.route("/api/browser/navigate", methods=["POST"])
+@token_required
+def api_browser_navigate(current_user):
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "").strip()
+    if not url:
+        return jsonify({"success": False, "error": "url required"}), 400
+    if not url.startswith("http"):
+        url = "https://" + url
+    try:
+        sess = _browser_session(current_user)
+        sess._run(sess.page.goto, url, wait_until="domcontentloaded", timeout=30000)
+        sess._run(sess.page.wait_for_timeout, 1200)
+        return jsonify({
+            "success": True,
+            "url": sess._run(lambda: sess.page.url),
+            "title": sess._run(lambda: sess.page.title()),
+            "screenshot": _shoot(sess.page, sess),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/browser/action", methods=["POST"])
+@token_required
+def api_browser_action(current_user):
+    """Standalone mode: user-driven click/type/scroll/fill on the live page."""
+    data = request.get_json(silent=True) or {}
+    act = (data.get("action") or "").lower()
+    sess = _browser_session(current_user)
+    try:
+        page = sess.page
+        def _act():
+            if act == "click":
+                page.get_by_text(data.get("text", ""), exact=False).first.click()
+            elif act == "click_selector":
+                page.click(data.get("selector", ""))
+            elif act == "fill":
+                page.fill(data.get("selector", ""), data.get("value", ""))
+            elif act in ("scroll_down", "scroll"):
+                page.mouse.wheel(0, int(data.get("amount", 800)))
+            elif act == "scroll_up":
+                page.mouse.wheel(0, -int(data.get("amount", 800)))
+            elif act == "back":
+                page.go_back()
+            elif act == "forward":
+                page.go_forward()
+            elif act == "reload":
+                page.reload()
+            else:
+                return "unknown"
+            page.wait_for_timeout(900)
+            return "ok"
+        res = sess._run(_act)
+        if res == "unknown":
+            return jsonify({"success": False, "error": f"unknown action: {act}"}), 400
+        return jsonify({"success": True, "url": sess._run(lambda: page.url), "screenshot": _shoot(page)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "screenshot": _shoot(sess.page, sess)}), 200
+
+@app.route("/api/browser/run", methods=["POST"])
+@token_required
+def api_browser_run(current_user):
+    """Mirror mode: AI (or user prompt) drives a multi-step task. Streams each
+    step as an SSE event with the screenshot so the UI can show the AI driving."""
+    data = request.get_json(silent=True) or {}
+    task = (data.get("task") or "").strip()
+    url = (data.get("url") or "").strip()
+    if not task and not url:
+        return jsonify({"success": False, "error": "task or url required"}), 400
+
+    sess = _browser_session(current_user)
+
+    def gen(start_url=url):
+        import json as _json
+        try:
+            if start_url:
+                u = start_url if start_url.startswith("http") else "https://" + start_url
+                info = sess.navigate_to(u)
+                yield _ev("step", f"🌐 Opened {info['url']}", sess.screenshot())
+            # Decompose the task into browser steps via the NL router's planner.
+            steps = _plan_browser_steps(task)
+            for step in steps:
+                out = sess._run(sess._do_step, step)
+                yield _ev("step", out, sess.screenshot())
+            final = sess._extract_text()[:2000]
+            yield _ev("done", f"✅ Task complete on {sess.page.url}\n\n{final}", _shoot(sess.page, sess))
+        except Exception as e:
+            yield _ev("error", f"❌ {e}", _shoot(sess.page, sess))
+
+    def _ev(kind, text, shot):
+        return f"data: {_json.dumps({'kind': kind, 'text': text, 'screenshot': shot})}\n\n"
+
+    return Response(gen(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+def _plan_browser_steps(task):
+    """Lightweight planner: turn a natural-language task into BrowserSession
+    steps. Keyword/pattern based — no network, no model dependency."""
+    t = task.lower()
+    steps = []
+    import re as _re
+    # Extract an explicit URL to open first
+    m = _re.search(r"https?://\S+", task)
+    if m and not task.strip().startswith("go "):
+        steps.append(f"go {m.group(0)}")
+    # Search intent
+    if any(k in t for k in ["search", "look up", "find", "google"]):
+        q = _re.sub(r"^(please |can you |help me )?(search|look up|find|google) (for |on |about )?", "", t)
+        q = _re.sub(r"https?://\S+", "", q).strip()
+        if q:
+            steps.append(f"go https://www.google.com/search?q={requests.utils.quote(q)}")
+            steps.append("scroll down")
+    # Generic "go to X" intent
+    elif m is None and any(k in t for k in ["go to", "open", "visit", "navigate to"]):
+        site = _re.sub(r".*?(go to|open|visit|navigate to)\s*", "", t).strip()
+        if site and "." in site:
+            steps.append(f"go https://{site}" if not site.startswith('http') else f"go {site}")
+    else:
+        # Fallback: treat the whole task as a search
+        steps.append(f"go https://www.google.com/search?q={requests.utils.quote(task)}")
+        steps.append("scroll down")
+    return steps[:8]
+
+@app.route("/api/browser/close", methods=["POST"])
+@token_required
+def api_browser_close(current_user):
+    try:
+        _web_browser.close_session("ui_" + str(current_user or "anon"))
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ====================
 # ROUTES - AUTH

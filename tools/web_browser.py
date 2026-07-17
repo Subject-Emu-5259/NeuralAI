@@ -50,6 +50,50 @@ class BrowserSession:
     def run(self, url: str, steps: List[str]) -> str:
         return self._run(self._run_impl, url, steps)
 
+    def navigate(self, url: str) -> Dict[str, Any]:
+        return self._run(self._navigate_impl, url)
+
+    def action(self, action: str) -> Dict[str, Any]:
+        return self._run(self._action_impl, action)
+
+    def screenshot(self) -> str:
+        return self._run(self._screenshot_impl)
+
+    def _navigate_impl(self, url: str) -> Dict[str, Any]:
+        try:
+            self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            self.page.wait_for_timeout(1200)
+            return {
+                "success": True,
+                "url": self.page.url,
+                "title": self.page.title(),
+                "screenshot": self._screenshot_impl(),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _action_impl(self, action: str) -> Dict[str, Any]:
+        try:
+            out = self._do_step(action)
+            return {
+                "success": True,
+                "result": out,
+                "url": self.page.url,
+                "screenshot": self._screenshot_impl(),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _screenshot_impl(self) -> str:
+        try:
+            buf = self.page.screenshot(type="jpeg", quality=70, full_page=False)
+            import base64
+            return "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
+        except Exception as e:
+            import base64
+            svg = f'<svg xmlns="http://www.w3.org/2000/svg"><text>shot failed: {e}</text></svg>'.encode()
+            return "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+
     def _run_impl(self, url: str, steps: List[str]) -> str:
         try:
             self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
@@ -117,6 +161,55 @@ class BrowserSession:
             except Exception as e:
                 return f"⚠️ Type failed: {e}"
         return f"⏭️ Unrecognized step skipped: {step}"
+
+    def navigate_to(self, url: str, wait: int = 1200) -> dict:
+        return self._run(self._navigate_impl, url, wait)
+
+    def _navigate_impl(self, url: str, wait: int):
+        self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        self.page.wait_for_timeout(wait)
+        return {"url": self.page.url, "title": self.page.title()}
+
+    def do_action(self, act: str, data: dict) -> dict:
+        return self._run(self._action_impl, act, data)
+
+    def _action_impl(self, act: str, data: dict):
+        page = self.page
+        a = (act or "").lower()
+        if a == "click":
+            page.get_by_text(data.get("text", ""), exact=False).first.click()
+        elif a == "click_selector":
+            page.click(data.get("selector", ""))
+        elif a == "fill":
+            page.fill(data.get("selector", ""), data.get("value", ""))
+        elif a in ("scroll_down", "scroll"):
+            page.mouse.wheel(0, int(data.get("amount", 800)))
+        elif a == "scroll_up":
+            page.mouse.wheel(0, -int(data.get("amount", 800)))
+        elif a == "back":
+            page.go_back()
+        elif a == "forward":
+            page.go_forward()
+        elif a == "reload":
+            page.reload()
+        else:
+            raise ValueError(f"unknown action: {a}")
+        page.wait_for_timeout(900)
+        return {"url": page.url}
+
+    def screenshot(self) -> str:
+        return self._run(self._shoot_impl)
+
+    def _shoot_impl(self) -> str:
+        try:
+            buf = self.page.screenshot(type="jpeg", quality=70, full_page=False)
+            import base64
+            return "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
+        except Exception as e:
+            import base64
+            return "data:image/svg+xml;base64," + base64.b64encode(
+                f'<svg xmlns="http://www.w3.org/2000/svg"><text>shot failed: {e}</text></svg>'.encode()
+            ).decode()
 
     def _extract_text(self) -> str:
         try:

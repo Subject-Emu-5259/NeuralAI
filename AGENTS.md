@@ -21,6 +21,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI (not a remnant) — see Web UI & Service Safety. A `checkpoints/` directory still exists at repo root and is NOT purged; treat it as stale model artifacts, do not assume it was cleaned.
 - **DPO Expansion**: Dataset v15 expanded to **597** preference pairs (`data/train_dpo_v15.jsonl`) focusing on debugging, logic, and multi-step reasoning.
 - **Inference Engine**: llmster 0.0.19 running SmolLM2-360M-Instruct Q4_K_M GGUF (~258MB RAM). Replaces PyTorch (5GB RAM) for production inference.
+- **LM Studio (port 1234) persistence — SOLVED (2026-07-17):** A single `process` user service (`neuralai-lmstudio`, `svc_Ob9JgSNKYdw`) runs `lms server start --port 1234 --bind 127.0.0.1` on boot and re-checks every 30s, so the 360M model (and the NL→tool router's fallback path) survives Zo reboots. This is option (b). The earlier duplicate `neuralai-lm-studio` (`svc_YmwyvLGwdFk`, broken PATH export) was deleted. There is exactly ONE lm-studio watchdog — do not register a second one.
 
 ## 🔗 Ecosystem Integration
 - **Frontend**: NeuralAI is the intelligence source for **NeuralLabs** (`/home/workspace/Projects/NeuralLabs`).
@@ -51,5 +52,23 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - `/news <topic>` → `web_search` with `" news"` suffix.
 - `/yt <url>` → YouTube metadata + `summarize_sources`.
 - Inline link preview: `fmt()` in `main.js` rewrites `http(s)://` URLs in assistant output into clickable cards.
+- **NL→Tool Router (added 2026-07-16):** Plain-English web requests are intercepted BEFORE they reach the 360M model, so the user no longer needs to remember slash syntax. Implementation:
+  - `tools/web_intent.py` — `classify(text)` returns `{"tool": <name>, "params": <str>, "confidence": <0-1>, "reason": <str>}` for intents `web_search`, `web_fetcher`, `web_browser`, `research`, `image`, `tts`, `summarize`, `translate`, `news`, `youtube`, else `tool=None` (pass to model). Keyword/URL/regex based, no network, no deps. `TEST_SUITE` in the same file covers 12 cases (all passing).
+  - `services/webui_service.py` `handle_chat()` imports `classify` and, when `tool` is set, routes to `ToolHandler.execute(tool, params)` and returns the tool result as the assistant message (no raw 360M generation). Slash commands (`/web`, etc.) are still handled client-side in `main.js` and remain live.
+  - **Refined output (added 2026-07-16):** Raw tool text (e.g. `web_search`/`web_fetcher` boilerplate, `research` concatenations) is passed through `tools/refine.py` → `refine_text(raw, kind)` which strips noise/banners, dedupes, and tightens into clean prose before display. Import guarded so a missing module degrades to raw text rather than 500ing.
+  - **Verification note:** After editing `web_intent.py`/`refine.py`, restart the `neuralai-web-ui` service (`svc_1cHl6qlp4_g`) so the running process picks up the file; the service boots from `run_service.sh` → `services/webui_service.py`, not from `neural_core_service.py`.
 
-**Live key status (2026-07-16):** `Open_Router_API` = VALID (auth 200, used by `web_search` Sonar, `image_generator`, `translate`). `GEMINI_API_KEY` = PRESENT but 401 on Gemini API (do not rely on it for TTS/image). `ELEVENLABS_API_KEY` = present (neural_voice standby). `MINIMAX_AI_API_KEY` = present.
+****2026-07-17 Fix Log (verified live on neuralai-web-ui):**
+- `tools/web_search.py` Google News resolver fixed: `/articles/` interstitial now extracts real publisher URL via `URL=` param (previously returned 300-char tracking blobs). News output renders as clean `🔗 [Source · Read on Google News]` cards.
+- `tool_router.py` switched from dead `llama-3.2-3b-instruct` (402) to 3 free models; NL→tool routing confirmed live via `/api/chat`.
+- `translate` tool fixed: was calling 402ing `meta-llama/llama-3.2-3b-instruct`; now uses `google/gemini-2.5-flash` via OpenRouter (or Gemini key). Verified: 'hello'→Spanish works.
+- `image` generation confirmed real via Pollinations `flux` + OpenRouter `google/gemini-2.5-flash-image` fallback.
+- `/api/chat` error-log line repaired (undefined `e` 500'd the 360M fallback); now logs correct exception.
+
+Live key status (2026-07-16):** `Open_Router_API` = VALID (auth 200, used by `web_search` Sonar, `image_generator`, `translate`). `GEMINI_API_KEY` = PRESENT but 401 on Gemini API (do not rely on it for TTS/image). `ELEVENLABS_API_KEY` = present (neural_voice standby). `MINIMAX_AI_API_KEY` = present.
+
+- **Agentic Tool Use — DONE (2026-07-17):** `tools/tool_router.py::route()` is live in `handle_chat()` (`generate_unified`). LLM-based routing via OpenRouter free models [`meta-llama/llama-3.1-8b-instruct`, `nousresearch/hermes-3-llama-3.1-8b`, `google/gemma-2-9b-it`] with keyword fallback. Composite intents route to the `agent` tool. NL news/search/web/image now hit real tools instead of the 360M model. See `docs/PLAN_AGENTIC_TOOL_USE.md` (now implemented).
+
+- **Embedded NeuralBrowser — SHIPPED (2026-07-17):** New `Browser` tab in the live UI (`from-scratch/web_ui`). Both modes live: (a) **AI Mirror** — describe a task, backend streams Playwright steps + screenshots via `/api/browser/run` SSE so the user watches the AI drive; (b) **User Browser** — manual navigate/click/scroll/fill via `/api/browser/navigate` + `/api/browser/action`, with a real screenshot feed. Backend endpoints (all `token_required`): `/api/browser/health`, `/api/browser/navigate`, `/api/browser/action`, `/api/browser/run` (SSE), `/api/browser/close`. `tools/web_browser.py` hardened for gVisor: Chromium launches with `--no-sandbox` + `--disable-dev-shm-usage`; all page ops route through the session's owner thread via `sess._run`. `_shoot()` screenshots via `sess._run` to avoid "Cannot switch to a different thread". `main.js` `fmt()` calls `unfurl()` so long tracking URLs are minimized; slash `/browse <url>` now opens the Browser tab via `openBrowserWith()`. Added `escHtml()` + `unfurl()` helpers and fixed duplicate `else return;` / duplicate `slashPrefixes` lines in `runToolCommand`.
+
+**REGRESSION GUARD:** The Google News resolver (`/articles/` interstitial → real publisher URL) and `refine.py` news/web_search list rendering are LIVE in `/api/tool` via `_REFINE_KINDS`. Do not remove the `refine_text` call in `tool_handler.execute()` or links revert to tracking blobs.

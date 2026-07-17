@@ -6,7 +6,35 @@
 
 import sys
 import os
+import logging
+import re
 from typing import Dict, Any, Optional
+import time
+from datetime import datetime, timezone, timedelta
+
+# Local DB handle mirroring services/webui_service.DATABASE (no cross-module import to avoid circular deps)
+_IA_DATABASE = "/home/workspace/Projects/NeuralAI/data/neuralai.db"
+
+
+def _domain_of(url: str) -> str:
+    """Return a short readable host (e.g. bbc.com) from a URL."""
+    try:
+        from urllib.parse import urlparse
+        net = urlparse(url).netloc
+        return net[4:] if net.startswith("www.") else (net or "source")
+    except Exception:
+        return "source"
+
+
+def get_db():
+    import sqlite3
+    from pathlib import Path
+    Path("/home/workspace/Projects/NeuralAI/data").mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(_IA_DATABASE)
+
+logger = logging.getLogger("NeuralAI.ToolHandler")
+import logging
+logger = logging.getLogger(__name__)
 
 # Add tools to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,6 +86,65 @@ class MediaGenerator:
 
 media = MediaGenerator()
 from tools.voice_transcriber import voice_transcriber
+from tools.knowledge_graph import save_memory, search_memory, get_graph, recall, extract_and_store
+from tools.agentic import run as agentic_run
+
+# --- reminder helpers (used by /remind) ---
+def _parse_remind_time(text: str) -> Optional[float]:
+    """Parse a natural-ish time into a unix epoch (UTC). Returns None if unparseable."""
+    import re as _re
+    low = text.lower().strip()
+    now = time.time()
+    m = _re.match(r"^(\d+)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$", low)
+    if m:
+        n = int(m.group(1)); unit = m.group(2)[0]
+        mult = {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+        return now + n * mult
+    # also accept "<number> <word>" like "30 seconds" / "in 30 seconds"
+    mw = _re.match(r"(?:in\s+)?(\d+)\s*(second|minute|hour|day|sec|min|hr)s?\b", low)
+    if mw:
+        n = int(mw.group(1)); unit = mw.group(2)[0]
+        mult = {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+        return now + n * mult
+    mt = _re.match(r"tomorrow\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", low)
+    if mt:
+        hh = int(mt.group(1)); mm = int(mt.group(2) or 0)
+        if mt.group(3) == "pm" and hh < 12: hh += 12
+        if mt.group(3) == "am" and hh == 12: hh = 0
+        t = (datetime.now() + timedelta(days=1)).replace(hour=hh, minute=mm, second=0, microsecond=0)
+        return t.timestamp()
+    ma = _re.match(r"(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})", text.strip())
+    if ma:
+        try:
+            return datetime.strptime(f"{ma.group(1)} {ma.group(2)}:{ma.group(3)}", "%Y-%m-%d %H:%M").timestamp()
+        except Exception:
+            return None
+    return None
+
+
+def _remind_msg(text: str) -> str:
+    """Extract the message portion after a leading time expression."""
+    import re as _re
+    cleaned = _re.sub(r"^\s*(\d+\s*(s|m|h|d|sec|min|hr|hour|day|mins|hrs|hours|days|seconds)\b)", "", text, flags=_re.I).strip()
+    cleaned = _re.sub(r"^\s*tomorrow\s+\d{1,2}(?::\d{2})?\s*(am|pm)?\b", "", cleaned, flags=_re.I).strip()
+    cleaned = _re.sub(r"^\s*\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}\b", "", cleaned).strip()
+    cleaned = _re.sub(r"^\s*in\s+\d+\s*(second|minute|hour|day|sec|min|hr)s?\b", "", cleaned, flags=_re.I).strip()
+    return cleaned or text
+
+
+
+try:
+    from tools.refine import refine_text as _refine_text
+except Exception:
+    _refine_text = None
+
+# Tools whose output should be passed through refine_text inside execute()
+_REFINE_KINDS = {
+    "news": "news",
+    "web_search": "web_search",
+    "web_fetcher": "web_fetcher",
+    "research": "research",
+}
 
 
 class ToolHandler:
@@ -72,6 +159,7 @@ class ToolHandler:
         self.db_connector = DatabaseConnector()
         self.git_assistant = GitAssistant(repo_path=workspace)
         self.media = media
+        self.knowledge_graph = True  # module-level functions, no instance state needed
 
     def execute(self, tool: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -108,9 +196,80 @@ class ToolHandler:
             "video": self._handle_video,
             "audio": self._handle_audio,
             "voice": self._handle_voice,
-            "embed": self._handle_embed,
+            "embed": self._handle_embed,            "remember": self._handle_remember,
+            "recall": self._handle_recall,
+            "graph": self._handle_graph,
+            "agent": self._handle_agent,
+            "autosave": self._handle_autosave,
+            "calc": self._handle_calc,
+            "doc": self._handle_doc,
+            "vision": self._handle_vision,
+            "remind": self._handle_remind,
         }
+        handler = handlers.get(tool)
+        if handler is None:
+            return {"success": False, "output": "", "error": f"Unknown tool: {tool}", "data": {}}
+        try:
+            result = handler(params)
+        except Exception as e:
+            logger.error(f"[tool_handler] {tool} failed: {e}")
+            return {"success": False, "output": "", "error": str(e), "data": {}}
+        # Refine display output for web tools so /api/tool returns clean markdown
+        # regardless of whether the call came from the NL router or a slash command.
+        if _refine_text is not None and tool in _REFINE_KINDS and isinstance(result, dict) and result.get("success"):
+            raw = result.get("output", "")
+            if raw:
+                try:
+                    result["output"] = _refine_text(raw, _REFINE_KINDS[tool])
+                except Exception:
+                    pass
+        return result
+
         
+    def _handle_remember(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        content = params.get("content", "")
+        if not content and isinstance(params.get("text"), str):
+            content = params["text"]
+        if not content:
+            return {"success": False, "error": "content required", "output": "", "data": {}}
+        res = save_memory(content, tags=params.get("tags", ""),
+                          relation_to=params.get("relation_to", ""),
+                          relation=params.get("relation", ""))
+        return {"success": res.get("success", False),
+                "output": f"🧠 Remembered (id={res.get('id','?')}, remote={res.get('remote', False)})",
+                "error": "", "data": res}
+
+    def _handle_recall(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        query = params.get("query", params.get("q", ""))
+        if not query:
+            return {"success": False, "error": "query required", "output": "", "data": {}}
+        out = recall(query, limit=int(params.get("limit", 5)))
+        return {"success": True, "output": out, "error": "", "data": {}}
+
+    def _handle_graph(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        node_id = params.get("id", "")
+        if not node_id:
+            return {"success": False, "error": "id required", "output": "", "data": {}}
+        g = get_graph(node_id)
+        return {"success": True, "output": json.dumps(g), "error": "", "data": g}
+
+    def _handle_agent(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        task = params.get("task", params.get("query", ""))
+        if not task:
+            return {"success": False, "error": "task required", "output": "", "data": {}}
+        res = agentic_run(task, tool_handler=self)
+        return {"success": res.get("success", False),
+                "output": f"🤖 Agent completed {res.get('steps',0)} steps:\n\n{res.get('brief','')}",
+                "error": "", "data": res}
+
+    def _handle_autosave(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        text = params.get("text", params.get("content", ""))
+        if not text:
+            return {"success": False, "error": "text required", "output": "", "data": {}}
+        res = extract_and_store(text)
+        return {"success": res.get("success", False),
+                "output": f"🧠 Conversation ingested for auto-memory (remote={res.get('remote', False)})",
+                "error": "", "data": res}
         handler = handlers.get(tool)
         if not handler:
             return {
@@ -635,12 +794,26 @@ class ToolHandler:
                 return {"success": True, "output": results, "error": "", "data": {}}
             if not results:
                 return {"success": False, "output": "", "error": f"No results for '{query}'", "data": {}}
-            out = f"🔎 Search: {query}\n\n"
+            out = ["**Search results**\n"]
+            seen = set()
             for i, r in enumerate(results, 1):
-                out += f"{i}. {r.get('title', '')}\n   {r.get('url', '')}\n   {r.get('snippet', '')[:200]}\n\n"
-            return {"success": True, "output": out, "error": "", "data": {"results": results}}
+                url = r.get("url", "")
+                if url in seen:
+                    continue
+                seen.add(url)
+                title = r.get("title", "").strip()
+                snippet = (r.get("snippet", "") or "").strip()
+                src = r.get("source", "") or ""
+                line = f"{i}. [{title}]({url})" if url else f"{i}. {title}"
+                if src and src != title:
+                    line += f" — {src}"
+                if snippet and snippet != src:
+                    line += f"\n   {snippet[:220]}"
+                out.append(line)
+            return {"success": True, "output": "\n\n".join(out), "error": "", "data": {"results": results}}
         except Exception as e:
             return {"success": False, "output": "", "error": f"Search error: {e}", "data": {}}
+
 
     def _handle_image(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """AI image generation: /img <prompt>."""
@@ -652,15 +825,18 @@ class ToolHandler:
             if not isinstance(res, dict) or not res.get("success", False):
                 err = res.get("error", "Image generation failed") if isinstance(res, dict) else str(res)
                 return {"success": False, "error": err, "prompt": prompt}
+            url = res.get("image_url") or res.get("url")
+            path = res.get("image_path") or res.get("path")
+            summary = f"Image generated: {url}" if url else f"Image saved to {path}"
             return {
                 "success": True,
-                "url": res.get("image_url") or res.get("url"),
-                "path": res.get("image_path") or res.get("path"),
+                "output": summary,
+                "url": url,
+                "path": path,
                 "prompt": prompt,
             }
         except Exception as e:
             return {"success": False, "error": f"Image generation failed: {e}"}
-
     def _handle_speak(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Text-to-speech: /speak <text>."""
         text = (params.get("text") or "").strip()
@@ -709,16 +885,44 @@ class ToolHandler:
         if not topic:
             return {"success": False, "output": "", "error": "No topic provided", "data": {}}
         try:
-            q = topic if topic.lower().endswith("news") else topic + " news"
+            t = re.sub(r"^(the\s+)?(latest|recent|current|today'?s?|newest|top|breaking|headlines?)\s+", "", topic, flags=re.I).strip()
+            if not t or t.lower() in ("news", "headlines", "latest"):
+                t = "top news today"
+            q = t if t.lower().endswith("news") else t + " news"
             results = self.web_search.search(q, top_k=int(params.get("top_k", 6)))
             if isinstance(results, str):
                 return {"success": True, "output": results, "error": "", "data": {}}
             if not results:
                 return {"success": False, "output": "", "error": f"No news for '{topic}'", "data": {}}
-            out = f"📰 News: {topic}\n\n"
+            out = ["**Latest headlines**\n"]
+            seen = set()
             for i, r in enumerate(results, 1):
-                out += f"{i}. {r.get('title', '')}\n   {r.get('url', '')}\n   {r.get('snippet', '')[:200]}\n\n"
-            return {"success": True, "output": out, "error": "", "data": {"results": results}}
+                url = r.get("url", "")
+                if url in seen:
+                    continue
+                seen.add(url)
+                title = r.get("title", "").strip()
+                src = r.get("source", "") or ""
+                snippet = (r.get("snippet", "") or "").strip()
+                line = f"{i}. **{title}**"
+                if src:
+                    line += f"\n   {src}"
+                if snippet and snippet != src:
+                    line += f"\n   {snippet}"
+                # Emit a clickable link. If the resolver returned a real publisher
+                # URL, use it directly. If it's still a Google News tracking blob,
+                # strip the ?oc= tracking param so the link is short + stable
+                # (clickable to Google's reader) instead of a 300-char blob.
+                if url:
+                    if "news.google.com" in url:
+                        clean = url.split("?")[0]
+                        label = (src + " · Read on Google News") if src else "Read on Google News"
+                    else:
+                        clean = url
+                        label = src if src else _domain_of(url)
+                    line += f"\n   🔗 [{label}]({clean})"
+                out.append(line)
+            return {"success": True, "output": "\n\n".join(out), "error": "", "data": {"results": results}}
         except Exception as e:
             return {"success": False, "output": "", "error": f"News error: {e}", "data": {}}
 
@@ -848,6 +1052,119 @@ class ToolHandler:
                     "error": "", "data": res}
         except Exception as e:
             return {"success": False, "error": f"Embed error: {e}"}
+
+    def _handle_calc(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """/calc - safe math/code eval via local sympy + restricted eval."""
+        expr = (params.get("expr") or params.get("expression") or params.get("text") or "").strip()
+        if not expr:
+            return {"success": False, "error": "Usage: /calc <expression>"}
+        try:
+            import sympy
+            from sympy.parsing.sympy_parser import parse_expr as sp_parse, standard_transformations, implicit_multiplication_application
+            try:
+                parsed = sp_parse(expr, transformations=standard_transformations + (implicit_multiplication_application,))
+                val = sympy.N(parsed)
+                out = f"🧮 {expr} = {val}"
+                return {"success": True, "output": out, "error": "", "data": {"result": str(val)}}
+            except Exception:
+                pass
+            allowed = {"__builtins__": {}}
+            val = eval(expr, allowed, {})
+            out = f"🧮 {expr} = {val}"
+            return {"success": True, "output": out, "error": "", "data": {"result": str(val)}}
+        except Exception as e:
+            return {"success": False, "error": f"Calc error: {e}"}
+
+    def _handle_doc(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """/doc <file> - summarize a workspace file."""
+        path = (params.get("path") or params.get("file") or params.get("text") or "").strip()
+        if not path:
+            return {"success": False, "error": "Usage: /doc <workspace file path>"}
+        try:
+            full = path if path.startswith("/") else os.path.join(self.workspace, path)
+            if not os.path.exists(full):
+                return {"success": False, "error": f"File not found: {full}"}
+            res = self.file_manager.read_file(full, max_size=60000)
+            if not res.get("success"):
+                return {"success": False, "error": res.get("error", "read failed")}
+            content = res.get("content", "")
+            if len(content) > 4000:
+                try:
+                    from tools.summarize import summarize_sources
+                    s = summarize_sources([{"text": content[:20000]}], max_words=200)
+                    summary = s.get("summary", content[:1500])
+                except Exception:
+                    summary = content[:1500] + "\n…(truncated)"
+            else:
+                summary = content
+            out = f"📄 {os.path.basename(full)} ({res.get('size', len(content))} bytes)\n\n{summary}"
+            return {"success": True, "output": out, "error": "", "data": {"path": full}}
+        except Exception as e:
+            return {"success": False, "error": f"Doc error: {e}"}
+
+    def _handle_vision(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """/vision <image> - describe an image via OpenRouter vision model."""
+        ref = (params.get("image") or params.get("url") or params.get("path") or params.get("text") or "").strip()
+        if not ref:
+            return {"success": False, "error": "Usage: /vision <image url or /workspace path>"}
+        try:
+            import base64, requests, mimetypes
+            key = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
+            if not key:
+                return {"success": False, "error": "OpenRouter key missing (vision unavailable)"}
+            if ref.startswith("http://") or ref.startswith("https://"):
+                data_url = ref
+            else:
+                full = ref if ref.startswith("/") else os.path.join(self.workspace, ref)
+                if not os.path.exists(full):
+                    return {"success": False, "error": f"Image not found: {full}"}
+                mime = mimetypes.guess_type(full)[0] or "image/png"
+                b64 = base64.b64encode(open(full, "rb").read()).decode()
+                data_url = f"data:{mime};base64,{b64}"
+            model = "google/gemini-2.5-flash"
+            resp = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"model": model, "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe this image in detail."},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }]}, timeout=60,
+            )
+            if resp.status_code != 200:
+                return {"success": False, "error": f"Vision API {resp.status_code}: {resp.text[:200]}"}
+            desc = resp.json()["choices"][0]["message"]["content"]
+            return {"success": True, "output": f"👁️ {desc}", "error": "", "data": {"model": model}}
+        except Exception as e:
+            return {"success": False, "error": f"Vision error: {e}"}
+
+    def _handle_remind(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """/remind <time> <msg> - schedule a reminder via Zo (SMS/email/Telegram)."""
+        raw = (params.get("text") or params.get("message") or "").strip()
+        if not raw:
+            return {"success": False, "error": "Usage: /remind <time> <message>"}
+        try:
+            fire = _parse_remind_time(raw)
+            if not fire:
+                return {"success": False, "error": "Could not parse time. Use e.g. '30m', '2h', 'tomorrow 9am', '2026-07-20 14:00'."}
+            msg = _remind_msg(raw)
+            db = get_db()
+            db.execute(
+                "INSERT INTO reminders (fire_at, message, channel, done, created_at) VALUES (?, ?, ?, 0, ?)",
+                (fire, msg, (params.get("channel") or "sms"), datetime.now(timezone.utc).isoformat()),
+            )
+            db.commit()
+            db.close()
+            human = datetime.fromtimestamp(fire, tz=timezone.utc).astimezone().strftime("%Y-%m-%d %I:%M %p %Z")
+            return {
+                "success": True,
+                "output": f"⏰ Reminder set for {human}: {msg}\n(Channel: {params.get('channel') or 'sms'}. Fired by neuralai-reminder-daemon.)",
+                "error": "", "data": {"fire_at": fire, "message": msg},
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Remind error: {e}"}
 
     def _format_size(self, size: int) -> str:
         """Format file size in human-readable format."""

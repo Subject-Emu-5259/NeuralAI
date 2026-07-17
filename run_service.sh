@@ -23,52 +23,49 @@ LMS="$HOME/.lmstudio/bin/lms"
 MODEL_KEY="smollm2-360m-instruct"
 API_KEY="lm-studio"
 
-# --- Orphan guard -------------------------------------------------------------
-# Only ONE lms instance may ever own :1234. Kill any lms/llama-server leftovers
-# BEFORE touching the port, so a stale session can't grab it or leave orphans.
-pkill -f "$HOME/.lmstudio/bin/lms" 2>/dev/null || true
-pkill -f "llama-server" 2>/dev/null || true
-"$LMS" server stop 2>/dev/null || true
-sleep 2
-
-# Flock so two concurrent launches (deploy + manual) can't both start lms.
-LOCK=/tmp/neuralai_lms.lock
-(
-  flock -n 9 || { echo "[launch] another lms launcher holds the lock, skipping"; exit 0; }
-  echo "[launch] checking LM Studio on :1234"
-  if ! curl -s -o /dev/null --max-time 4 http://localhost:1234/v1/models 2>/dev/null; then
-    echo "[launch] starting LM Studio server..."
-    ( "$LMS" server start >/dev/null 2>&1 || true ) &
-    for i in $(seq 1 15); do
-      curl -s -o /dev/null --max-time 3 http://localhost:1234/v1/models 2>/dev/null && break
-      sleep 2
-    done
-  fi
-
-  # Unload any other model first so only $MODEL_KEY occupies :1234 (kills orphans).
-  echo "[launch] ensuring only $MODEL_KEY is loaded on :1234..."
-  "$LMS" unload --all >/dev/null 2>&1 || true
-  echo "[launch] loading model $MODEL_KEY into LM Studio..."
-  "$LMS" load "$MODEL_KEY" --yes >/dev/null 2>&1 || true
-  for i in $(seq 1 30); do
-    curl -s --max-time 3 http://localhost:1234/v1/models 2>/dev/null | grep -q "$MODEL_KEY" && break
-    sleep 2
-  done
-) 9>"$LOCK"
-
-if curl -s --max-time 4 http://localhost:1234/v1/models 2>/dev/null | grep -q "$MODEL_KEY"; then
-  echo "[launch] LOCAL backend READY -> openai_compatible (:1234)"
+# --- LM Studio ownership ---------------------------------------------------
+# The dedicated `neuralai-lmstudio` watchdog service (svc_Ob9JgSNKYdw) OWNS :1234.
+# This launcher must NOT start its own lms instance (that causes a port fight
+# and a boot deadlock). The neuralai-lmstudio watchdog owns :1234. We do NOT block
+# on it — Flask launches immediately regardless, and chat uses whatever backend is
+# selected below (ZO native HY3 fallback when local model is unavailable).
+if curl -s -o /dev/null --max-time 4 http://localhost:1234/v1/models 2>/dev/null; then
+  echo "[launch] :1234 is up (owned by neuralai-lmstudio watchdog)"
 else
-  echo "[launch] ERROR: local model not available on :1234 — UI will error (NO ZO fallback)"
+  echo "[launch] :1234 NOT up — Flask will start anyway; backend falls back to ZO native (HY3)"
 fi
 
-# Release the lock file descriptor scope (subshell above already closed it).
-
-# Always local-only. No fallback to ZO.
-export LLM_BACKEND="openai_compatible"
-export LLM_API_URL="http://localhost:1234/v1"
-export LLM_API_KEY="$API_KEY"
-export LLM_MODEL="$MODEL_KEY"
+# Inference backend selection (priority order): LOCAL FIRST.
+#   1. Local OpenAI-compatible server on :1234 (LM Studio / llmster)  [DEFAULT]
+#   2. Ollama on :11434 (if running).
+#   3. ZO native /zo/ask (user BYOK HY3) -- EXPLICIT OPT-IN ONLY, never auto.
+# The BYOK/zo path was added for OUTSIDE-chat-UI use. It must NOT override
+# your local model by default. zo is only used if the user explicitly sets
+# LLM_BACKEND=zo in the service env, or LLM_ALLOW_ZO_FALLBACK=true is set.
+if curl -s -o /dev/null --max-time 4 http://localhost:1234/v1/models 2>/dev/null; then
+  export LLM_BACKEND="openai_compatible"
+  export LLM_API_URL="http://localhost:1234/v1"
+  export LLM_API_KEY="lm-studio"
+  export LLM_MODEL="smollm2-360m-instruct"
+  echo "[launch] backend -> LOCAL :1234 (DEFAULT)"
+elif curl -s -o /dev/null --max-time 4 http://localhost:11434/api/tags 2>/dev/null; then
+  export LLM_BACKEND="ollama"
+  export LLM_API_URL="http://localhost:11434/v1"
+  export LLM_MODEL="smollm2:360m"
+  echo "[launch] backend -> Ollama (fallback)"
+elif [ "${LLM_BACKEND:-}" = "zo" ] || [ "${LLM_ALLOW_ZO_FALLBACK:-true}" = "true" ]; then
+  export LLM_BACKEND="zo"
+  export ZO_ASK_URL="https://api.zo.computer/zo/ask"
+  export LLM_MODEL="${LLM_MODEL:-byok:0d3567f7-f521-42b0-8adf-65c9b036cf89}"
+  echo "[launch] backend -> ZO native (HY3, fallback enabled)"
+else
+  echo "[launch] WARNING: no local model on :1234/:11434 and zo fallback disabled."
+  echo "[launch] Targeting LOCAL :1234 anyway so web chat uses your model, not zo."
+  export LLM_BACKEND="openai_compatible"
+  export LLM_API_URL="http://localhost:1234/v1"
+  export LLM_API_KEY="lm-studio"
+  export LLM_MODEL="smollm2-360m-instruct"
+fi
 
 echo "[launch] exec webui_service ($(date -u))"
 exec python /home/workspace/Projects/NeuralAI/services/webui_service.py

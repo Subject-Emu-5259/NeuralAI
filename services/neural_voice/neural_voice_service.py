@@ -16,6 +16,30 @@ _TOOLS_PATH = "/home/workspace/Projects/NeuralAI/tools"
 if _TOOLS_PATH not in _sys.path:
     _sys.path.insert(0, _TOOLS_PATH)
 from _tool_layer import process_tool_tags
+try:
+    from web_intent import detect_web_intent as _detect_web_intent  # plain-English -> tool router
+    _HAVE_WEB_INTENT = True
+except Exception:
+    _HAVE_WEB_INTENT = False
+
+import re as _re
+
+_OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+_OR_TTS_URL = "https://openrouter.ai/api/v1/audio/speech"
+_OR_STT_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
+_OR_MODEL_CHAT = "openai/gpt-audio-mini"            # audio-in + audio-out S2S LLM
+_OR_MODEL_STT = "openai/whisper-large-v3"           # speech -> text
+_OR_MODEL_TTS = "openai/gpt-4o-mini-tts"            # text -> raw PCM audio (OpenAI-compatible)
+_OR_API_KEY = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
+
+
+def _or_headers():
+    return {
+        "Authorization": f"Bearer {_OR_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://neuralai-web-ui-deandrewharris.zocomputer.io",
+        "X-Title": "NeuralAI Voice",
+    }
 
 
 def _execute_neural_tool(name: str, args) -> str:
@@ -102,7 +126,8 @@ NEURAL_TOOL_DECLARATIONS = [
 PORT = int(os.environ.get("VOICE_PORT", 5001))
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
-MODEL_ID = "gemini-2.5-flash-native-audio-latest" 
+MODEL_ID = "gemini-2.5-flash-native-audio-latest"
+OR_API_KEY = _OR_API_KEY  # OpenRouter (valid key)
 
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
@@ -120,23 +145,190 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "NeuralVoice Live Service", "status": "online", "mode": "elevenlabs" if ELEVENLABS_API_KEY and not GEMINI_API_KEY else ("gemini" if GEMINI_API_KEY else "none"), "key_set": bool(GEMINI_API_KEY or ELEVENLABS_API_KEY)}
+    # Priority: OpenRouter S2S (valid key) > Gemini Live > ElevenLabs TTS
+    if OR_API_KEY:
+        mode = "openrouter"
+    elif GEMINI_API_KEY:
+        mode = "gemini"
+    elif ELEVENLABS_API_KEY:
+        mode = "elevenlabs"
+    else:
+        mode = "none"
+    return {"message": "NeuralVoice Live Service", "status": "online", "mode": mode,
+            "openrouter": bool(OR_API_KEY), "gemini": bool(GEMINI_API_KEY),
+            "elevenlabs": bool(ELEVENLABS_API_KEY)}
 
 @app.get("/health")
 async def health():
-    mode = "elevenlabs" if ELEVENLABS_API_KEY and not GEMINI_API_KEY else ("gemini" if GEMINI_API_KEY else "none")
-    return {"status": "healthy", "mode": mode, "model": MODEL_ID, "key_set": bool(GEMINI_API_KEY or ELEVENLABS_API_KEY)}
+    if OR_API_KEY:
+        mode = "openrouter"
+    elif GEMINI_API_KEY:
+        mode = "gemini"
+    elif ELEVENLABS_API_KEY:
+        mode = "elevenlabs"
+    else:
+        mode = "none"
+    return {"status": "healthy", "mode": mode, "model": (MODEL_ID if mode == "gemini" else _OR_MODEL_CHAT),
+            "openrouter": bool(OR_API_KEY), "gemini": bool(GEMINI_API_KEY), "elevenlabs": bool(ELEVENLABS_API_KEY)}
+
+async def openrouter_voice_session(websocket: WebSocket):
+    """OpenRouter streaming speech-to-speech: STT -> NeuralAI web tools -> LLM audio reply."""
+    logger.info("Starting OpenRouter S2S voice session")
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        await websocket.send_json({"type": "status", "message": "Connected to NeuralAI voice (OpenRouter)."})
+
+        # optional proactive greeting so the mic isn't dead on connect
+        try:
+            await _or_speak(client, "Hello, you can speak to me now.", websocket)
+        except Exception as ge:
+            logger.warning(f"proactive greeting skipped: {ge}")
+
+        while True:
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                logger.info("Client disconnected from OpenRouter loop")
+                break
+            except Exception as re:
+                logger.error(f"receive error: {re}")
+                break
+
+            if data.get("type") == "config":
+                continue
+            if data.get("type") not in ("audio", "text"):
+                continue
+
+            try:
+                if data.get("type") == "audio":
+                    audio_b64 = data["data"]
+                    text = await _or_transcribe(client, audio_b64)
+                else:
+                    text = data.get("data", "")
+
+                if not text:
+                    continue
+
+                logger.info(f"User said: {text[:80]}")
+                await websocket.send_json({"type": "user_transcript", "data": text})
+
+                # Decide if this is a web/tool request
+                tool_name, tool_params = _route_voice_intent(text)
+                context = ""
+                if tool_name:
+                    logger.info(f"Voice tool: {tool_name}({tool_params})")
+                    raw = _execute_neural_tool(tool_name, {"query": tool_params, "q": tool_params, "url": tool_params, "task": tool_params, "text": tool_params, "code": tool_params})
+                    context = f"\n\nWeb result for '{text}':\n{raw[:4000]}"
+                    await websocket.send_json({"type": "tool_used", "tool": tool_name})
+
+                prompt = (
+                    "You are NeuralAI, a helpful voice assistant. "
+                    "Answer concisely and conversationally, suitable for text-to-speech."
+                    f"{context}\n\nUser: {text}\nAssistant:"
+                )
+                await _or_speak(client, prompt, websocket, system=True)
+            except Exception as e:
+                logger.error(f"OpenRouter voice turn failed: {e}")
+                await websocket.send_json({"type": "error", "message": f"Voice turn failed: {str(e)}"})
+
+
+async def _or_transcribe(client: httpx.AsyncClient, audio_b64: str) -> str:
+    """Speech-to-text via OpenRouter audio/transcriptions (whisper-large-v3)."""
+    try:
+        resp = await client.post(
+            _OR_STT_URL,
+            headers=_or_headers(),
+            json={
+                "model": _OR_MODEL_STT,
+                "input_audio": {"data": audio_b64, "format": "wav"},
+            },
+        )
+        if resp.status_code == 200:
+            return resp.json().get("text", "").strip()
+        logger.error(f"STT status {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"transcribe failed: {e}")
+    return ""
+
+
+async def _or_speak(client: httpx.AsyncClient, text_or_prompt: str, websocket: WebSocket, system: bool = False):
+    """Generate speech from text (or a prompt if system=True) and stream PCM to client."""
+    if system:
+        messages = [
+            {"role": "system", "content": "You are NeuralAI voice mode. Reply with only the spoken response."},
+            {"role": "user", "content": text_or_prompt},
+        ]
+    else:
+        messages = [{"role": "user", "content": text_or_prompt}]
+
+    try:
+        # Primary: chat model with audio output (gpt-audio-mini supports modalities:["audio"])
+        resp = await client.post(
+            _OPENROUTER_URL,
+            headers=_or_headers(),
+            json={
+                "model": _OR_MODEL_CHAT,
+                "messages": messages,
+                "modalities": ["text", "audio"],
+                "audio": {"voice": "alloy", "format": "pcm16"},
+                "stream": False,
+            },
+        )
+        if resp.status_code == 200:
+            content = resp.json().get("choices", [{}])[0].get("message", {})
+            audio_b64 = (content.get("audio", {}) or {}).get("data")
+            if audio_b64:
+                await websocket.send_json({"type": "audio", "data": audio_b64, "sampleRate": 24000})
+                await websocket.send_json({"type": "turn_complete"})
+                return
+            # model returned text only -> synthesize with TTS
+            txt = content.get("content", "")
+            if txt:
+                await _or_tts_fallback(client, txt, websocket)
+                return
+        logger.error(f"OR speak status {resp.status_code}: {resp.text[:200]}")
+        # fallback to dedicated TTS endpoint
+        await _or_tts_fallback(client, text_or_prompt, websocket)
+    except Exception as e:
+        logger.error(f"speech gen failed: {e}")
+        await websocket.send_json({"type": "error", "message": f"Speech failed: {str(e)}"})
+
+
+def _route_voice_intent(text: str):
+    """Map spoken text to a NeuralAI web tool, or None for plain chat."""
+    t = text.lower()
+    if _HAVE_WEB_INTENT:
+        try:
+            res = _detect_web_intent(text)
+            if res and res[0]:
+                tool, params = res
+                # params may be a dict or a string; normalize to a query string
+                if isinstance(params, dict):
+                    query = params.get("query") or params.get("url") or params.get("text") or params.get("task") or text
+                else:
+                    query = str(params)
+                return tool, query
+        except Exception:
+            pass
+    # heuristic fallback
+    if any(k in t for k in ("search", "look up", "google", "news", "latest", "what is the")):
+        return "web_search", text
+    if "http" in t:
+        m = _re.search(r"https?://\S+", text)
+        if m:
+            return "fetch_url", m.group(0)
+    return None, text
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Client connected via WebSocket")
     
-    # Check for keys on connection
+    # Check for keys on connection (OpenRouter is primary; Gemini/ElevenLabs are fallbacks)
     g_key = os.environ.get("GEMINI_API_KEY")
     e_key = os.environ.get("ELEVENLABS_API_KEY")
+    o_key = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
     
-    if not g_key and not e_key:
+    if not g_key and not e_key and not o_key:
         logger.error("Connection attempt failed: No API keys found in environment")
         await websocket.send_json({"type": "error", "message": "NeuralVoice Server Error: AI Engine Credentials Missing."})
         await websocket.close()
@@ -167,6 +359,16 @@ async def websocket_endpoint(websocket: WebSocket):
             logger.info("No initial config received, using defaults")
         except Exception as e:
             logger.error(f"Error receiving initial config: {e}")
+
+        # OPENROUTER S2S MODE (primary)
+        if o_key:
+            logger.info("Starting OpenRouter S2S Mode (primary voice path)")
+            try:
+                await openrouter_voice_session(websocket)
+            except Exception as oe:
+                logger.error(f"OpenRouter S2S session failed: {oe}")
+                await websocket.send_json({"type": "error", "message": f"OpenRouter voice failed: {str(oe)}"})
+            return
 
         # ELEVENLABS MODE
         if not GEMINI_API_KEY and ELEVENLABS_API_KEY:
@@ -226,7 +428,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             current_eleven_voice = voice_map[voice_pref]["eleven"]
                             logger.info(f"Voice changed to: {current_eleven_voice}")
 
-        # GEMINI LIVE MODE
+        # PRIMARY: OpenRouter streaming S2S (valid key)
+        if o_key:
+            await openrouter_voice_session(websocket)
+            return
+
+        # FALLBACK 1: Gemini Live
         elif GEMINI_API_KEY:
             logger.info(f"Starting Gemini Live Mode with model: {MODEL_ID}")
             try:

@@ -42,6 +42,15 @@ class ImageGenerator:
             or ""
         )
 
+    @property
+    def _openrouter_key(self) -> str:
+        # Live env var is Open_Router_API (per Zo Advanced secrets + AGENTS.md).
+        return (
+            os.environ.get("Open_Router_API")
+            or os.environ.get("OPENROUTER_API_KEY")
+            or ""
+        )
+
     def _dims(self, aspect_ratio: str):
         ratios = {
             "1:1": (1024, 1024),
@@ -71,116 +80,119 @@ class ImageGenerator:
         file_stem = f"neuralai_{timestamp}_{uuid.uuid4().hex[:6]}"
         output_path = GENERATED_DIR / f"{file_stem}_1.png"
 
-        # Primary: keyed Pollinations AI OpenAI-compatible images endpoint.
-        # Returns RAW image bytes (not b64 JSON), so write the body directly.
-        pollinations_err = None
-        poll_err = ""
-        try:
-            width, height = self._dims(aspect_ratio)
-            payload = json.dumps({
-                "model": self.MODEL,
-                "prompt": full_prompt,
-                "n": 1,
-                "size": f"{width}x{height}",
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                self.POLLINATIONS_URL,
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                raw = resp.read()
+        def _write(raw: bytes) -> bool:
             if raw[:1] in (b"\x89", b"\xff", b"G"):  # PNG/JPEG/GIF magic
                 output_path.write_bytes(raw)
-                return {
-                    "success": True,
-                    "prompt": prompt,
-                    "full_prompt": full_prompt,
-                    "file_stem": file_stem,
-                    "output_dir": str(GENERATED_DIR),
-                    "aspect_ratio": aspect_ratio,
-                    "provider": "pollinations",
-                    "image_path": str(output_path),
-                    "image_url": f"/neuraldrive/generated/{output_path.name}",
-                    "error": "",
-                }
-            try:
-                j = json.loads(raw.decode("utf-8", "replace"))
-                poll_err = j.get("error") or j.get("message") or raw.decode("utf-8", "replace")[:200]
-            except Exception:
-                poll_err = raw.decode("utf-8", "replace")[:200]
-            raise RuntimeError(f"Pollinations: {poll_err}")
-        except Exception as pe:  # noqa: BLE001
-            pollinations_err = pe
-            logger.warning("Pollinations image failed: %s; trying OpenRouter", pe)
+                return True
+            return False
 
-        # Fallback: OpenRouter Gemini image model (needs valid key)
+        ok = False
+        # Public Pollinations endpoint (no key needed) — primary path.
         try:
-            api_key = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
-            if not api_key:
-                return {
-                    "success": False,
-                    "image_path": "",
-                    "image_url": "",
-                    "prompt": prompt,
-                    "error": f"Image generation failed (Pollinations: {pollinations_err}). OpenRouter key also missing.",
-                }
-            import base64
-            payload = json.dumps({
-                "model": self.MODEL,
-                "prompt": full_prompt,
-                "n": 1,
-                "response_format": "b64_json",
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                self.OPENROUTER_URL,
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
+            width, height = self._dims(aspect_ratio)
+            params = f"https://image.pollinations.ai/prompt/{quote(full_prompt)}?width={width}&height={height}&model=flux&nologo=true&seed={uuid.uuid4().int % 10**9}"
+            req = urllib.request.Request(params, headers={"User-Agent": "NeuralAI/1.0"})
             with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            item = (data.get("data") or [{}])[0]
-            b64 = item.get("b64_json") or ""
-            if not b64 and item.get("url"):
-                b64 = base64.b64encode(urllib.request.urlopen(item["url"], timeout=60).read()).decode()
-            if not b64:
-                return {
-                    "success": False,
-                    "image_path": "",
-                    "image_url": "",
-                    "prompt": prompt,
-                    "error": "Image generation failed: Pollinations keyed endpoint unavailable; OpenRouter returned no image.",
-                }
-            output_path.write_bytes(base64.b64decode(b64))
-            return {
-                "success": True,
-                "prompt": prompt,
-                "full_prompt": full_prompt,
-                "file_stem": file_stem,
-                "output_dir": str(GENERATED_DIR),
-                "aspect_ratio": aspect_ratio,
-                "provider": "openrouter-gemini",
-                "image_path": str(output_path),
-                "image_url": f"/neuraldrive/generated/{output_path.name}",
-                "error": "",
-            }
-        except Exception as e2:
-            logger.exception("image_gen failed")
+                raw = resp.read()
+            ok = _write(raw)
+        except Exception as pe:  # noqa: BLE001
+            logger.warning("Pollinations public image failed: %s", pe)
+
+        # Optional keyed override only if the public path failed AND a key exists.
+        if not ok:
+            api_key = self._api_key
+            if api_key:
+                try:
+                    width, height = self._dims(aspect_ratio)
+                    payload = json.dumps({
+                        "model": self.MODEL,
+                        "prompt": full_prompt,
+                        "n": 1,
+                        "size": f"{width}x{height}",
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        self.POLLINATIONS_URL,
+                        data=payload,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        raw = resp.read()
+                    ok = _write(raw)
+                except Exception as pe2:  # noqa: BLE001
+                    logger.warning("Pollinations keyed image failed: %s", pe2)
+
+        # OpenRouter Gemini image fallback (only if a key is present).
+        if not ok:
+            or_key = self._openrouter_key
+            if or_key:
+                try:
+                    width, height = self._dims(aspect_ratio)
+                    payload = json.dumps({
+                        "model": "google/gemini-2.5-flash-image",
+                        "prompt": full_prompt,
+                        "n": 1,
+                        "size": f"{width}x{height}",
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        self.OPENROUTER_URL,
+                        data=payload,
+                        headers={
+                            "Authorization": f"Bearer {or_key}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        j = json.loads(resp.read().decode("utf-8", "ignore"))
+                    img_b64 = None
+                    url = None
+                    msg = (j.get("choices", [{}])[0].get("message", {}) or {})
+                    content = msg.get("content")
+                    if isinstance(content, list):
+                        for part in content:
+                            if isinstance(part, dict):
+                                if part.get("type") == "image_url":
+                                    url = part.get("image_url", {}).get("url", "")
+                                elif part.get("image") and isinstance(part["image"], dict):
+                                    img_b64 = part["image"].get("data")
+                    elif isinstance(content, str) and content.startswith("data:"):
+                        img_b64 = content
+                    if url and url.startswith("http"):
+                        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "NeuralAI/1.0"}), timeout=120) as r:
+                            ok = _write(r.read())
+                    elif img_b64 and img_b64.startswith("data:"):
+                        import base64
+                        _, b = img_b64.split(",", 1)
+                        output_path.write_bytes(base64.b64decode(b))
+                        ok = True
+                except Exception as oe:  # noqa: BLE001
+                    logger.warning("OpenRouter Gemini image failed: %s", oe)
+
+        if not ok:
             return {
                 "success": False,
                 "image_path": "",
                 "image_url": "",
                 "prompt": prompt,
-                "error": f"Image generation failed: {pollinations_err}; OpenRouter: {e2}",
+                "error": "Image generation failed: Pollinations public + keyed + OpenRouter Gemini all returned no valid image.",
             }
+
+        return {
+            "success": True,
+            "prompt": prompt,
+            "full_prompt": full_prompt,
+            "file_stem": file_stem,
+            "output_dir": str(GENERATED_DIR),
+            "aspect_ratio": aspect_ratio,
+            "provider": "pollinations-public",
+            "image_path": str(output_path),
+            "image_url": f"/neuraldrive/generated/{output_path.name}",
+            "error": "",
+        }
 
     def _dims_unused(self):
         return (1024, 1024)

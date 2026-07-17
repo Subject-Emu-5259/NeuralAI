@@ -686,13 +686,19 @@ async function initLiveSession() {
         startMicCapture().then(resolve).catch(reject);
       };
 
+      // Tracks whether the AI actually produced speech this turn.
+      // Gemini Live emits turn_complete even when it said nothing, which
+      // previously snapped the orb back to 'listening' after ~1-2s.
+      let botSpokeThisTurn = false;
+
       voiceWS.onmessage = async (event) => {
         console.log("[Voice] Message received:", event.data.substring(0, 100));
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'audio') {
+            botSpokeThisTurn = true;
             const orb = document.querySelector('.live-orb');
-            orb?.classList.remove('listening');
+            orb?.classList.remove('listening', 'processing');
             orb?.classList.add('speaking');
             updateLiveStatus('NeuralAI Speaking...');
             
@@ -701,16 +707,22 @@ async function initLiveSession() {
               queueAudioChunk(audioData, data.sampleRate || 16000);
             }
           } else if (data.type === 'turn_complete') {
-            const now = audioCtx.currentTime;
-            const delay = Math.max(0, (nextPlayTime - now) * 1000);
-            setTimeout(() => {
+            // Wait until the audio queue is fully drained AND playback has
+            // actually ended before flipping back to 'listening'. Timing off
+            // nextPlayTime caused the orb to snap to listening after ~1-2s
+            // while audio was still queued. We poll instead.
+            waitForPlaybackEnd().then(() => {
               const orb = document.querySelector('.live-orb');
-              if (orb && orb.classList.contains('speaking')) {
+              if (!orb) return;
+              if (botSpokeThisTurn && orb.classList.contains('speaking')) {
                 orb.classList.remove('speaking', 'processing');
                 orb.classList.add('listening');
                 updateLiveStatus('NeuralAI Listening...');
+                // Re-arm the mic now that the bot's turn is done.
+                try { if (window.recognition && window.recognition.state !== 'active') window.recognition.start(); } catch (e) {}
               }
-            }, delay);
+              botSpokeThisTurn = false;
+            });
           } else if (data.type === 'error') {
             console.error('[Voice] Service Error:', data.message);
             showToast('Voice Error: ' + data.message, 'error');
@@ -719,6 +731,21 @@ async function initLiveSession() {
           console.error('[Voice] Handler Error:', err);
         }
       };
+
+      // Polls until the audio playback queue is empty and the last scheduled
+      // buffer has finished playing, so the UI does not revert to 'listening'
+      // mid-speech. Resolves immediately if nothing is playing.
+      function waitForPlaybackEnd() {
+        return new Promise((resolve) => {
+          const check = () => {
+            const idle = !isPlaying && audioQueue.length === 0;
+            const finished = audioCtx && audioCtx.currentTime >= nextPlayTime - 0.05;
+            if (idle && finished) { resolve(); return; }
+            setTimeout(check, 100);
+          };
+          check();
+        });
+      }
 
       voiceWS.onclose = (e) => {
         console.log(`[Voice] WebSocket Closed (Code: ${e.code}, Reason: ${e.reason})`);
@@ -748,6 +775,42 @@ function base64ToUint8Array(base64) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+let micAnalyser = null;
+let micMeterRAF = null;
+
+// Open the real microphone stream and drive a volume/peaking meter on the orb.
+// (SpeechRecognition handles transcription; this adds the visual mic feedback.)
+async function startMicMeter() {
+  try {
+    if (!micStream) {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+    const srcNode = audioCtx.createMediaStreamSource(micStream);
+    micAnalyser = audioCtx.createAnalyser();
+    micAnalyser.fftSize = 512;
+    micAnalyser.smoothingTimeConstant = 0.6;
+    srcNode.connect(micAnalyser);
+    const orb = document.querySelector('.live-orb');
+    const buf = new Uint8Array(micAnalyser.fftSize);
+    const tick = () => {
+      if (!micAnalyser) return;
+      micAnalyser.getByteTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = Math.abs(buf[i] - 128) / 128;
+        if (v > peak) peak = v;
+      }
+      // scale to a 0..1 level and push to the orb as a CSS var
+      const level = Math.min(1, peak * 1.8);
+      if (orb) orb.style.setProperty('--mic-level', level.toFixed(3));
+      micMeterRAF = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (e) {
+    console.warn('[Voice] Mic meter unavailable:', e);
+  }
 }
 
 async function startMicCapture() {
@@ -797,8 +860,14 @@ async function startMicCapture() {
         sendMessage(transcript);
         
         const orb = document.querySelector('.live-orb');
-        orb?.classList.remove('listening');
-        orb?.classList.add('processing');
+        if (orb) {
+          orb.classList.remove('listening');
+          orb.classList.add('processing');
+        }
+        // Stop STT while the AI takes its turn so the mic does not
+        // re-trigger listening and fight the bot's speak state.
+        try { window.recognition.stop(); } catch (e) {}
+        startLiveMic().catch(() => {});
       }
     };
     
@@ -815,11 +884,18 @@ async function startMicCapture() {
     window.recognition.onend = () => {
       console.log("[Voice] STT Engine Ended");
       const overlay = document.getElementById('liveVoiceOverlay');
-      if (overlay && !overlay.classList.contains('hidden')) {
+      const orb = document.querySelector('.live-orb');
+      // Do NOT auto-restart STT while the bot is speaking or processing its
+      // turn. Wait until the orb returns to 'listening' (set on turn_complete
+      // when the AI actually spoke), then re-arm the mic.
+      const aiTurnActive = orb && (orb.classList.contains('speaking') || orb.classList.contains('processing'));
+      if (overlay && !overlay.classList.contains('hidden') && !aiTurnActive) {
         console.log('[Voice] Attempting auto-restart...');
         setTimeout(() => {
           try { 
-            if (overlay && !overlay.classList.contains('hidden')) {
+            const orb2 = document.querySelector('.live-orb');
+            const stillAiTurn = orb2 && (orb2.classList.contains('speaking') || orb2.classList.contains('processing'));
+            if (overlay && !overlay.classList.contains('hidden') && !stillAiTurn) {
               window.recognition.start(); 
             }
           } catch(e) { console.warn('[Voice] STT Restart failed:', e); }
@@ -828,6 +904,9 @@ async function startMicCapture() {
     };
   }
   
+  // Start the peaking meter in parallel with STT (real mic level feedback)
+  startMicMeter().catch(() => {});
+
   return new Promise((resolve) => {
     try { 
       window.recognition.stop(); 
@@ -844,6 +923,85 @@ async function startMicCapture() {
       }
     }, 400);
   });
+}
+
+// Live S2S mic with client-side VAD (voice activity detection).
+// Behavior: opens the mic, but only forwards audio to the voice WebSocket
+// while the user is actually speaking (RMS above threshold). After the user
+// stops talking for ~1.2s, it sends ptt_stop (end-of-turn) and idles until
+// speech starts again. This gives the listen -> speak -> listen cadence.
+let _liveMic = null;
+async function startLiveMic() {
+  if (_liveMic && _liveMic.active) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    const ac = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+    const src = ac.createMediaStreamSource(stream);
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.fftSize);
+    const workletBuf = new Float32Array(analyser.fftSize);
+
+    let speaking = false;
+    let silenceMs = 0;
+    let lastTime = performance.now();
+    const THRESHOLD = 0.045;      // RMS level that counts as speech
+    const SILENCE_END = 1200;     // ms of silence before we end the turn
+
+    _liveMic = { active: true, stream, analyser, buf, workletBuf, get speaking() { return speaking; } };
+
+    const processor = ac.createScriptProcessor(4096, 1, 1);
+    processor.onaudioprocess = (e) => {
+      if (!_liveMic.active || !voiceWS || voiceWS.readyState !== WebSocket.OPEN) return;
+      const input = e.inputBuffer.getChannelData(0);
+      // RMS
+      let sum = 0;
+      for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+      const rms = Math.sqrt(sum / input.length);
+      const now = performance.now();
+      const dt = now - lastTime;
+      lastTime = now;
+
+      if (rms > THRESHOLD) {
+        if (!speaking) {
+          speaking = true;
+          try { voiceWS.send(JSON.stringify({ type: 'ptt_start' })); } catch (_) {}
+          updateLiveStatus('Listening...');
+        }
+        silenceMs = 0;
+        // forward the raw PCM chunk to the model
+        try {
+          const i16 = float32ToInt16(input);
+          voiceWS.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode.apply(null, new Uint8Array(i16.buffer))) }));
+        } catch (_) {}
+      } else {
+        if (speaking) {
+          silenceMs += dt;
+          if (silenceMs >= SILENCE_END) {
+            speaking = false;
+            try { voiceWS.send(JSON.stringify({ type: 'ptt_stop' })); } catch (_) {}
+            updateLiveStatus('Thinking...');
+          }
+        }
+      }
+    };
+    src.connect(processor);
+    processor.connect(ac.destination);
+    _liveMic.processor = processor;
+    console.log('[Voice] Live S2S mic with VAD started');
+  } catch (e) {
+    console.warn('[Voice] Live mic unavailable:', e);
+  }
+}
+
+function stopLiveMic() {
+  if (_liveMic) {
+    try { _liveMic.processor && _liveMic.processor.disconnect(); } catch (_) {}
+    try { _liveMic.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    _liveMic.active = false;
+    _liveMic = null;
+  }
 }
 
 function float32ToInt16(buffer) {
@@ -870,42 +1028,41 @@ async function playNextAudioChunk() {
   }
 
   isPlaying = true;
-  
-  // Schedule all currently queued chunks
+
+  const ctxRate = audioCtx.sampleRate; // Hardware rate (e.g. 48000)
+
   while (audioQueue.length > 0) {
     const chunk = audioQueue.shift();
     try {
       const data = chunk.data;
-      const sampleRate = chunk.sampleRate || 16000;
-      
+      const srcRate = chunk.sampleRate || 22050; // ElevenLabs sends 22050
+
       const buffer = data.buffer;
       const int16Data = new Int16Array(buffer, data.byteOffset, data.byteLength / 2);
       const float32Data = new Float32Array(int16Data.length);
-
       for (let i = 0; i < int16Data.length; i++) {
         float32Data[i] = int16Data[i] / 32768.0;
       }
 
-      const audioBuffer = audioCtx.createBuffer(1, float32Data.length, sampleRate);
-      audioBuffer.getChannelData(0).set(float32Data);
+      // Resample to the AudioContext rate so the buffer actually plays.
+      // Browsers distort/blank output when a buffer's rate != context rate.
+      const audioBuffer = resampleMono(float32Data, srcRate, ctxRate);
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioCtx.destination);
 
       const now = audioCtx.currentTime;
-      // Provide a small buffer ahead of current time if we fell behind
-      if (nextPlayTime < now) nextPlayTime = now + 0.05;
+      // Always anchor to a point strictly in the future; never schedule in the past.
+      if (nextPlayTime < now + 0.02) nextPlayTime = now + 0.05;
 
       source.start(nextPlayTime);
       nextPlayTime += audioBuffer.duration;
 
       source.onended = () => {
-        // If this was the last scheduled chunk and queue is empty, finish
         if (audioQueue.length === 0 && audioCtx.currentTime >= nextPlayTime - 0.1) {
           isPlaying = false;
         } else if (audioQueue.length > 0) {
-          // If more chunks arrived while playing, schedule them
           playNextAudioChunk();
         }
       };
@@ -913,6 +1070,28 @@ async function playNextAudioChunk() {
       console.error('Playback Error:', err);
     }
   }
+}
+
+// Linear-interpolation resampler: maps source PCM to the context sample rate.
+function resampleMono(input, fromRate, toRate) {
+  if (fromRate === toRate) {
+    const buf = audioCtx.createBuffer(1, input.length, toRate);
+    buf.getChannelData(0).set(input);
+    return buf;
+  }
+  const ratio = fromRate / toRate;
+  const newLen = Math.max(1, Math.round(input.length / ratio));
+  const out = new Float32Array(newLen);
+  for (let i = 0; i < newLen; i++) {
+    const srcPos = i * ratio;
+    const i0 = Math.floor(srcPos);
+    const i1 = Math.min(i0 + 1, input.length - 1);
+    const frac = srcPos - i0;
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+  }
+  const buf = audioCtx.createBuffer(1, newLen, toRate);
+  buf.getChannelData(0).set(out);
+  return buf;
 }
 
 function stopLiveSession() {
@@ -923,10 +1102,14 @@ function stopLiveSession() {
     voiceWS.close();
     voiceWS = null;
   }
+  if (micMeterRAF) { cancelAnimationFrame(micMeterRAF); micMeterRAF = null; }
+  micAnalyser = null;
   if (micStream) {
     micStream.getTracks().forEach(t => t.stop());
     micStream = null;
   }
+  const orb = document.querySelector('.live-orb');
+  if (orb) orb.style.setProperty('--mic-level', '0');
   if (processor) {
     processor.disconnect();
     processor = null;
@@ -1721,6 +1904,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+  });
+  const _cmdHint = document.getElementById('cmdHint');
+  const _cmdDefs = [
+    ['/web', 'web search a query (e.g. /web quantum computing)'],
+    ['/fetch', 'fetch & read a URL (e.g. /fetch https://example.com)'],
+    ['/calc', 'evaluate math (e.g. /calc 12*34+9)'],
+    ['/wiki', 'Wikipedia summary (e.g. /wiki Black holes)'],
+  ];
+  document.getElementById('chatInput')?.addEventListener('input', (e) => {
+    const v = (e.target.value || '').trim().toLowerCase();
+    if (!_cmdHint) return;
+    if (v.startsWith('/')) {
+      const matches = _cmdDefs.filter(([c]) => c.startsWith(v));
+      if (matches.length) {
+        _cmdHint.innerHTML = matches
+          .map(([c, d]) => `<code>${c}</code> &nbsp;${d}`)
+          .join('<br>');
+        _cmdHint.classList.remove('hidden');
+      } else {
+        _cmdHint.classList.add('hidden');
+      }
+    } else {
+      _cmdHint.classList.add('hidden');
     }
   });
 

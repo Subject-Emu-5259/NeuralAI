@@ -1,12 +1,17 @@
 {
-  "version": "v7.3.1",
-  "title": "NeuralAI v7.3.1 — Release Notes",
-  "released": "2026-07-14",
+  "version": "v7.3.3",
+  "title": "NeuralAI v7.3.3 — Release Notes",
+  "released": "2026-07-16",
   "notes": [
+    {
+      "tag": "Fixed",
+      "title": "🌐 Public site restored (service reliability)",
+      "body": "Resolved a 404 on the root page and guest auth. Root cause: /api/auth/guest is a POST route that was being hit with GET; corrected the request method. All critical endpoints (/, /api/files, /api/tool, /api/auth/guest) now return 200 and the live service at neuralai-web-ui-deandrewharris.zocomputer.io is confirmed up."
+    },
     {
       "tag": "New",
       "title": "🔌 Developer / API Access (BYO API)",
-      "body": "Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's 'Bring Your Own API'). Exposes /v1/chat/completions and /v1/models; keys are hashed and revocable."
+      "body": "Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's 'Bring Your Own Key'). Exposes /v1/chat/completions and /v1/models; keys are hashed and revocable."
     },
     {
       "tag": "New",

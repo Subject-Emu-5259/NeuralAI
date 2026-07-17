@@ -1,6 +1,8 @@
-#!/bin/bash
-export ELEVENLABS_API_KEY=$(python3 -c "import os; print(os.environ.get('ELEVENLABS_API_KEY', ''))")
-export GEMINI_API_KEY=$(python3 -c "import os; print(os.environ.get('GEMINI_API_KEY', ''))")
-export VOICE_PORT=5001
-nohup python3 neural_voice_service.py > /dev/shm/neural_voice.log 2>&1 &
-echo "NeuralVoice started on port 5001"
+#!/usr/bin/env bash
+# Auto-launched by neural_core_service._ensure_voice_service()
+# Runs NeuralVoice on port 5001 with ElevenLabs S2S.
+cd "$(dirname "$0")"
+export PORT="${PORT:-5001}"
+export GEMINI_API_KEY="${GEMINI_API_KEY:-$NEURAL_VOICE_GEMINI_KEY}"
+export ELEVENLABS_API_KEY="${ELEVENLABS_API_KEY:-$NEURAL_VOICE_ELEVENLABS_KEY}"
+exec python3 neural_voice_service.py

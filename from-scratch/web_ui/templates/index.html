@@ -1352,6 +1352,26 @@ body.dark-mode .chat-input-bar {
   background: #dadce0;
   cursor: not-allowed;
 }
+.cmd-hint {
+  position: fixed;
+  left: 260px;
+  right: 16px;
+  bottom: 64px;
+  padding: 8px 14px;
+  margin: 0 16px;
+  font-size: 12.5px;
+  color: #e8eaed;
+  background: rgba(32, 33, 36, 0.96);
+  border: 1px solid #5f6368;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  z-index: 50;
+}
+.cmd-hint code {
+  color: #8ab4f8;
+  font-weight: 600;
+}
+.cmd-hint.hidden { display: none; }
 
 /* Files Tab - FILL WIDTH */
 .files-section {
@@ -1655,6 +1675,20 @@ body.dark-mode .file-action-btn.delete:hover {
 .live-orb.speaking {
   animation: speakingOrb 0.5s ease-in-out infinite alternate;
   box-shadow: 0 0 80px rgba(236, 72, 153, 0.6);
+}
+
+/* Live mic peaking ring driven by --mic-level (0..1) from the AnalyserNode */
+.live-orb::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 3px solid rgba(59, 130, 246, 0.7);
+  transform: scale(calc(1 + (var(--mic-level, 0) * 0.45)));
+  box-shadow: 0 0 calc(20px + var(--mic-level, 0) * 60px) rgba(59, 130, 246, calc(0.3 + var(--mic-level, 0) * 0.6));
+  opacity: var(--mic-level, 0);
+  transition: transform 0.06s linear, opacity 0.06s linear, box-shadow 0.06s linear;
+  pointer-events: none;
 }
 
 @keyframes idleOrb {
@@ -3393,10 +3427,11 @@ body.dark-mode .onboarding-close:hover {
 <!-- Bottom input bar -->
 <section class="chat-input-bar">
   <button id="voiceBtn" class="voice-btn" title="Live Conversation">🎤</button>
-  <textarea id="chatInput" placeholder="Ask NeuralAI anything... (try: 'generate an image of a sunset' or 'run this code: print(42)')" rows="1"></textarea>
+  <textarea id="chatInput" placeholder="Ask NeuralAI anything...  |  commands: /web, /fetch, /calc, /wiki" rows="1"></textarea>
   <button id="stopBtn" class="stop-btn" style="display:none;" title="Stop generating">■</button>
   <button id="sendBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 4px 14px rgba(239,68,68,0.3);">Send</button>
 </section>
+  <div id="cmdHint" class="cmd-hint hidden"></div>
 
 <!-- TERMINAL PANEL -->
 <div id="terminalPanel" class="terminal-panel hidden">

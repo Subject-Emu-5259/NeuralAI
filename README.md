@@ -98,7 +98,7 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 4. **Agentic Orchestrator**: A high-autonomy layer enabling NeuralAI to plan, reason, and execute multi-step workflows across the OS and web, moving beyond simple chat to active goal achievement.
 
 ---
-### 🆕 What's New (v7.3.1)
+### 🆕 What's New (v7.3.3)
 
 - **Developer / API Access (BYO API)**: Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own Key"). Exposes `/v1/chat/completions` (SSE, CORS-enabled) and `/v1/models`; Base URL is `https://neuralai-web-ui-deandrewharris.zocomputer.io/v1`, model id is `neuralai`. Keys are hashed and revocable. Full ZO Computer setup walkthrough: `docs/BYOK_ZO_INTEGRATION.md`.
 - **Auto Release Notes ("What's New")**: A new top-bar panel surfaces the latest features and fixes automatically. Open it anytime via the ✨ **What's New** button.
@@ -108,6 +108,7 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
 - **Dark theme by default**: UI restores your saved theme and defaults to dark mode (fixes white file-cards in light mode).
 - **Phase 8 in progress**: Knowledge Graph & Agentic Autonomy — long-term cross-project memory ("Supermemory") and fully autonomous task execution.
 - **The NeuralLabs Shift**: NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client → v2 Edge → v3 Eco).
+- **v7.3.3 — Public site restored (service reliability)**: Fixed a 404 on the root page and guest auth. Root cause: `/api/auth/guest` is a POST route hit with GET; corrected the request method. All critical endpoints (`/`, `/api/files`, `/api/tool`, `/api/auth/guest`) now return 200 and the live service is confirmed up. See `data/release_notes.json`.
 - **v7.3.2 — Backend identity fix (ZO hosting)**: The hosted service now runs `LLM_BACKEND=local` so chat uses *your* SmolLM2-360M + SFT/DPO v16 LoRA. The previous `zo` fallback proxied to Zo's assistant and answered as "I'm Zo Computer's assistant" — that was a routing bug, not your model. See `docs/INCIDENT-2026-07-14-NEURALAI-PAUSES.md`.
 ## 🚀 Deployment & Model Distribution
 
@@ -251,11 +252,11 @@ A dedicated software engineer, thinker, and builder from West Memphis, AR. De'An
 
 *Built with precision and discipline by De'Andrew Preston Harris.*
 
-### CURRENT VERSION: v7.3.2 (The Pluggable Engine)
+### CURRENT VERSION: v7.3.3 (The Pluggable Engine)
 
 - **Model Alignment**: DPO v15.0 Aligned (597 pairs, Logic, Debugging, Reasoning)
 - **Inference**: llmster (LM Studio headless) — 258MB RAM vs 5GB PyTorch
-- **Last Maintenance**: July 14, 2026
+- **Last Maintenance**: July 16, 2026
 
 Your tone is technical, concise, and professional. You prioritize system stability and cleanliness above all else.
 

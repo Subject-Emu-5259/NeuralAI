@@ -57,35 +57,30 @@ wait_for_voice() {
 echo "[Startup] Stopping any existing services..."
 pkill -f "neural_core_service.py" 2>/dev/null || true
 pkill -f "neural_voice_service.py" 2>/dev/null || true
+# Hard kill any llmster/lms/llama-server leftovers so the guarded auto-load
+# starts from a clean slate. Without this, a stale lms session can hold port 1234
+# or leave orphaned llama-server workers that the guard would otherwise attach to.
+pkill -f "$HOME/.lmstudio/bin/lms" 2>/dev/null || true
+pkill -f "llama-server" 2>/dev/null || true
+# Best-effort: ask lms to stop its server if the CLI is reachable.
+if [ -x "$LMS_BIN" ]; then
+    "$LMS_BIN" server stop 2>/dev/null || true
+fi
 sleep 2
 
 # ============================
 # Start llmster Backend (port 1234)
 # ============================
 echo ""
-echo "[Startup] Checking llmster backend..."
-
-# Start lmstudio daemon if not running
-if ! pgrep -f "lmstudio" > /dev/null 2>&1; then
-    echo "[Startup] Starting lmstudio daemon..."
-    "$LMS_BIN" server start --port 1234 2>/dev/null || true
-    sleep 3
-fi
-
-# Load model if not loaded
-if ! curl -s "http://localhost:1234/v1/models" | grep -q "smollm2"; then
-    echo "[Startup] Loading SmolLM2-360M-Instruct..."
-    "$LMS_BIN" load smollm2-360m-instruct -y 2>&1 || true
-    sleep 3
-    
-    # Verify model loaded
-    if curl -s "http://localhost:1234/v1/models" | grep -q "smollm2"; then
-        echo "[Startup] ✓ Model loaded successfully"
-    else
-        echo "[Startup] ✗ Model failed to load! Trying alternative identifier..."
-        "$LMS_BIN" load smollm2 -y 2>&1 || true
-        sleep 3
-    fi
+echo "[Startup] Ensuring single-instance llmster backend (guarded)..."
+# All llmster startup funnels through the guarded loader so we never stack workers.
+# It starts the server once (if needed), loads the model once, and exits if already healthy.
+if [ -x "$SCRIPT_DIR/../scripts/llmster_auto_load.sh" ]; then
+    "$SCRIPT_DIR/../scripts/llmster_auto_load.sh"
+elif [ -x "/home/workspace/Projects/NeuralAI/scripts/llmster_auto_load.sh" ]; then
+    /home/workspace/Projects/NeuralAI/scripts/llmster_auto_load.sh
+else
+    echo "[Startup] ✗ llmster_auto_load.sh not found — cannot start backend"
 fi
 
 # Verify llmster is serving

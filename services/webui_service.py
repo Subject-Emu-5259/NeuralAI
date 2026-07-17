@@ -19,6 +19,13 @@ import websocket  # websocket-client for proxying
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NeuralAI")
+# Tool layer (web search / browse / fetch / code / etc.)
+# Ensure project root (parent of services/) is importable so `tools` resolves
+# whether this file is run directly from services/ or imported elsewhere.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+from tools.tool_handler import run_tool as _run_tool
 
 # torch is imported lazily inside load_model() only when LLM_BACKEND=local
 # This prevents 6GB+ RAM usage on ZO Computer when using external API backends
@@ -1352,6 +1359,30 @@ def api_image():
         })
     except Exception as e:
         return jsonify({"success": False, "error": f"Image generation failed: {e}"})
+
+
+# ====================
+# ROUTES - TOOLS (web surf / search / fetch / browse)
+# ====================
+@app.route("/api/tool", methods=["POST"])
+@token_required
+def api_tool(current_user):
+    """Execute a backend tool (web_search, web_browser, web_fetcher, ...).
+
+    Body: {"tool": "web_search", "params": {"query": "...", "top_k": 5}}
+    Returns the tool handler's result dict.
+    """
+    data = request.get_json() or {}
+    tool = data.get("tool", "").strip()
+    params = data.get("params", {}) or {}
+    if not tool:
+        return jsonify({"success": False, "error": "No tool specified"}), 400
+    try:
+        result = _run_tool(tool, params)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"[api_tool] {tool} failed: {e}")
+        return jsonify({"success": False, "error": f"Tool error: {e}", "data": {}}), 500
 
 # ====================
 # ROUTES - AUTH

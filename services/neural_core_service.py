@@ -85,6 +85,50 @@ LLM_API_URL = os.environ.get("LLM_API_URL", "")       # e.g. http://localhost:11
 LLM_MODEL = os.environ.get("LLM_MODEL", BASE_MODEL)    # model name to pass to the API
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")        # only needed for openai_compatible
 
+# =====================================================================
+# EXTERNAL BACKEND AUTO-CONFIG (A/B provider selection from Zo Advanced keys)
+# ---------------------------------------------------------------------
+# LLM_PROVIDER controls which API key-backed backend is used:
+#   "gemini"  -> Provider A (Google Gemini, OpenAI-compatible beta)  [TEST FIRST]
+#   "minimax" -> Provider B (MiniMax Text, OpenAI-style)            [TEST SECOND]
+#   "auto"    -> Gemini if present, else MiniMax (A-then-B fallback)
+#   "" / unset-> respect explicit LLM_BACKEND above; if that is "local"
+#                and a key exists, fall back to auto (Gemini -> MiniMax).
+# This is the single switch DeAndrew uses to A/B the web-surfing brain.
+# =====================================================================
+_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+_MINIMAX_KEY = os.environ.get("MINIMAX_AI_API_KEY", "")
+_LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto").lower()
+
+def _resolve_external_backend(provider: str):
+    """Return (backend, url, model, key) for a chosen provider, or None."""
+    if provider in ("gemini", "auto") and _GEMINI_KEY:
+        return (
+            "openai_compatible",
+            os.environ.get("LLM_API_URL", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"),
+            os.environ.get("LLM_MODEL_GEMINI", "gemini-2.0-flash"),
+            _GEMINI_KEY,
+        )
+    if provider in ("minimax", "auto") and _MINIMAX_KEY:
+        return (
+            "openai_compatible",
+            os.environ.get("LLM_API_URL", "https://api.minimax.io/v1/text/chatcompletion_v2"),
+            os.environ.get("LLM_MODEL_MINIMAX", "MiniMax-Text-01"),
+            _MINIMAX_KEY,
+        )
+    return None
+
+_resolved = _resolve_external_backend(_LLM_PROVIDER)
+if _resolved is not None:
+    LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY = _resolved
+    logger.info("[LLM] Provider lock '%s' -> %s (%s)", _LLM_PROVIDER, LLM_BACKEND, LLM_MODEL)
+elif LLM_BACKEND == "local" and (_GEMINI_KEY or _MINIMAX_KEY):
+    # No explicit provider + local default -> auto-pick so web tools still work
+    _fb = _resolve_external_backend("auto")
+    if _fb is not None:
+        LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY = _fb
+        logger.info("[LLM] Auto-fallback to external backend %s", LLM_MODEL)
+
 # Start the voice service automatically if it's not already running
 def _ensure_voice_service():
     """Start NeuralVoice on port 5001 if it's not already listening."""
@@ -283,11 +327,80 @@ def load_model():
         model_status = f"error: {e}"
         print(f"[ERROR] Model Loading Failed: {e}")
 
+
+def is_tool_heavy(messages):
+    """Detect web-surfing / tool-heavy intents that must run on a key-backed LLM."""
+    if not messages:
+        return False
+    blob = " ".join(m.get("content", "") for m in messages[-6:]).lower()
+    triggers = (
+        "web search", "search the web", "browse", "surf", "fetch url",
+        "open http", "visit ", "look up online", "google ", "scrape",
+        "web_fetcher", "web_browser", "tool:", "use the web",
+    )
+    return any(t in blob for t in triggers)
+
+
 def generate_response_stream(messages, max_tokens=512, temperature=0.7):
     global model, tokenizer, inference_count, LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY
 
-    # ===== EXTERNAL LLM BACKEND (Ollama / LM Studio / OpenAI-compatible) =====
-    if LLM_BACKEND in ("ollama", "lmstudio", "openai_compatible"):
+    # ===== TOOL-HEAVY ROUTING (A/B external provider lock) =====
+    # Even when LLM_BACKEND is "local", web-surfing / tool calls are forced to the
+    # chosen key-backed provider (LLM_PROVIDER: gemini=A, minimax=B, auto=A->B).
+    _eff_backend, _eff_url, _eff_model, _eff_key = LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY
+    if _eff_backend == "local" and is_tool_heavy(messages):
+        _fb = _resolve_external_backend(_LLM_PROVIDER)
+        if _fb is not None:
+            _eff_backend, _eff_url, _eff_model, _eff_key = _fb
+            logger.info("[LLM] Tool-heavy call routed to %s", _eff_model)
+        else:
+            yield "Web tool error: no external LLM provider configured (set GEMINI_API_KEY or MINIMAX_AI_API_KEY)."
+            return
+    if _eff_backend == "local":
+        # fall through to local inference below
+        pass
+    else:
+        try:
+            import httpx
+            api_url = _eff_url.rstrip("/")
+            endpoint = f"{api_url}/chat/completions"
+            headers = {"Content-Type": "application/json"}
+            if _eff_key:
+                headers["Authorization"] = f"Bearer {_eff_key}"
+            body = {
+                "model": _eff_model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": True,
+            }
+            logger.info("[LLM] Forwarding to %s backend at %s", _eff_backend, endpoint)
+            with httpx.Client(timeout=120.0) as client:
+                with client.stream("POST", endpoint, json=body, headers=headers) as resp:
+                    if resp.status_code != 200:
+                        error_text = resp.read().decode()
+                        yield f"Backend error ({resp.status_code}): {error_text[:200]}"
+                        return
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith("data: "):
+                            continue
+                        payload = line[6:].strip()
+                        if payload == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(payload)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+            inference_count += 1
+            return
+        except Exception as e:
+            yield f"Backend error: {e}"
+            return
+    # ===== LOCAL MODEL INFERENCE (only when _eff_backend == "local") =====
         try:
             import httpx
             api_url = LLM_API_URL.rstrip("/")

@@ -687,9 +687,104 @@ document.querySelectorAll('.prompt-card').forEach(btn => {
 // SEND MESSAGE
 // ========================================
 
+const NEURAL_COMMANDS = [
+  { cmd: '/web', hint: 'Search the live web (e.g. /web latest AI news)' },
+  { cmd: '/fetch', hint: 'Pull & read a webpage (e.g. /fetch https://example.com)' },
+  { cmd: '/research', hint: 'Deep research w/ summary (e.g. /research best local LLMs 2026)' },
+  { cmd: '/browse', hint: 'Step through a page session (e.g. /browse https://example.com)' },
+  { cmd: '/research', hint: 'Search + read + summarize into one brief (e.g. /research quantum computing)' },
+  { cmd: '/calc', hint: 'Run a calculation (e.g. /calc 1234*5678)' },
+  { cmd: '/wiki', hint: 'Wikipedia summary (e.g. /wiki Quantum computing)' },
+  { cmd: '/text', hint: 'Pollinations LLM text (e.g. /text explain quantum entanglement)' },
+  { cmd: '/img', hint: 'Generate image via Pollinations (e.g. /img a red sports car)' },
+  { cmd: '/video', hint: 'Text-to-video via Pollinations (e.g. /video a cat waving)' },
+  { cmd: '/audio', hint: 'NeuralAI TTS audio via Pollinations (e.g. /audio hello there)' },
+  { cmd: '/voice', hint: 'Realtime voice WebSocket session info (e.g. /voice)' },
+  { cmd: '/embed', hint: 'Text embeddings via Pollinations (e.g. /embed hello world)' },
+];
+function showCommandHint() {
+  const v = chatInput.value.trim().toLowerCase();
+  let box = document.getElementById('cmdHint');
+  if (!v.startsWith('/')) { if (box) box.remove(); return; }
+  const match = NEURAL_COMMANDS.filter(c => c.cmd.startsWith(v));
+  if (!match.length) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'cmdHint';
+    box.className = 'cmd-hint';
+    chatInput.parentNode.insertBefore(box, chatInput.nextSibling);
+  }
+  box.innerHTML = match.map(c => `<div><b>${c.cmd}</b> — ${c.hint}</div>`).join('');
+}
+chatInput.addEventListener('input', showCommandHint);
+
+
+// ---- Web tool commands: /web, /fetch, /browse ----
+async function runToolCommand(raw) {
+  const space = raw.indexOf(' ');
+  const cmd = raw.slice(1, space).toLowerCase();
+  const arg = raw.slice(space + 1).trim();
+  let tool, params;
+  if (cmd === 'web') { tool = 'web_search'; params = { query: arg, top_k: 5 }; }
+  else if (cmd === 'fetch') { tool = 'web_fetcher'; params = { url: arg }; }
+  else if (cmd === 'browse') { tool = 'web_browser'; params = { url: arg, steps: [] }; }
+  else if (cmd === 'research') { tool = 'research'; params = { query: arg, top_k: 5 }; }
+  else if (cmd === 'img') { tool = 'image'; params = { prompt: arg }; }
+  else if (cmd === 'speak') { tool = 'speak'; params = { text: arg }; }
+  else if (cmd === 'summarize') { tool = 'summarize'; params = { text: arg }; }
+  else if (cmd === 'translate') { const sp = arg.indexOf(' '); tool = 'translate'; params = sp > 0 ? { text: arg.slice(sp + 1).trim(), target: arg.slice(0, sp).trim() } : { text: arg, target: 'es' }; }
+  else if (cmd === 'news') { tool = 'news'; params = { query: arg, top_k: 6 }; }
+  else if (cmd === 'yt') { tool = 'youtube'; params = { url: arg }; }
+  else if (cmd === 'text') { tool = 'text'; params = { prompt: arg }; }
+  else if (cmd === 'video') { tool = 'video'; params = { prompt: arg }; }
+  else if (cmd === 'audio') { tool = 'audio'; params = { text: arg }; }
+  else if (cmd === 'voice') { tool = 'voice'; params = {}; }
+  else if (cmd === 'embed') { tool = 'embed'; params = { text: arg }; }
+  else return;
+
+  welcomeScreen.style.display = 'none';
+  addMsg('user', raw);
+  conversation.push({ role: 'user', content: raw });
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  chatInput.dispatchEvent(new Event('input'));
+  updateMsgCount();
+
+  const el = addMsg('assistant', '');
+  const bubble = el.querySelector('.msg-bubble');
+  bubble.innerHTML = '<div class="thinking"><div class="typing-dots"><span></span><span></span><span></span></div> Surfing the web…</div>';
+  scrollBottom();
+
+  try {
+    const res = await fetch('/api/tool', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool, params })
+    });
+    const data = await res.json();
+    let out;
+    if (data && data.success) {
+      out = (data.output || '').trim() || '(no output)';
+    } else {
+      out = '⚠️ ' + (data && data.error ? data.error : 'Tool failed');
+    }
+    bubble.innerHTML = fmt(out) + copyBtn();
+    conversation.push({ role: 'assistant', content: out });
+  } catch (err) {
+    bubble.innerHTML = '<span style="color:#ef4444">⚠️ ' + err.message + '</span>';
+  }
+}
 async function sendMessage() {
   const userMsg = chatInput.value.trim();
   if (!userMsg || isStreaming) return;
+  // Intercept slash web commands -> call backend /api/tool directly
+  if (userMsg.startsWith('/web ') || userMsg.startsWith('/fetch ') || userMsg.startsWith('/browse ') || userMsg.startsWith('/research ') || userMsg.startsWith('/img ') || userMsg.startsWith('/speak ') || userMsg.startsWith('/summarize ') || userMsg.startsWith('/translate ') || userMsg.startsWith('/news ') || userMsg.startsWith('/yt ') || userMsg.startsWith('/text ') || userMsg.startsWith('/video ') || userMsg.startsWith('/audio ') || userMsg.startsWith('/embed ') || userMsg === '/voice' || userMsg.startsWith('/voice ')) {
+    await runToolCommand(userMsg);
+    return;
+  }
+
+  const existingHint = document.getElementById('cmdHint');
+  if (existingHint) existingHint.remove();
 
   welcomeScreen.style.display = 'none';
   const fileIdsThisMsg = Object.keys(attachedFiles);

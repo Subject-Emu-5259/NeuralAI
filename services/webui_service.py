@@ -890,6 +890,19 @@ def _build_version():
 
 @app.route("/")
 def index():
+    # Visitors land on the branded landing page first; the app lives at /app.
+    p = f"{STATIC_PATH}/static/landing/index.html"
+    if os.path.exists(p):
+        return open(p).read(), 200, {
+            "Content-Type": "text/html",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    return "Landing page not found", 404
+
+@app.route("/app")
+def app_index():
     p = f"{STATIC_PATH}/templates/index.html"
     if os.path.exists(p):
         with open(p) as f:

@@ -43,3 +43,17 @@ checkpoints/
 # Large model weights — never commit to git
 merge-upload/
 *.safetensors
+
+# Runtime data (Nextcloud user storage, DBs, generated artifacts)
+services/nextcloud/data/
+services/nextcloud/config/config.php
+services/nextcloud/config/.htaccess
+data/*.db
+data/*.db-shm
+data/*.db-wal
+*.db-shm
+*.db-wal
+from-scratch/web_ui/static/generated/
+from-scratch/web_ui/static/audio/
+from-scratch/web_ui/static/render/
+NeuralDrive/

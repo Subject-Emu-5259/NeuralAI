@@ -904,6 +904,19 @@ def index():
             }
     return "index.html not found", 404
 
+@app.route("/landing")
+def landing():
+    p = f"{STATIC_PATH}/static/landing/index.html"
+    if os.path.exists(p):
+        with open(p) as f:
+            return f.read(), 200, {
+                "Content-Type": "text/html",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+    return "Landing page not found", 404
+
 @app.route("/<path:path>")
 def static_files(path):
     for base in [f"{STATIC_PATH}/static", STATIC_PATH]:

@@ -3,27 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="NeuralAI — a high-density intelligence engine. Expert reasoning, agentic web tools, and a continuously trained neural brain. Meet the company, the model, and the future." />
-<link rel="icon" type="image/png" href="/static/favicon.png" />
 <title>NeuralAI — Intelligence Engine</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&family=Roboto:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/landing/landing.css?v={{BUILD_VERSION}}" />
+<link rel="icon" type="image/png" href="/static/landing/neuralai_brand_logo.jpg" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;900&family=Roboto:wght@400;500&family=JetBrains+Mono&display=swap" />
+<link rel="stylesheet" href="/static/landing/landing.css" />
 </head>
 <body>
-<!-- Animated mesh background -->
-<div class="mesh-bg" aria-hidden="true">
+<div class="mesh-bg">
+  <canvas id="neural-canvas"></canvas>
   <div class="orb orb-blue"></div>
   <div class="orb orb-red"></div>
   <div class="orb orb-yellow"></div>
   <div class="orb orb-green"></div>
-  <canvas id="neural-canvas"></canvas>
 </div>
 
-<!-- Nav -->
 <header class="nav">
-  <a class="brand" href="#top">
-    <img src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI logo" class="brand-logo" />
+  <a class="brand" href="/landing">
+    <img class="brand-logo" src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI" />
     <span class="brand-name">Neural<span class="brand-accent">AI</span></span>
   </a>
   <nav class="nav-links">
@@ -33,175 +29,240 @@
     <a href="#progress">Progress</a>
     <a href="#future">Future</a>
   </nav>
-  <a class="cta-btn" href="/">Launch App →</a>
+  <a class="cta-btn" href="/">Launch App</a>
 </header>
 
-<main id="top">
+<main>
   <!-- HERO -->
-  <section class="hero">
-    <div class="hero-inner">
-      <div class="badge"><span class="dot"></span> v7.2 · Live Intelligence Engine</div>
-      <h1 class="hero-title">The <span class="g-blue">Neural</span><span class="g-red">Brain</span> for <span class="g-green">Everything</span> You Reason About.</h1>
-      <p class="hero-sub">NeuralAI is a high-density intelligence backend powered by an expert knowledge graph, agentic web tools, and a continuously aligned model. Built for real reasoning — physics, philosophy, geopolitics, and the messy problems in between.</p>
+  <section class="hero hero-inner">
+    <div>
+      <span class="badge"><span class="dot"></span> Live · Intelligence Engine v7.2</span>
+      <h1 class="hero-title">The <span class="g-blue">Neural</span> Brain for the
+        <span class="g-red">Next</span> <span class="g-yellow">Generation</span> of
+        <span class="g-green">AI</span>.</h1>
+      <p class="hero-sub">NeuralAI is a high-density intelligence backend — a knowledge graph, orchestrator,
+        and on-device inference engine that powers the apps you build. Expert reasoning,
+        multi-step agentic tool use, and a training pipeline that gets smarter every cycle.</p>
       <div class="hero-actions">
         <a class="cta-btn lg" href="/">Open the App</a>
-        <a class="ghost-btn lg" href="#intro">Meet the Company</a>
+        <a class="ghost-btn lg" href="#features">Explore Features</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><b data-count="597">0</b><span>DPO pairs trained</span></div>
-        <div class="stat"><b data-count="10">0</b><span>Live web tools</span></div>
-        <div class="stat"><b data-count="4">0</b><span>Knowledge domains</span></div>
-        <div class="stat"><b data-count="56">0</b><span>% alignment gain</span></div>
+        <div class="stat"><b data-count="597">0</b><span>DPO preference pairs trained</span></div>
+        <div class="stat"><b data-count="0">0</b><span>+ domains in the Neural-Brain</span></div>
+        <div class="stat"><b data-count="100">0</b><span>% local-first inference</span></div>
       </div>
     </div>
     <div class="hero-art">
       <div class="art-ring"></div>
-      <img src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI emblem" class="hero-emblem" />
+      <img class="hero-emblem" src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI Brand Emblem" />
     </div>
   </section>
 
   <!-- INTRO / COMPANY -->
-  <section id="intro" class="section">
+  <section class="section" id="intro">
     <div class="section-head">
       <span class="kicker">The Company</span>
-      <h2>We build the engine, not the demo.</h2>
+      <h2>What we are building</h2>
     </div>
     <div class="intro-grid">
       <div class="intro-card">
-        <div class="ic ic-blue">◈</div>
-        <h3>Our Mission</h3>
-        <p>Deliver expert-grade reasoning on demand. NeuralAI compresses a wide, high-density knowledge graph into a single inference surface that thinks in steps instead of guessing.</p>
+        <div class="ic ic-blue">🧠</div>
+        <h3>Intelligence Engine</h3>
+        <p>NeuralAI is the raw cognitive core — a high-density knowledge graph ("Neural-Brain")
+          spanning physics, philosophy, geopolitics, and human history, served through a
+          manager-worker orchestrator.</p>
       </div>
       <div class="intro-card">
-        <div class="ic ic-red">⬡</div>
-        <h3>Why We Exist</h3>
-        <p>Most assistants are shallow. We engineered a manager-worker orchestrator that delegates complex multi-step problems to the right tool, every time, with verifiable outputs.</p>
+        <div class="ic ic-red">⚙️</div>
+        <h3>Local-First by Design</h3>
+        <p>Inference runs on-device via llmster + LM Studio, surviving reboots with a watchdog.
+          No cloud lock-in, no vendor dependency — your intelligence stays on your machine.</p>
       </div>
       <div class="intro-card">
-        <div class="ic ic-green">⬢</div>
-        <h3>How We Work</h3>
-        <p>A live 360M inference core, an agentic web tool chain, and a DPO-aligned preference model — all running on your own Zo Computer, custody in your hands.</p>
+        <div class="ic ic-green">🔗</div>
+        <h3>Ecosystem Backbone</h3>
+        <p>NeuralAI is the intelligence source behind NeuralLabs and the wider stack, connected
+          through a Hybrid Link Gateway so frontend products inherit expert reasoning instantly.</p>
       </div>
     </div>
-    <p class="intro-note">NeuralAI is the intelligence source behind <b>NeuralLabs</b> and the <b>Hybrid Link Gateway</b>. What you see here is the engine room.</p>
+    <p class="intro-note">Founded on a belief that <b>accessible, aligned, and open intelligence</b> should
+      run anywhere — from a laptop to a production server — NeuralAI is engineered by DeAndrew P. Harris
+      and the Neural team.</p>
   </section>
 
   <!-- FEATURES -->
-  <section id="features" class="section">
+  <section class="section" id="features">
     <div class="section-head">
       <span class="kicker">Features</span>
-      <h2>Built for reasoning, not replies.</h2>
+      <h2>Built for real work</h2>
     </div>
     <div class="feature-grid">
       <div class="feature-card f-blue">
-        <h3>Agentic Web Tools</h3>
-        <p>Ten live tools — search, fetch, browse, research, image, speak, summarize, translate, news, YouTube. Plain-English requests are routed before they hit the model.</p>
+        <h3>🤖 Agentic Tool Use</h3>
+        <p>Plain-English requests are routed to live web tools — search, fetch, browse, research,
+          image, translate, summarize, and YouTube — before they ever hit the model.</p>
       </div>
       <div class="feature-card f-red">
-        <h3>Neural-Brain Graph</h3>
-        <p>An expanded knowledge graph spanning quantum field theory, platonic philosophy, geopolitics, and human evolution — expert depth, not trivia.</p>
+        <h3>💬 Google-Style Chat</h3>
+        <p>A clean, fast web UI with streaming responses, conversation history, file handling,
+          and an embedded terminal — no clutter, just the work.</p>
       </div>
       <div class="feature-card f-yellow">
-        <h3>Orchestrator</h3>
-        <p>Manager-worker delegation for multi-step reasoning. The system plans, splits, and verifies instead of blurting a single answer.</p>
+        <h3>🔎 10 Live Web Tools</h3>
+        <p>Every slash command (<code>/web</code>, <code>/fetch</code>, <code>/browse</code>,
+          <code>/research</code>, <code>/img</code> …) is wired end-to-end with real backends.</p>
       </div>
       <div class="feature-card f-green">
-        <h3>DPO-Aligned Model</h3>
-        <p>597 preference pairs trained for debugging, logic, and multi-step reasoning. Alignment gain of 56.73% over the v13 baseline.</p>
+        <h3>🧩 Pluggable Backends</h3>
+        <p>Swap between LM Studio, Ollama, OpenAI-compatible APIs, or local PyTorch — the orchestrator
+          adapts without code changes.</p>
       </div>
       <div class="feature-card f-blue">
-        <h3>Local-First Inference</h3>
-        <p>SmolLM2-360M via llmster on port 1234 — pluggable to Ollama, OpenAI-compatible APIs, or local PyTorch. Your server, your weights.</p>
+        <h3>🗂️ Neural-Brain KG</h3>
+        <p>A continuously expanding knowledge graph covering expert-level physics, philosophy,
+          and global affairs — the memory the model reasons over.</p>
       </div>
       <div class="feature-card f-red">
-        <h3>Hybrid Link Gateway</h3>
-        <p>The bridge that powers the NeuralLabs frontend. One clean protocol between the intelligence engine and the interface.</p>
+        <h3>🛡️ Aligned & Auditable</h3>
+        <p>DPO-trained preference datasets and a documented alignment baseline keep outputs
+          helpful, honest, and on-task.</p>
       </div>
     </div>
   </section>
 
   <!-- TRAINING -->
-  <section id="training" class="section">
+  <section class="section" id="training">
     <div class="section-head">
       <span class="kicker">Training</span>
-      <h2>How the brain gets smarter.</h2>
+      <h2>How the brain gets smarter</h2>
     </div>
     <div class="training-wrap">
-      <ol class="timeline">
-        <li><span class="tl-dot"></span><b>SFT v15/v16</b> — supervised fine-tune on curated expert traces across physics, philosophy, and geopolitics.</li>
-        <li><span class="tl-dot"></span><b>DPO v15</b> — 597 preference pairs, 3 epochs / 450 steps, loss 0.305, margin ~3.5. Adapter live on Hugging Face.</li>
-        <li><span class="tl-dot"></span><b>NeuralLabs v13 DPO</b> — checkpoint-69, validation loss 0.7232, alignment improvement 56.73% (active baseline).</li>
-        <li><span class="tl-dot"></span><b>Continuous</b> — dream-sequence memory compression feeds long-term context back into training topics.</li>
-      </ol>
+      <ul class="timeline">
+        <li><span class="tl-dot"></span><b>DPO v15 Complete.</b> Trained a 597-pair preference dataset
+          (3 epochs, 450 steps, loss 0.305) focused on debugging, logic, and multi-step reasoning.</li>
+        <li><span class="tl-dot"></span><b>Adapter live on Hugging Face.</b> Adapter published to
+          <code>Subject-Emu-5259/NeuralAI</code> and loadable by downstream apps.</li>
+        <li><span class="tl-dot"></span><b>NL→Tool Router.</b> Plain-English web intents are classified
+          client-side and routed to real tools — no need to memorize slash syntax.</li>
+        <li><span class="tl-dot"></span><b>Refinement pass.</b> Raw tool output is cleaned and tightened
+          before display, so answers read like prose, not boilerplate.</li>
+        <li><span class="tl-dot"></span><b>Expanding knowledge.</b> Target domains (Modernity, advanced
+          sociology, deeper biology) are queued for the next Neural-Brain expansion.</li>
+      </ul>
       <div class="training-side">
-        <div class="metric"><span>Dataset</span><b>597 pairs</b></div>
-        <div class="metric"><span>Loss</span><b>0.305</b></div>
-        <div class="metric"><span>Alignment</span><b>+56.73%</b></div>
-        <div class="metric"><span>Backend</span><b>llmster · 360M</b></div>
+        <div class="metric"><span>DPO pairs</span><b>597</b></div>
+        <div class="metric"><span>Training loss</span><b>0.305</b></div>
+        <div class="metric"><span>Margin</span><b>~3.5</b></div>
+        <div class="metric"><span>Model size</span><b>360M</b></div>
       </div>
     </div>
   </section>
 
   <!-- PROGRESS -->
-  <section id="progress" class="section">
+  <section class="section" id="progress">
     <div class="section-head">
       <span class="kicker">Development Progress</span>
-      <h2>Shipped and verified.</h2>
+      <h2>Where we are now</h2>
     </div>
     <div class="progress-grid">
-      <div class="prog-card"><div class="prog-bar"><i style="--w:100%"></i></div><h4>NL → Tool Router</h4><span>Live · 12/12 intent tests passing</span></div>
-      <div class="prog-card"><div class="prog-bar"><i style="--w:100%"></i></div><h4>10 Web Tools</h4><span>Live via /api/tool</span></div>
-      <div class="prog-card"><div class="prog-bar"><i style="--w:100%"></i></div><h4>LM Studio Watchdog</h4><span>Reboot-safe on Zo</span></div>
-      <div class="prog-card"><div class="prog-bar"><i style="--w:92%"></i></div><h4>Refined Tool Output</h4><span>Noise-stripped prose</span></div>
-      <div class="prog-card"><div class="prog-bar"><i style="--w:85%"></i></div><h4>Orchestrator Blueprint</h4><span>Manager-worker pattern</span></div>
-      <div class="prog-card"><div class="prog-bar"><i style="--w:78%"></i></div><h4>Knowledge Expansion</h4><span>Modernity · Sociology next</span></div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:100%"></i></div>
+        <h4>Core Chat & Streaming</h4>
+        <span>Shipped — live on the web UI</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:100%"></i></div>
+        <h4>10 Web Tools</h4>
+        <span>Shipped & verified</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:100%"></i></div>
+        <h4>DPO Training Pipeline</h4>
+        <span>v15 complete</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:90%"></i></div>
+        <h4>Neural-Brain Expansion</h4>
+        <span>Advanced domains in progress</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:85%"></i></div>
+        <h4>On-device Inference Watchdog</h4>
+        <span>Persistent across reboots</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:70%"></i></div>
+        <h4>Brand & Public Site</h4>
+        <span>This landing page — just launched</span>
+      </div>
     </div>
   </section>
 
   <!-- MESSAGE TO PUBLIC -->
   <section class="section message">
-    <blockquote>
-      "We're not shipping chat bubbles. We're shipping the cognitive substrate — an engine that reasons, verifies, and improves in the open. NeuralAI belongs to the people who run it."
-      <cite>— The NeuralAI Team</cite>
-    </blockquote>
+    <span class="kicker">A Message to the Public</span>
+    <blockquote>“We're building intelligence that belongs to you — open, local-first, and aligned.
+      Not a black box you rent, but a brain you own. NeuralAI is our stand for accessible,
+      accountable AI that gets smarter with you, not over you.”</blockquote>
+    <cite>— DeAndrew P. Harris, Founder & Lead Engineer</cite>
   </section>
 
   <!-- FUTURE -->
-  <section id="future" class="section">
+  <section class="section" id="future">
     <div class="section-head">
       <span class="kicker">The Future</span>
-      <h2>Where the engine is headed.</h2>
+      <h2>What's next</h2>
     </div>
     <div class="future-grid">
-      <div class="future-card"><h3>🌐 Broader Knowledge</h3><p>Extending the Neural-Brain into modernity, advanced sociology, and cross-domain synthesis.</p></div>
-      <div class="future-card"><h3>🤝 NeuralLabs v14</h3><p>Next DPO cycle targeting tighter alignment and lower latency on the Hybrid Link Gateway.</p></div>
-      <div class="future-card"><h3>🧩 Plugin Ecosystem</h3><p>Local-first model driver with cloud fallback and a plugin manager for custom tool chains.</p></div>
-      <div class="future-card"><h3>🛰️ On-Device Custody</h3><p>Full model ownership on your Zo Computer — no external dependency for core reasoning.</p></div>
+      <div class="future-card">
+        <h3>🌐 Deeper Knowledge Graph</h3>
+        <p>Expanding Neural-Brain into modernity, advanced sociology, and biology — pushing toward
+          expert coverage across every major domain of human thought.</p>
+      </div>
+      <div class="future-card">
+        <h3>🚀 Larger Aligned Models</h3>
+        <p>Scaling the on-device inference path beyond 360M with larger DPO-tuned checkpoints
+          while keeping latency and footprint honest.</p>
+      </div>
+      <div class="future-card">
+        <h3>🧩 Open Ecosystem</h3>
+        <p>More frontend products wired through the Hybrid Link Gateway, so any app inherits
+          NeuralAI's reasoning with zero integration tax.</p>
+      </div>
+      <div class="future-card">
+        <h3>📡 Public API & SDK</h3>
+        <p>A documented, key-secured API so developers can build on the Neural engine directly —
+          your intelligence, embedded in your product.</p>
+      </div>
     </div>
   </section>
 
   <!-- CTA -->
   <section class="cta-section">
-    <h2>Run the engine.</h2>
-    <p>Open NeuralAI on your Zo Computer and start reasoning.</p>
-    <a class="cta-btn lg" href="/">Launch NeuralAI →</a>
+    <h2>Meet the Neural Brain.</h2>
+    <p>Open the live app, explore the tools, or follow the build as it evolves.</p>
+    <div class="hero-actions" style="justify-content:center">
+      <a class="cta-btn lg" href="/">Launch NeuralAI</a>
+      <a class="ghost-btn lg" href="https://github.com/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
   </section>
 </main>
 
 <footer class="footer">
   <div class="foot-brand">
-    <img src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI" class="brand-logo sm" />
-    <span>NeuralAI · Intelligence Engine</span>
+    <img class="brand-logo sm" src="/static/landing/neuralai_brand_logo.jpg" alt="NeuralAI" />
+    <span>Neural<span class="brand-accent">AI</span></span>
   </div>
   <div class="foot-links">
-    <a href="/privacy">Privacy</a>
-    <a href="/terms">Terms</a>
-    <a href="/landing">Landing</a>
+    <a href="/landing">Home</a>
     <a href="/">App</a>
+    <a href="https://github.com/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">GitHub</a>
+    <a href="/privacy">Privacy</a>
   </div>
-  <p class="foot-note">Built on <a href="https://zocomputer.com" target="_blank" rel="noopener">Zo Computer</a> · © 2026 NeuralAI</p>
+  <p class="foot-note">© 2026 NeuralAI · Built by DeAndrew P. Harris · Intelligence that belongs to you.</p>
 </footer>
 
-<script src="/static/landing/landing.js?v={{BUILD_VERSION}}"></script>
+<script src="/static/landing/landing.js"></script>
 </body>
 </html>

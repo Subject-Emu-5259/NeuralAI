@@ -991,8 +991,9 @@ def _reject_if_overloaded():
 @app.route("/api/status")
 def health():
     # Defense 2 integration: reject requests if memory overloaded
-    return jsonify({"status": model_status, "model": BASE_MODEL, "inference_count": inference_count, "uplink": "integrated",
-                    "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.2.0-resilient",
+    return jsonify({"status": model_status, "model": BASE_MODEL, "model_version": "v17-dpo (D17)",
+                    "inference_count": inference_count, "uplink": "integrated",
+                    "timestamp": datetime.now(timezone.utc).isoformat(), "version": "7.3.0",
                     "llm_backend": LLM_BACKEND})
 
 # ====================
@@ -1203,7 +1204,7 @@ def get_metrics():
     return jsonify({
         "model_status": model_status,
         "inference_count": inference_count,
-        "version": "7.2.0-enhanced"
+        "version": "7.3.0"
     })
 
 # ====================

@@ -1867,7 +1867,7 @@ body.dark-mode .memory-item span, body.dark-mode .rule-item span {
 
 /* Terminal - FILL SCREEN */
 .terminal-section {
-  background: #0d1117;
+  background: var(--surface);
   border-radius: 12px;
   max-width: none;
   width: 100%;
@@ -3134,7 +3134,7 @@ body.dark-mode .onboarding-close:hover {
         <span class="status-dot online" id="uplinkDot"></span>
         <span class="status-label" id="uplinkLabel">Ready</span>
       </div>
-      <p class="muted">NeuralAI v16 · SmolLM2-360M + LoRA · DPO-aligned · 679 preference pairs</p>
+      <p class="muted">NeuralAI v17 (D17) · SmolLM2-360M + v17 DPO LoRA · 679 preference pairs</p>
     </div>
     <div class="sidebar-footer">
       <div class="sidebar-footer-links">
@@ -3464,9 +3464,21 @@ body.dark-mode .onboarding-close:hover {
 </section>
   <div id="cmdHint" class="cmd-hint hidden"></div>
 
-<!-- TERMINAL PANEL -->
+<!-- TERMINAL PANEL (popup) -->
 <div id="terminalPanel" class="terminal-panel hidden">
   <div class="terminal-header">
+    <span class="terminal-title">NeuralAI Terminal</span>
+    <div class="terminal-actions">
+      <button id="popupTerminalRun" class="terminal-run-btn">Run</button>
+      <button id="closeTerminal" class="terminal-run-btn">✕</button>
+    </div>
+  </div>
+  <div class="terminal-output" id="popupTerminalOutput"></div>
+  <div class="terminal-input-row">
+    <span class="terminal-prompt" id="popupTerminalPrompt">root@Neural:~#</span>
+    <input type="text" id="popupTerminalInput" placeholder="Type command or code..." autocomplete="off" spellcheck="false" />
+  </div>
+</div>
 
 <!-- App script (single source of truth) -->
 <script src="/static/js/main_v2.js?v={{BUILD_VERSION}}"></script>

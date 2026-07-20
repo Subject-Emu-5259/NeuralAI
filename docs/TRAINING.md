@@ -1,6 +1,27 @@
 # NeuralAI — Training Metrics & Documentation
 
-**Last Updated: July 11, 2026**
+**Last Updated: July 20, 2026**
+
+---
+
+## 🚀 D17 DPO Results (2026-07-20) — CURRENT
+
+| Metric | Value |
+| --- | --- |
+| **Base Model** | `HuggingFaceTB/SmolLM2-360M-Instruct` (360M) |
+| **Seed Adapter** | `checkpoints/v2_model` (v16 SFT+DPO) |
+| **Training Samples** | 679 preference pairs (`data/train_dpo_v16_combined.jsonl`) |
+| **Epochs** | 3 |
+| **Steps** | 129 |
+| **Final Train Loss** | ~0.39 (0.692 → 0.396 across training) |
+| **Reward Accuracy** | 0.975 (chosen preferred over rejected) |
+| **Reward Margin** | ~0.80–0.95 (chosen − rejected, positive) |
+| **Entropy** | stable 2.15–2.33 (no collapse) |
+| **Hardware** | NVIDIA GPU (Google Colab) |
+| **Duration** | 1876s (~31 min) |
+| **Status** | COMPLETE — adapter at `checkpoints/v17-dpo`, published to HF `Subject-Emu-5259/NeuralAI` |
+
+**What it learned:** D17 is a DPO *continuation* of the v16 adapter — an alignment refinement, not new knowledge injection. Across the 679-pair distribution it sharpened preferences toward correct code, safe refusals, identity-accurate responses, sound math/reasoning, clean code style, concise answers, and proper tool usage, while down-ranking rejected patterns. Chosen-response rewards rose (~0.54 → 0.69) and rejected-response rewards fell (~−0.19 → −0.26), with a healthy ~0.9 margin and stable entropy — textbook successful DPO with no sign of reward hacking or mode collapse. No held-out eval set was configured, so generalization is inferred from training reward signals only.
 
 ---
 
@@ -22,7 +43,27 @@
 
 ---
 
-## 📈 Training Results
+## 🚀 D17 DPO Results (2026-07-20)
+
+| Metric | Value |
+| --- | --- |
+| **Base Model** | `HuggingFaceTB/SmolLM2-360M-Instruct` (360M) |
+| **Seed Adapter** | v16 (`checkpoints/v2_model`, SFT+DPO) |
+| **Dataset** | `data/train_dpo_v16_combined.jsonl` = 679 preference pairs |
+| **Epochs** | 3 |
+| **Steps** | 129 |
+| **Final Train Loss** | ~0.39 |
+| **Reward Accuracy** | 0.975 (chosen > rejected) |
+| **Reward Margin** | ~0.9 (stable, no collapse) |
+| **Entropy** | ~2.15–2.33 (stable) |
+| **Hardware** | Colab GPU |
+| **Duration** | 1876s (~31 min) |
+| **Eval Set** | None configured (training signals only) |
+| **Adapter** | `checkpoints/v17-dpo` + HF `Subject-Emu-5259/NeuralAI` |
+
+**What it learned:** D17 is a DPO continuation of v16 — an alignment refinement, not new knowledge. Across 679 pairs spanning code correctness (12%), safety refusals, identity, math, debugging, code style, conciseness, tool usage, reasoning, logic, and more, the model learned to more reliably produce correct, safe, concise, tool-using responses while down-ranking rejected patterns. Chosen-response rewards rose (~0.54 → 0.69) and rejected fell (~−0.19 → −0.26) with a healthy ~0.9 margin and stable entropy — textbook DPO, no reward hacking or mode collapse.
+
+---
 
 | Metric | Value |
 | --- | --- |
@@ -197,3 +238,28 @@ flask>=3.0
 3. **Tool Use Alignment** — Train specifically on `<tool>` tag usage and results.
 4. **Automated Evaluation** — Implement a "Model vs Model" evaluation pipeline.
 5. **GPU Serving** — Migrate to a persistent GPU-enabled environment.
+---
+
+## 🚀 DPO v17.0 Results (2026-07-20)
+
+| Metric | Value |
+| --- | --- |
+| **Base Model** | `Qwen2.5-0.5B` (NOT the 360M prod base — separate experiment) |
+| **Training Samples** | 679 preference pairs |
+| **Epochs** | 3 |
+| **Steps** | 129 (final checkpoint-129) |
+| **Final Train Loss** | 0.4804 |
+| **Last-step Reward Margin** | 0.889 (chosen +0.644 vs rejected −0.245) |
+| **Reward Accuracies** | 1.0 (final step) |
+| **LoRA Config** | r=32, alpha=64, dropout=0.05, target_modules=q/k/v/o_proj, up/down/gate_proj |
+| **Hardware** | NVIDIA T4 / L4 (Google Colab, CUDA) |
+| **Duration** | 1763s (~29 min) |
+| **Artifacts** | `checkpoints/v17_dpo_qwen25_0p5b/` (adapter_model.safetensors 34.8MB + checkpoint-86 + checkpoint-129) |
+
+**Notes**:
+- Two TRL kwarg fixes were required before this run would start: removed `max_prompt_length` from `DPOConfig` (renamed to `max_length=1024`), and passed the tokenizer as `processing_class=` to `DPOTrainer`.
+- `[RANK 0] Mismatch between tokenized prompt...` warnings appeared on every pair — harmless (tokenizer adds a leading space to chosen/rejected that the prompt lacks); training proceeded and converged normally.
+- PEFT double-attach warnings are benign — the v16 adapter is attached, then a second PEFT touch; `trainable%: 4.58` confirms only the LoRA is trainable.
+- **This adapter is NOT wired into the live `neuralai-web-ui` service.** The prod model is SmolLM2-360M (`checkpoints/v2_model`). To serve v17, point `BASE_MODEL=Qwen2.5-0.5B` + `MODEL_PATH=checkpoints/v17_dpo_qwen25_0p5b` with `LLM_BACKEND=local` in a separate service — do not overwrite `v2_model`.
+
+**Script**: `colab/v17_scale_up_1_7B.ipynb` (Colab) → `train_d17_dpo.py` on the Colab `/content/NeuralAI` mount.

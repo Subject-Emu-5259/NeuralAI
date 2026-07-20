@@ -1,7 +1,7 @@
 # 🚀 NeuralAI Development Roadmap
 
-**Version Target: 6.0 (The Workstation Pivot) + 7.2 Resilient Runtime**
-**Last Updated: July 15, 2026**
+**Version Target: 6.0 (The Workstation Pivot) + 7.3 (D17 DPO Runtime)**
+**Last Updated: July 20, 2026**
 
 ---
 
@@ -33,7 +33,11 @@
 
 - [x] Preference dataset expanded to 244 pairs (v12.0)
 
+- [x] **D17 DPO continuation (v16 → v17):** 679 pairs, 3 epochs / 129 steps, reward accuracy 97.5%, stable entropy — no collapse (2026-07-20)
+
 - [x] Memphis Culture & Founder Context integration
+
+- [x] **D17 DPO continuation (v16→v17, 2026-07-20):** 679 pairs, 3 epochs / 129 steps, reward accuracy 97.5%; adapter at `checkpoints/v17-dpo` + HF `Subject-Emu-5259/NeuralAI`.
 
 ---
 
@@ -118,6 +122,15 @@
 - Safety: Refuses harmful requests
 - Latency: Inference speed
 
+### 3. Scale the Base Model (optional, targeted for v17)
+
+**Status:** Planned — config swap, not a rewrite
+
+- Graduate the inference base from **SmolLM2-360M-Instruct** → **SmolLM2-1.7B-Instruct** to address context length + reasoning depth together.
+- Backends are already pluggable (llmster/LM Studio on port 1234, `LLM_BACKEND=zo|local`), so this is a **model config swap** (update the loaded GGUF / backend model id), not a code rewrite.
+- Trade-off: ~4–6× more RAM than the 360M (~258 MB) build. Validate on a GPU/Colab-class machine (≥8 GB RAM) before flipping the live Zo Free-plan service, which currently runs the 360M build for OOM safety.
+- **Training path:** Use **Google Colab CLI** (`colab-cli` / `google-colab` via the `gcolab` package or `kaggle`+Colab bridge) to run DPO/training notebooks remotely — see Phase 6 note below. No local GPU required; push `NeuralAI_TPU_Training.ipynb` and `training/train_dpo.py` to a Colab runtime and pull the adapter back to HF `Subject-Emu-5259/NeuralAI`.
+
 ---
 
 ## 🚀 Future Phases (The Agentic Horizon)
@@ -126,7 +139,7 @@
 
 **Goal:** Transition from "Assistant" to "Operator"
 
-- [ ] **Browser Agent Integration**: Implement autonomous web navigation and interaction (Computer Use).
+- [x] **Browser Agent Integration**: Embedded NeuralBrowser shipped 2026-07-17 (tab strip, omni bar, AI Mirror + User Browser modes via `/api/browser/*`). **ROLLED BACK 2026-07-19** at user request — UI removed, backend endpoints orphaned. Do NOT re-add unless explicitly asked. (See AGENTS.md REMOVED note.)
 
 - [ ] **Multi-Agent Orchestration**: Ability to spawn and manage specialized sub-agents for parallel task execution.
 
@@ -150,11 +163,15 @@
 
 **Goal:** Integration of frontier reasoning and multimodal capabilities.
 
+- [x] **DPO v15 Training — COMPLETE (shipped, not pending)**: 597-pair dataset (3 epochs, 450 steps, loss 0.305, margin ~3.5) trained on Apple Silicon MPS; adapter live on HF `Subject-Emu-5259/NeuralAI`. Marked done — remove from "Next Session Goals" (item 2 below is stale).
+
 - [ ] **Deep Reasoning Integration**: Implement "Think" modes for complex mathematical and logical deduction.
 
 - [ ] **Native Multimodal Understanding**: Unified processing of video, audio, and images in a single context window.
 
 - [ ] **Test-Time Compute Optimization**: Optimize inference to allow the model to "think longer" for harder problems.
+
+- [ ] **Scale the base (optional) — Graduate 360M → SmolLM2-1.7B for v17** to address context + reasoning depth together. More RAM, but backends are already pluggable, so it's a config swap (LM Studio model load + `webui_service.py` `MODEL_NAME`), not a rewrite. Train on **Google Colab CLI** (`colab-cli` / `gcolab` package or `kaggle`+Colab bridge) — no local GPU required; push `NeuralAI_TPU_Training.ipynb` + `training/train_dpo.py` to a Colab runtime and pull the adapter back to HF `Subject-Emu-5259/NeuralAI`. See Training Path note (Phase 1 line 128).
 
 ---
 
@@ -221,5 +238,6 @@ python3 training/train_dpo.py
 **Next Session Goals:**
 
 1. Run evaluation benchmarks
-2. Expand training data to 1000+ samples
-3. Request GPU or prepare Colab notebook for DPO training
+2. ~~Expand training data to 1000+ samples~~ → DPO v15 already shipped (597 pairs, loss 0.305, adapter on HF `Subject-Emu-5259/NeuralAI`). Next data push should target v17 base-swap, not a v15 retry.
+3. DPO training runs on **Google Colab CLI** (`colab-cli`/`gcolab` or `kaggle`+Colab bridge) — no local GPU. Push `NeuralAI_TPU_Training.ipynb` + `training/train_dpo.py`, pull adapter to HF `Subject-Emu-5259/NeuralAI`.
+4. Plan v17 base graduation: 360M → SmolLM2-1.7B (config swap, pluggable backends) for context + reasoning depth.

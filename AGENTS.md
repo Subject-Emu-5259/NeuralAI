@@ -11,7 +11,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 2.  Review the `MODEL_ALIGNMENT.md` to ensure output matches the v7.0 Expert persona.
 3.  Consult the `ORCHESTRATOR.md` for delegation patterns.
 
-## 🌌 Current State (v7.2)
+## 🌌 Current State (v17 / D17)
 - **Neural-Brain**: An expanded, high-density knowledge graph spanning:
     - **Physics**: Advanced Quantum Field Theory (Expert level).
     - **Philosophy**: Platonic forms and metaphysical systems.
@@ -19,7 +19,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
     - **History & Nature**: From Ancient Civilizations to Human Evolution.
 - **Architecture**: Manager-Worker pattern via the Orchestrator. Inference via llmster (LM Studio headless) on port 1234, with pluggable backend support for Ollama, OpenAI-compatible APIs, or local PyTorch.
 - **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI (not a remnant) — see Web UI & Service Safety. A `checkpoints/` directory still exists at repo root and is NOT purged; treat it as stale model artifacts, do not assume it was cleaned.
-- **DPO Expansion**: Dataset v15 expanded to **597** preference pairs (`data/train_dpo_v15.jsonl`) focusing on debugging, logic, and multi-step reasoning.
+- **DPO Iterations (current = v17 / D17, COMPLETE 2026-07-20)**: `data/train_dpo_v16_combined.jsonl` = **679** preference pairs (597 v15 + 64 v16 + 18 supplement), focusing on debugging, logic, and multi-step reasoning. D17 = DPO continuation of the v16 (v2_model) adapter on SmolLM2-360M; 3 epochs / 129 steps / ~31 min; reward accuracy 97.5%, stable entropy, no eval set. Adapter at `checkpoints/v17-dpo` and HF `Subject-Emu-5259/NeuralAI`. v15 base file `data/train_dpo_v15.jsonl` (597) still present.
 - **Inference Engine**: llmster 0.0.19 running SmolLM2-360M-Instruct Q4_K_M GGUF (~258MB RAM). Replaces PyTorch (5GB RAM) for production inference.
 - **LM Studio (port 1234) persistence — SOLVED (2026-07-17):** A single `process` user service (`neuralai-lmstudio`, `svc_Ob9JgSNKYdw`) runs `lms server start --port 1234 --bind 127.0.0.1` on boot and re-checks every 30s, so the 360M model (and the NL→tool router's fallback path) survives Zo reboots. This is option (b). The earlier duplicate `neuralai-lm-studio` (`svc_YmwyvLGwdFk`, broken PATH export) was deleted. There is exactly ONE lm-studio watchdog — do not register a second one.
 
@@ -31,7 +31,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
-- **DPO v15 Complete**: Trained 597-pair dataset (3 epochs, 450 steps, loss 0.305, margin ~3.5) on Apple Silicon MPS; adapter live on HF `Subject-Emu-5259/NeuralAI`.
+  - **DPO d17 Complete (current)**: 360M continuation from the v16 adapter (`checkpoints/v2_model`) over the 679-pair `train_dpo_v16_combined.jsonl`; 3 epochs, 129 steps, ~31 min (finished 2026-07-20 22:03 UTC). Adapter at `checkpoints/v17-dpo` (final-step `checkpoint-129`, r=32 LoRA / alpha 64, PEFT 0.19.1, base `HuggingFaceTB/SmolLM2-360M-Instruct`). Extracted into the repo 2026-07-20; not yet pushed to HF. Next: push `v17-dpo` to `Subject-Emu-5259/NeuralAI` (replaces the v16 `v2_model` slot), or run scale-up `colab/v17_scale_up_1_7B.ipynb` (1.7B base, v15 data → `v17-1.7b-dpo`).
 - **Voice Key Status**: `GEMINI_API_KEY` IS present in the live `neuralai-web-ui` service env (and `neural_voice` falls back to ElevenLabs when Gemini is absent). The standalone `neural-voice` service (`services/neural_voice/neural_voice_service.py`) is NOT currently registered as a running Zo service — launch it separately if Live S2S is needed. Key presence ≠ service running.
 
 ## ⚠️ Web UI & Service Safety

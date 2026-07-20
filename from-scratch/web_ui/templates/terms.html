@@ -73,7 +73,7 @@
     <div class="container">
         <a href="/" class="back-link">&larr; Back to NeuralAI Node</a>
         <div class="header">
-            <div class="last-updated">VERSION 7.0 &bull; UPDATED JUNE 27, 2026</div>
+            <div class="last-updated">VERSION 17.0 &bull; UPDATED JULY 20, 2026</div>
             <h1>NeuralAI Terms of Service</h1>
         </div>
         
@@ -107,11 +107,11 @@
         </ul>
 
         <h2>5. Model Training & User Data</h2>
-        <p>NeuralAI v16 incorporates both DPO (Direct Preference Optimization) alignment and SFT (Supervised Fine-Tuning) to enhance model capabilities and identity awareness:</p>
+        <p>NeuralAI v17 (D17) incorporates both DPO (Direct Preference Optimization) alignment and SFT (Supervised Fine-Tuning) to enhance model capabilities and identity awareness. D17 is a DPO continuation of the v16 adapter trained on 679 local preference pairs:</p>
         <ul>
             <li><strong>Training Data:</strong> All model training is conducted on locally authored datasets (identity Q&A pairs, preference rankings, safety examples). No user data is used for training without explicit written consent.</li>
-            <li><strong>Identity Awareness:</strong> SFT training enables the model to recognize and respond appropriately when users interact with NeuralAI's founder. This training uses public factual examples only.</li>
-            <li><strong>Transparency:</strong> The complete training pipeline, data sources, and model configuration are documented in the NeuralAI repository. Model weights are published on HuggingFace for public inspection.</li>
+            <li><strong>Identity Awareness:</strong> SFT and DPO training enable the model to recognize and respond appropriately when users interact with NeuralAI's founder. This training uses public factual examples only.</li>
+            <li><strong>Transparency:</strong> The complete training pipeline, data sources, and model configuration are documented in the NeuralAI repository. Model weights (v17 / D17 adapter) are published on HuggingFace (<code>Subject-Emu-5259/NeuralAI</code>) for public inspection.</li>
             <li><strong>User Consent:</strong> Should NeuralAI ever require user data for training improvements, we will request explicit, separate, and verifiable opt-in consent. No data will be used without your explicit permission.</li>
         </ul>
 

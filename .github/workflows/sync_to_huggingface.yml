@@ -27,7 +27,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_REPO_ID: "Subject-Emu-5259/NeuralAI"
-          ADAPTER_SRC: "checkpoints/v2_model"
+          ADAPTER_SRC: "adapter"
         run: |
           set -e
           # NOTE: GitHub is the single source of truth for CODE.

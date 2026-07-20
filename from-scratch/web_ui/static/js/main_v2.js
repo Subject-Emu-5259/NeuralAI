@@ -2154,3 +2154,4 @@ window.toggleLiveVoice = toggleLiveVoice;
 window.closeOnboarding = closeOnboarding;
 window.toggleTerminalPopup = toggleTerminalPopup;
 window.executeTerminalCmd = executeTerminalCmd;
+window.openReleaseNotes = openReleaseNotes;

@@ -51,7 +51,7 @@ def process_tool_tags(text: str) -> str:
                 fetcher = _load_tool("web_fetcher", "WebFetcher")
                 parts.append("[FETCH " + args + "]\n" + fetcher().fetch(args).get("text", "")[:4000])
             elif kind == "browse":
-                get_session = _load_tool("web_browser", "get_session")
+                get_session = _load_tool("web_browser", "get_manager")
                 parsed = _load_tool("web_search", "parse_browse_task")(args)
                 url = parsed.get("url")
                 steps = parsed.get("steps", [])

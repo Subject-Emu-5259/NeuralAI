@@ -1451,6 +1451,30 @@ async function handleFileUploads(files) {
 }
 
 // ====================
+// SCROLL BEHAVIOR
+// ====================
+function applyScrollBehavior(smooth) {
+  const panes = ['.chat-messages', '#terminal-output', '#memory-list', '#files-list', '.settings-section'];
+  panes.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) el.style.scrollBehavior = smooth ? 'smooth' : 'auto';
+  });
+  document.documentElement.style.scrollBehavior = smooth ? 'smooth' : 'auto';
+}
+
+function toggleSmoothScroll(enabled) {
+  localStorage.setItem('neuralSmoothScroll', enabled ? '1' : '0');
+  applyScrollBehavior(enabled);
+}
+
+function initScrollBehavior() {
+  const saved = localStorage.getItem('neuralSmoothScroll');
+  const smooth = saved !== '0';
+  const toggle = document.getElementById('scrollSmoothToggle');
+  if (toggle) toggle.checked = smooth;
+  applyScrollBehavior(smooth);
+}
+
 // SETTINGS & PERSISTENCE
 // ====================
 async function loadUserProfile() {
@@ -1471,6 +1495,7 @@ async function loadUserProfile() {
         document.getElementById('selfUpdateArea').style.display = 'block';
       }
     }
+    initScrollBehavior();
     loadBio();
     loadMemoryList();
     loadRulesList();
@@ -1517,7 +1542,24 @@ async function loadSettings() {
       if (sel) sel.value = userSettings.neural_voice;
     }
   } catch {}
-  updateArchitectureStatus();
+  updateArchitectureStatus();  applySmoothScrollPref();
+}
+
+function applySmoothScrollPref() {
+  const smooth = localStorage.getItem('neuralScrollSmooth');
+  const on = smooth === null ? true : smooth === 'true';
+  const behavior = on ? 'smooth' : 'auto';
+  ['#chat-messages', '#terminal-output', '.memory-list', '.files-list'].forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (el) el.style.scrollBehavior = behavior;
+  });
+  const toggle = document.getElementById('scrollSmoothToggle');
+  if (toggle) toggle.checked = on;
+}
+
+function toggleSmoothScroll(on) {
+  localStorage.setItem('neuralScrollSmooth', on ? 'true' : 'false');
+  applySmoothScrollPref();
 }
 
 async function updateArchitectureStatus() {
@@ -1780,6 +1822,10 @@ function switchTab(tabName) {
   document.querySelectorAll('[id^="tab-"]').forEach(tab => tab.classList.add('hidden'));
   const activeTab = document.getElementById('tab-' + tabName);
   if (activeTab) activeTab.classList.remove('hidden');
+  
+  // Chat bar only shows on the chat tab
+  const chatBar = document.querySelector('[data-chatbar]');
+  if (chatBar) chatBar.classList.toggle('hidden', tabName !== 'chat');
   
   if (tabName === 'terminal') initTerm();
   if (tabName === 'files') loadFiles();

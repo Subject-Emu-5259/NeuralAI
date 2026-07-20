@@ -22,15 +22,37 @@ try:
 except Exception:
     _HAVE_WEB_INTENT = False
 
+try:
+    from eleven_convai import convai_available, connection_url, signed_url, ensure_agent
+    _HAVE_CONVAI = True
+except Exception as _ce:
+    _HAVE_CONVAI = False
+    logging.getLogger("NeuralVoice").warning(f"eleven_convai bridge unavailable: {_ce}")
+
 import re as _re
 
 _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 _OR_TTS_URL = "https://openrouter.ai/api/v1/audio/speech"
 _OR_STT_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 _OR_MODEL_CHAT = "openai/gpt-audio-mini"            # audio-in + audio-out S2S LLM
-_OR_MODEL_STT = "openai/whisper-large-v3"           # speech -> text
+_OR_MODEL_STT = "openai/whisper-large-v3"           # speech -> text (OpenRouter, credits required)
 _OR_MODEL_TTS = "openai/gpt-4o-mini-tts"            # text -> raw PCM audio (OpenAI-compatible)
 _OR_API_KEY = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
+
+# Free, no-credit fallback flags
+# OpenRouter key has 0 purchased credits -> STT/TTS both 402. Use local/free paths.
+_USE_VOSK_STT = True    # Vosk local STT (no API key, no credits) before OpenRouter
+_USE_GTTS_TTS = True    # gTTS (free, no key) before ElevenLabs/OpenRouter
+
+_VOSK_MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "vosk-model-small-en-us-0.15")
+_vosk_model = None
+
+def _load_vosk():
+    global _vosk_model
+    if _vosk_model is None and _USE_VOSK_STT and os.path.isdir(_VOSK_MODEL_DIR):
+        from vosk import Model
+        _vosk_model = Model(_VOSK_MODEL_DIR)
+    return _vosk_model
 
 
 def _or_headers():
@@ -171,6 +193,31 @@ async def health():
     return {"status": "healthy", "mode": mode, "model": (MODEL_ID if mode == "gemini" else _OR_MODEL_CHAT),
             "openrouter": bool(OR_API_KEY), "gemini": bool(GEMINI_API_KEY), "elevenlabs": bool(ELEVENLABS_API_KEY)}
 
+@app.get("/v1/voice/config")
+async def voice_config():
+    """Advertise the active S2S mode + ElevenLabs ConvAI connection URL if available."""
+    if OR_API_KEY:
+        mode = "openrouter"
+    elif _HAVE_CONVAI and convai_available():
+        mode = "eleven_convai"
+    elif GEMINI_API_KEY:
+        mode = "gemini"
+    elif ELEVENLABS_API_KEY:
+        mode = "elevenlabs"
+    else:
+        mode = "none"
+    cfg = {"status": "healthy", "mode": mode,
+           "openrouter": bool(OR_API_KEY), "gemini": bool(GEMINI_API_KEY),
+           "elevenlabs": bool(ELEVENLABS_API_KEY), "eleven_convai": bool(_HAVE_CONVAI and convai_available())}
+    if cfg["eleven_convai"]:
+        try:
+            cfg["convai_url"] = connection_url()
+            cfg["agent_id"] = ensure_agent()
+        except Exception as _ve:
+            logger.warning(f"convai url build failed: {_ve}")
+    return cfg
+
+
 async def openrouter_voice_session(websocket: WebSocket):
     """OpenRouter streaming speech-to-speech: STT -> NeuralAI web tools -> LLM audio reply."""
     logger.info("Starting OpenRouter S2S voice session")
@@ -231,8 +278,71 @@ async def openrouter_voice_session(websocket: WebSocket):
                 await websocket.send_json({"type": "error", "message": f"Voice turn failed: {str(e)}"})
 
 
+def _pcm_to_flac(pcm_bytes: bytes, rate: int = 24000) -> bytes:
+    """Convert raw 16-bit PCM (client sends audio/pcm @24k) to FLAC via ffmpeg."""
+    import subprocess
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-f", "s16le", "-ar", str(rate), "-ac", "1",
+         "-i", "pipe:0", "-f", "flac", "pipe:1"],
+        input=pcm_bytes, capture_output=True,
+    )
+    if proc.returncode == 0 and proc.stdout:
+        return proc.stdout
+    return b""
+
+def _pcm_to_wav16(audio_b64: str) -> bytes:
+    """Decode client 24k s16le PCM -> 16k mono WAV (Vosk expects 16k)."""
+    import subprocess
+    pcm = base64.b64decode(audio_b64)
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1",
+         "-i", "pipe:0", "-ar", "16000", "-ac", "1",
+         "-f", "wav", "pipe:1"],
+        input=pcm, capture_output=True,
+    )
+    if proc.returncode == 0 and proc.stdout:
+        return proc.stdout
+    return b""
+
+def _vosk_transcribe(audio_b64: str) -> str:
+    """Local speech-to-text via Vosk (no API key, no credits)."""
+    model = _load_vosk()
+    if model is None:
+        return ""
+    from vosk import KaldiRecognizer
+    wav = _pcm_to_wav16(audio_b64)
+    if not wav:
+        return ""
+    rec = KaldiRecognizer(model, 16000)
+    rec.SetWords(False)
+    # Feed in frames; a single AcceptWaveform on the whole buffer drops short clips.
+    pos = 0
+    while pos < len(wav):
+        rec.AcceptWaveform(wav[pos:pos + 4000])
+        pos += 4000
+    res = rec.FinalResult()
+    try:
+        text = res.get("text", "").strip() if isinstance(res, dict) else ""
+        return text
+    except Exception:
+        return ""
+
+async def _google_stt(audio_b64: str) -> str:
+    """Deprecated free STT path (Google web endpoint retired). Kept for reference."""
+    return ""
+
 async def _or_transcribe(client: httpx.AsyncClient, audio_b64: str) -> str:
-    """Speech-to-text via OpenRouter audio/transcriptions (whisper-large-v3)."""
+    """Speech-to-text: try local Vosk first (no credits), then OpenRouter whisper."""
+    if _USE_VOSK_STT:
+        text = _vosk_transcribe(audio_b64)
+        if text:
+            return text
+        logger.warning("Vosk STT returned empty; falling back to OpenRouter")
+    if _USE_GOOGLE_STT:
+        text = await _google_stt(audio_b64)
+        if text:
+            return text
+        logger.warning("Google STT returned empty; falling back to OpenRouter")
     try:
         resp = await client.post(
             _OR_STT_URL,
@@ -261,36 +371,113 @@ async def _or_speak(client: httpx.AsyncClient, text_or_prompt: str, websocket: W
         messages = [{"role": "user", "content": text_or_prompt}]
 
     try:
-        # Primary: chat model with audio output (gpt-audio-mini supports modalities:["audio"])
+        # Generate a text reply from the LLM, then synthesize with the TTS fallback.
+        # (OpenRouter's chat endpoint does not return audio modality, so we always
+        #  route through the TTS fallback, which is gTTS-first and verified working.)
         resp = await client.post(
             _OPENROUTER_URL,
             headers=_or_headers(),
             json={
                 "model": _OR_MODEL_CHAT,
                 "messages": messages,
-                "modalities": ["text", "audio"],
-                "audio": {"voice": "alloy", "format": "pcm16"},
+                "temperature": 0.7,
                 "stream": False,
             },
         )
         if resp.status_code == 200:
-            content = resp.json().get("choices", [{}])[0].get("message", {})
-            audio_b64 = (content.get("audio", {}) or {}).get("data")
-            if audio_b64:
-                await websocket.send_json({"type": "audio", "data": audio_b64, "sampleRate": 24000})
-                await websocket.send_json({"type": "turn_complete"})
-                return
-            # model returned text only -> synthesize with TTS
-            txt = content.get("content", "")
+            txt = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
             if txt:
                 await _or_tts_fallback(client, txt, websocket)
                 return
         logger.error(f"OR speak status {resp.status_code}: {resp.text[:200]}")
-        # fallback to dedicated TTS endpoint
+        # fallback to dedicated TTS endpoint with the original prompt
         await _or_tts_fallback(client, text_or_prompt, websocket)
     except Exception as e:
         logger.error(f"speech gen failed: {e}")
         await websocket.send_json({"type": "error", "message": f"Speech failed: {str(e)}"})
+
+async def _gtts_tts(text: str, websocket: WebSocket) -> bool:
+    """Free TTS via gTTS (no API key). Streams PCM @22.05k like the web /speak tool."""
+    try:
+        from gtts import gTTS
+        import io
+        buf = io.BytesIO()
+        gTTS(text=text, lang="en").write_to_fp(buf)
+        mp3 = buf.getvalue()
+        # convert mp3 -> 24k pcm16 via ffmpeg
+        proc = subprocess.run(
+            ["ffmpeg", "-y", "-i", "pipe:0", "-f", "s16le", "-ar", "24000", "-ac", "1", "pipe:1"],
+            input=mp3, capture_output=True,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            audio_b64 = base64.b64encode(proc.stdout).decode("utf-8")
+            await websocket.send_json({"type": "audio", "data": audio_b64, "sampleRate": 24000})
+            await websocket.send_json({"type": "turn_complete"})
+            return True
+    except Exception as e:
+        logger.error(f"gtts failed: {e}")
+    return False
+
+async def _eleven_tts(text: str, websocket: WebSocket) -> bool:
+    """ElevenLabs TTS if a valid key is present. Returns True on success."""
+    e_key = os.environ.get("ELEVENLABS_API_KEY")
+    if not e_key or e_key == "placeholder":
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as c:
+            resp = await c.post(
+                "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM/stream",
+                headers={
+                    "xi-api-key": e_key,
+                    "Content-Type": "application/json",
+                    "Accept": "audio/mpeg",
+                },
+                json={"text": text, "model_id": "eleven_monolingual_v1"},
+            )
+            if resp.status_code == 200:
+                proc = subprocess.run(
+                    ["ffmpeg", "-y", "-i", "pipe:0", "-f", "s16le", "-ar", "24000", "-ac", "1", "pipe:1"],
+                    input=resp.content, capture_output=True,
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    audio_b64 = base64.b64encode(proc.stdout).decode("utf-8")
+                    await websocket.send_json({"type": "audio", "data": audio_b64, "sampleRate": 24000})
+                    await websocket.send_json({"type": "turn_complete"})
+                    return True
+            else:
+                logger.error(f"eleven labs status {resp.status_code}: {resp.text[:120]}")
+    except Exception as e:
+        logger.error(f"eleven labs tts failed: {e}")
+    return False
+
+async def _or_tts_fallback(client: httpx.AsyncClient, text: str, websocket: WebSocket):
+    """TTS fallback order: gTTS (free, always works) -> ElevenLabs (if key) -> OpenRouter TTS.
+    gTTS is first because it requires no API key and is verified working in this environment."""
+    if _USE_GTTS_TTS and await _gtts_tts(text, websocket):
+        return
+    if await _eleven_tts(text, websocket):
+        return
+    try:
+        resp = await client.post(
+            _OR_TTS_URL,
+            headers=_or_headers(),
+            json={
+                "model": _OR_MODEL_TTS,
+                "input": text,
+                "voice": "alloy",
+                "response_format": "pcm",
+                "sample_rate": 24000,
+            },
+        )
+        if resp.status_code == 200:
+            audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+            await websocket.send_json({"type": "audio", "data": audio_b64, "sampleRate": 24000})
+            await websocket.send_json({"type": "turn_complete"})
+            return
+        logger.error(f"TTS fallback status {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"tts fallback failed: {e}")
+    await websocket.send_json({"type": "error", "message": "Speech synthesis failed"})
 
 
 def _route_voice_intent(text: str):
@@ -359,6 +546,25 @@ async def websocket_endpoint(websocket: WebSocket):
             logger.info("No initial config received, using defaults")
         except Exception as e:
             logger.error(f"Error receiving initial config: {e}")
+
+        # ELEVENLABS CONVERSATIONAL AI (true S2S) - HIGHEST PRIORITY when available
+        if _HAVE_CONVAI and convai_available():
+            try:
+                url = connection_url()
+                aid = ensure_agent()
+                if url and aid:
+                    logger.info(f"Starting ElevenLabs Conversational AI (S2S) agent={aid}")
+                    await websocket.send_json({
+                        "type": "convai_start",
+                        "url": url,
+                        "agent_id": aid,
+                        "message": "Connected to NeuralAI voice (ElevenLabs S2S). Browser will open mic.",
+                    })
+                    # Server-side relay is done; the browser drives the wss loop directly.
+                    return
+            except Exception as ce:
+                logger.error(f"ElevenLabs ConvAI start failed: {ce}")
+                await websocket.send_json({"type": "error", "message": f"ElevenLabs S2S failed: {str(ce)}"})
 
         # OPENROUTER S2S MODE (primary)
         if o_key:

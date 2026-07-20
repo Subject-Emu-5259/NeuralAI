@@ -457,6 +457,9 @@ body.dark-mode .history-item.active {
 /* Content - FILL SCREEN */
 .content {
   flex: 1;
+  min-height: 0;
+  height: calc(100vh - 56px);
+  overflow: hidden;
   padding: 24px 32px 100px;
   max-width: none;
   width: 100%;
@@ -1857,7 +1860,7 @@ body.dark-mode .memory-item span, body.dark-mode .rule-item span {
   max-width: none;
   width: 100%;
   margin: 0;
-  min-height: 500px;
+  flex: 1; min-height: 0; height: 100%;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(48, 54, 61, 0.5);
@@ -3202,8 +3205,8 @@ body.dark-mode .onboarding-close:hover {
     </div>
 
     <!-- Terminal Tab 2.0 -->
-    <div id="tab-terminal" class="hidden">
-      <section class="terminal-section">
+    <div id="tab-terminal" class="hidden" style="height:100%; display:flex; flex-direction:column;">
+      <section class="terminal-section" style="flex:1; min-height:0; height:100%;">
         <div class="terminal-header">
           <div class="terminal-brand">
             <div class="terminal-brand-text">
@@ -3283,7 +3286,7 @@ body.dark-mode .onboarding-close:hover {
 
 
 <!-- Settings Tab (Unified & Consolidated) -->
-    <div id="tab-settings" class="hidden">
+    <div id="tab-settings" class="hidden" style="overflow-y:auto; height:100%; padding-right:8px;">
       <section class="settings-section">
         <div class="settings-header">
           <h2>⚙️ Settings & Profile</h2>
@@ -3427,13 +3430,21 @@ body.dark-mode .onboarding-close:hover {
               </div>
           </div>
         </div>
+        <div class="settings-card">
+          <h3>Scroll Behavior</h3>
+          <label style="display: flex; align-items: center; gap: 10px; margin-top: 12px; cursor: pointer;">
+            <input type="checkbox" id="scrollSmoothToggle" checked onchange="toggleSmoothScroll(this.checked)" style="width:16px;height:16px;accent-color:#1a73e8;">
+            <span>Smooth scrolling</span>
+          </label>
+          <p style="font-size: 11px; color: #8a8a9a; margin-top: 8px;">Animates scrolling in chat, terminal, memory, and files. Turn off for instant jumps.</p>
+        </div>
       </section>
     </div>
   </main>
 </div>
 
 <!-- Bottom input bar -->
-<section class="chat-input-bar">
+<section class="chat-input-bar" data-chatbar>
   <button id="voiceBtn" class="voice-btn" title="Live Conversation">🎤</button>
   <textarea id="chatInput" placeholder="Ask NeuralAI anything...  |  commands: /web, /fetch, /calc, /wiki" rows="1"></textarea>
   <button id="stopBtn" class="stop-btn" style="display:none;" title="Stop generating">■</button>
@@ -3444,52 +3455,17 @@ body.dark-mode .onboarding-close:hover {
 <!-- TERMINAL PANEL -->
 <div id="terminalPanel" class="terminal-panel hidden">
   <div class="terminal-header">
-    <span class="term-title">NeuralAI Terminal</span>
-    <button id="closeTerminal" class="term-close">×</button>
-  </div>
-  <div id="popupTerminalOutput" class="terminal-output"></div>
-  <div class="terminal-input-row">
-    <span class="prompt">$</span>
-    <input id="popupTerminalInput" type="text" placeholder="Enter command..." autocomplete="off" />
-    <button id="popupTerminalRun">Run</button>
-  </div>
-</div>
 
-<!-- CODE EDITOR MODAL -->
-<div id="codeModal" class="modal-overlay hidden">
+<!-- WHAT'S NEW / RELEASE NOTES MODAL -->
+<div id="releaseNotesModal" class="modal-overlay hidden">
   <div class="modal-box">
     <div class="modal-header">
-      <span>💻 Code Runner</span>
-      <button id="closeCodeModal" class="term-close">×</button>
-    </div>
-    <textarea id="codeEditor" spellcheck="false" placeholder="print('Hello from NeuralAI')"></textarea>
-    <div class="modal-actions">
-      <button id="runCodeBtn" class="auth-btn" style="background:#10b981;">Run Code</button>
-    </div>
-    <pre id="codeOutput" class="exec-output" style="white-space:pre-wrap;"></pre>
-  </div>
-</div>
-
-<!-- RELEASE NOTES MODAL -->
-<div id="releaseNotesModal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:560px;">
-    <div class="modal-header">
       <span id="releaseNotesTitle">✨ What's New</span>
-      <button id="closeReleaseNotes" class="term-close">×</button>
+      <button id="closeReleaseNotes" class="icon-btn" style="background:transparent;border:none;color:#9aa0a6;font-size:18px;cursor:pointer;" title="Close">✕</button>
     </div>
     <div id="releaseNotesBody" class="release-notes-body"></div>
   </div>
 </div>
 
-<!-- LIVE VOICE OVERLAY -->
-<div id="liveVoiceOverlay" class="hidden">
-  <div class="live-orb" id="liveOrb"></div>
-  <div class="live-status" id="liveStatusText">Initializing Live Mode...</div>
-  <div class="live-transcript" id="liveTranscript">Listening...</div>
-  <button class="close-live-btn" id="closeLiveBtn">End Conversation</button>
-</div>
-
-
-<script src="/static/js/main_v2.js?v={{BUILD_VERSION}}"></script>
-</body>
-</html>
+<!-- App script (single source of truth) --><!-- App script (single source of truth) -->
+<script src="/static/js/main_v2.js"></script>

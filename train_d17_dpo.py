@@ -68,7 +68,6 @@ cfg = DPOConfig(
     bf16=torch.cuda.is_available(),
     fp16=False,
     optim="adamw_torch",
-    max_prompt_length=512,
     max_length=1024,
     report_to="none",
 )

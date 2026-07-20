@@ -29,6 +29,15 @@ from tools.tool_handler import run_tool as _run_tool
 from tools.tool_router import route as _route_nl_tool
 from tools import refine as _refine
 from tools import web_browser as _web_browser
+from services.nextcloud_bridge import (
+    neuralai_to_nc_username,
+    provision_user,
+    list_files as nc_list_files,
+    get_file as nc_get_file,
+    put_file as nc_put_file,
+    mkdir as nc_mkdir,
+    delete_file as nc_delete_file,
+)
 
 # torch is imported lazily inside load_model() only when LLM_BACKEND=local
 # This prevents 6GB+ RAM usage on ZO Computer when using external API backends
@@ -869,7 +878,15 @@ def enhance_image_prompt(prompt):
 # ROUTES - STATIC
 # ====================
 import time
-BUILD_VERSION = str(int(time.time()))
+
+def _build_version():
+    # Cache-bust from the app JS file's mtime so any static edit forces a fresh
+    # browser fetch (the ?v= query string is what browsers key caching on).
+    js_path = f"{STATIC_PATH}/static/js/main_v2.js"
+    try:
+        return str(int(os.path.getmtime(js_path)))
+    except OSError:
+        return str(int(time.time()))
 
 @app.route("/")
 def index():
@@ -878,7 +895,7 @@ def index():
         with open(p) as f:
             content = f.read()
             # Inject build version for cache busting
-            content = content.replace("{{BUILD_VERSION}}", BUILD_VERSION)
+            content = content.replace("{{BUILD_VERSION}}", _build_version())
             return content, 200, {
                 "Content-Type": "text/html",
                 "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -894,9 +911,18 @@ def static_files(path):
         if os.path.exists(p) and os.path.isfile(p):
             ext = path.split('.')[-1]
             ct = {"js": "application/javascript", "css": "text/css", "png": "image/png", "jpg": "image/jpeg", "ico": "image/x-icon"}
-            # Set no-cache for JS/CSS to prevent Cloudflare caching old 404s
-            cache_ctrl = "no-cache, no-store, must-revalidate" if ext in ("js", "css") else "public, max-age=31536000"
-            return send_from_directory(os.path.dirname(p), os.path.basename(p), mimetype=ct.get(ext, "text/plain"), max_age=0 if ext in ("js", "css") else 31536000)
+            # Hard no-cache for JS/CSS so browsers/Cloudflare always revalidate and
+            # never serve a stale 304 copy (which caused the blank-tab/black-terminal regression).
+            if ext in ("js", "css"):
+                resp = send_from_directory(os.path.dirname(p), os.path.basename(p),
+                                           mimetype=ct.get(ext, "text/plain"), max_age=0)
+                resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                resp.headers["Pragma"] = "no-cache"
+                resp.headers.pop("ETag", None)
+                resp.headers.pop("Last-Modified", None)
+                return resp
+            return send_from_directory(os.path.dirname(p), os.path.basename(p),
+                                       mimetype=ct.get(ext, "text/plain"), max_age=31536000)
     return "Not found", 404
 
 # ====================
@@ -1209,63 +1235,69 @@ def conv_detail(current_user, cid):
 # ====================
 # ROUTES - FILES (Proxied to Storage Service)
 # ====================
+def _resolve_nc_user(current_user):
+    """Map the JWT-authenticated NeuralAI user to a provisioned Nextcloud user.
+    Guests get a per-session Nextcloud home too (scoped, not persistent accounts).
+    """
+    nc_user = neuralai_to_nc_username(str(current_user))
+    provision_user(nc_user)
+    return nc_user
+
+
 @app.route("/api/files", methods=["GET", "POST"])
-def manage_files():
+@token_required
+def manage_files(current_user):
+    """NeuralDrive: list/upload files in the calling user's Nextcloud home."""
     try:
+        nc_user = _resolve_nc_user(current_user)
         if request.method == "POST":
             if 'file' not in request.files: return jsonify({"error": "No file"}), 400
             file = request.files['file']
-            save_path = STORAGE_ROOT / file.filename
-            file.save(str(save_path))
-            return jsonify({"success": True, "name": file.filename, "size": save_path.stat().st_size})
-        # List files directly from STORAGE_ROOT (no external dependency)
-        files = []
-        for f in sorted(STORAGE_ROOT.iterdir(), key=lambda p: (p.is_dir(), p.name.lower())):
-            if f.name.startswith("."):
-                continue
-            files.append({
-                "name": f.name,
-                "size": f.stat().st_size,
-                "path": f.name,
-                "is_dir": f.is_dir(),
-                "type": "image" if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".webp") else ("dir" if f.is_dir() else "file")
-            })
+            data = file.read()
+            ok = nc_put_file(nc_user, file.filename, data, file.content_type or "application/octet-stream")
+            if not ok:
+                return jsonify({"error": "Upload failed"}), 500
+            return jsonify({"success": True, "name": file.filename, "size": len(data)})
+        files = nc_list_files(nc_user)
         return jsonify(files)
     except Exception as e:
         logger.error(f"File management error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/files/mkdir", methods=["POST"])
-def make_dir():
+@token_required
+def make_dir(current_user):
     data = request.get_json() or {}
     name = (data.get("name") or "").strip().replace("/", "").replace("..", "")
     if not name:
         return jsonify({"error": "No folder name"}), 400
     try:
-        (STORAGE_ROOT / name).mkdir(parents=True, exist_ok=True)
+        nc_user = _resolve_nc_user(current_user)
+        ok = nc_mkdir(nc_user, name)
+        if not ok:
+            return jsonify({"error": "mkdir failed"}), 500
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/files/<path:filename>", methods=["GET", "DELETE"])
-def handle_file(filename):
+@token_required
+def handle_file(current_user, filename):
+    """NeuralDrive: download/delete a file in the calling user's Nextcloud home."""
     try:
-        target = (STORAGE_ROOT / filename).resolve()
-        if not str(target).startswith(str(STORAGE_ROOT)):
-            return jsonify({"error": "Unauthorized path"}), 403
+        nc_user = _resolve_nc_user(current_user)
         if request.method == "DELETE":
-            if not target.exists():
-                return jsonify({"error": "Not found"}), 404
-            if target.is_dir():
-                import shutil
-                shutil.rmtree(target)
-            else:
-                target.unlink()
+            ok = nc_delete_file(nc_user, filename)
+            if not ok:
+                return jsonify({"error": "Delete failed"}), 500
             return jsonify({"success": True})
-        # GET -> serve the file directly
-        if not target.exists():
+        status, content, ctype = nc_get_file(nc_user, filename)
+        if status == 404:
             return jsonify({"error": "Not found"}), 404
-        return send_from_directory(str(STORAGE_ROOT), filename)
+        if status != 200:
+            return jsonify({"error": "Download failed"}), 500
+        from flask import Response as _R
+        return _R(content, mimetype=ctype)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1473,170 +1505,172 @@ def api_tool(current_user):
 # without any extra static-file wiring.
 
 def _browser_session(uid):
-    """Get (creating if needed) the per-user browser session."""
+    """Get (creating if needed) the per-user real Playwright browser manager."""
     sid = "ui_" + str(uid or "anon")
-    return _web_browser.get_session(sid)
+    return _web_browser.get_manager(sid)
 
-def _shoot(page, sess=None, max_w=900):
-    """Return a base64 JPEG data URL of the current page.
-    The Playwright page is bound to a dedicated owner thread, so the screenshot
-    MUST run via `sess._run`. When a session is passed we route it there; as a
-    fallback for same-thread callers we call page.screenshot directly."""
-    import base64
-    def _cap():
-        return page.screenshot(type="jpeg", quality=70, full_page=False)
-    try:
-        if sess is not None:
-            try:
-                buf = sess._run(_cap)
-            except Exception:
-                buf = _cap()
-        else:
-            buf = _cap()
-        return "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
-    except Exception as e:
-        svg = f'<svg xmlns="http://www.w3.org/2000/svg"><text>shot failed: {e}</text></svg>'.encode()
-        return "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+def _plan_browser_steps(task, start_url=""):
+    """Lightweight planner: turn a natural-language task into plain-language
+    browser steps for the AI Mirror stream. No network, no model dependency."""
+    t = (task or "").lower()
+    steps = []
+    import re as _re
+    m = _re.search(r"https?://\S+", task or "")
+    if start_url:
+        steps.append(f"Open {start_url}")
+    elif m:
+        steps.append(f"Open {m.group(0)}")
+    if any(k in t for k in ("search", "look up", "find", "google")):
+        q = _re.sub(r"^(please |can you |help me )?(search|look up|find|google) (for |on |about )?", "", t)
+        q = _re.sub(r"https?://\S+", "", q).strip()
+        if q:
+            steps.append(f"Search Google for: {q}")
+            steps.append("Scroll down to read results")
+    elif m is None and any(k in t for k in ("go to", "open", "visit", "navigate to")):
+        site = _re.sub(r".*?(go to|open|visit|navigate to)\s*", "", t).strip()
+        if site and "." in site:
+            steps.append(f"Open https://{site}" if not site.startswith("http") else f"Open {site}")
+    else:
+        if task:
+            steps.append(f"Search Google for: {task}")
+            steps.append("Scroll down to read results")
+    if not steps:
+        steps.append("Open a new page")
+    return steps[:8]
 
 @app.route("/api/browser/health", methods=["GET"])
 @token_required
 def api_browser_health(current_user):
-    with _web_browser._LOCK:
-        live = sum(1 for sess in _web_browser._SESSIONS.values() if sess is not None)
-    return jsonify({"success": True, "active_sessions": live})
+    mgr = _browser_session(current_user)
+    return jsonify({"success": True, "active": len(mgr.tabs()), "engine": "playwright-chromium"})
+
+
+def _coerce_tab_id(raw):
+    """Convert a string/int tab id from the frontend into int or None (active)."""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if s == "" or s.lower() == "active":
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+@app.route("/api/browser/tabs", methods=["GET"])
+@token_required
+def api_browser_tabs(current_user):
+    mgr = _browser_session(current_user)
+    return jsonify({"success": True, "active_tab": mgr.active, "tabs": mgr.list_tabs()})
+
+
+@app.route("/api/browser/new", methods=["POST"])
+@token_required
+def api_browser_new(current_user):
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    mgr = _browser_session(current_user)
+    tab = mgr.new_tab(url)
+    return jsonify({"success": True, "active_tab": mgr.active, "tabs": mgr.list_tabs(), "tab": tab})
+
+
+@app.route("/api/browser/close-tab", methods=["POST"])
+@token_required
+def api_browser_close_tab(current_user):
+    data = request.get_json(silent=True) or {}
+    tab_id = _coerce_tab_id(data.get("tab_id") or data.get("id"))
+    mgr = _browser_session(current_user)
+    tabs = mgr.close_tab(tab_id)
+    return jsonify({"success": True, "active_tab": mgr.active, "tabs": tabs})
+
+
+@app.route("/api/browser/select", methods=["POST"])
+@token_required
+def api_browser_select(current_user):
+    data = request.get_json(silent=True) or {}
+    tab_id = _coerce_tab_id(data.get("tab_id") or data.get("id"))
+    mgr = _browser_session(current_user)
+    tab = mgr.select(tab_id)
+    return jsonify({"success": True, "active_tab": mgr.active, "tabs": mgr.list_tabs(), "tab": tab})
+
 
 @app.route("/api/browser/navigate", methods=["POST"])
 @token_required
 def api_browser_navigate(current_user):
     data = request.get_json(silent=True) or {}
-    url = data.get("url", "").strip()
+    url = (data.get("url") or "").strip()
+    tab_id = _coerce_tab_id(data.get("tab_id") or data.get("id"))
     if not url:
         return jsonify({"success": False, "error": "url required"}), 400
     if not url.startswith("http"):
         url = "https://" + url
     try:
-        sess = _browser_session(current_user)
-        sess._run(sess.page.goto, url, wait_until="domcontentloaded", timeout=30000)
-        sess._run(sess.page.wait_for_timeout, 1200)
-        return jsonify({
-            "success": True,
-            "url": sess._run(lambda: sess.page.url),
-            "title": sess._run(lambda: sess.page.title()),
-            "screenshot": _shoot(sess.page, sess),
-        })
+        mgr = _browser_session(current_user)
+        tab = mgr.navigate(url, tab_id=tab_id)
+        return jsonify({"success": True, "active_tab": mgr.active, "tabs": mgr.list_tabs(), "tab": tab})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "url": url}), 500
+
 
 @app.route("/api/browser/action", methods=["POST"])
 @token_required
 def api_browser_action(current_user):
-    """Standalone mode: user-driven click/type/scroll/fill on the live page."""
     data = request.get_json(silent=True) or {}
     act = (data.get("action") or "").lower()
-    sess = _browser_session(current_user)
+    extra = data.get("extra") or {}
+    tab_id = _coerce_tab_id(data.get("tab_id") or data.get("id"))
     try:
-        page = sess.page
-        def _act():
-            if act == "click":
-                page.get_by_text(data.get("text", ""), exact=False).first.click()
-            elif act == "click_selector":
-                page.click(data.get("selector", ""))
-            elif act == "fill":
-                page.fill(data.get("selector", ""), data.get("value", ""))
-            elif act in ("scroll_down", "scroll"):
-                page.mouse.wheel(0, int(data.get("amount", 800)))
-            elif act == "scroll_up":
-                page.mouse.wheel(0, -int(data.get("amount", 800)))
-            elif act == "back":
-                page.go_back()
-            elif act == "forward":
-                page.go_forward()
-            elif act == "reload":
-                page.reload()
-            else:
-                return "unknown"
-            page.wait_for_timeout(900)
-            return "ok"
-        res = sess._run(_act)
-        if res == "unknown":
-            return jsonify({"success": False, "error": f"unknown action: {act}"}), 400
-        return jsonify({"success": True, "url": sess._run(lambda: page.url), "screenshot": _shoot(page)})
+        mgr = _browser_session(current_user)
+        tab = mgr.action(act, extra=extra, tab_id=tab_id)
+        return jsonify({"success": True, "active_tab": mgr.active, "tabs": mgr.list_tabs(), "tab": tab})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "screenshot": _shoot(sess.page, sess)}), 200
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/api/browser/run", methods=["POST"])
 @token_required
 def api_browser_run(current_user):
-    """Mirror mode: AI (or user prompt) drives a multi-step task. Streams each
-    step as an SSE event with the screenshot so the UI can show the AI driving."""
+    """Mirror mode: AI drives a multi-step task across the active tab.
+    Streams each step as an SSE event with a screenshot so the UI shows progress."""
     data = request.get_json(silent=True) or {}
     task = (data.get("task") or "").strip()
     url = (data.get("url") or "").strip()
+    tab_id = (data.get("tab_id") or "").strip()
     if not task and not url:
         return jsonify({"success": False, "error": "task or url required"}), 400
 
-    sess = _browser_session(current_user)
+    mgr = _browser_session(current_user)
 
-    def gen(start_url=url):
+    def gen():
         import json as _json
+        def _ev(kind, text, tab=None):
+            payload = {"kind": kind, "text": text}
+            if tab:
+                payload["tab"] = tab
+            return "data: " + _json.dumps(payload) + "\n\n"
         try:
-            if start_url:
-                u = start_url if start_url.startswith("http") else "https://" + start_url
-                info = sess.navigate_to(u)
-                yield _ev("step", f"🌐 Opened {info['url']}", sess.screenshot())
-            # Decompose the task into browser steps via the NL router's planner.
-            steps = _plan_browser_steps(task)
-            for step in steps:
-                out = sess._run(sess._do_step, step)
-                yield _ev("step", out, sess.screenshot())
-            final = sess._extract_text()[:2000]
-            yield _ev("done", f"✅ Task complete on {sess.page.url}\n\n{final}", _shoot(sess.page, sess))
+            start_url = url if url.startswith("http") else ("https://" + url if url else None)
+            steps = _plan_browser_steps(task, start_url)
+            for i, step in enumerate(steps):
+                tab = mgr.action(step, tab_id=tab_id or None)
+                yield _ev("step", f"[{i+1}/{len(steps)}] {step}", tab)
+            yield _ev("done", "Task complete", mgr.get_tab(mgr.active))
         except Exception as e:
-            yield _ev("error", f"❌ {e}", _shoot(sess.page, sess))
-
-    def _ev(kind, text, shot):
-        return f"data: {_json.dumps({'kind': kind, 'text': text, 'screenshot': shot})}\n\n"
+            yield _ev("error", f"Error: {e}")
 
     return Response(gen(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-def _plan_browser_steps(task):
-    """Lightweight planner: turn a natural-language task into BrowserSession
-    steps. Keyword/pattern based — no network, no model dependency."""
-    t = task.lower()
-    steps = []
-    import re as _re
-    # Extract an explicit URL to open first
-    m = _re.search(r"https?://\S+", task)
-    if m and not task.strip().startswith("go "):
-        steps.append(f"go {m.group(0)}")
-    # Search intent
-    if any(k in t for k in ["search", "look up", "find", "google"]):
-        q = _re.sub(r"^(please |can you |help me )?(search|look up|find|google) (for |on |about )?", "", t)
-        q = _re.sub(r"https?://\S+", "", q).strip()
-        if q:
-            steps.append(f"go https://www.google.com/search?q={requests.utils.quote(q)}")
-            steps.append("scroll down")
-    # Generic "go to X" intent
-    elif m is None and any(k in t for k in ["go to", "open", "visit", "navigate to"]):
-        site = _re.sub(r".*?(go to|open|visit|navigate to)\s*", "", t).strip()
-        if site and "." in site:
-            steps.append(f"go https://{site}" if not site.startswith('http') else f"go {site}")
-    else:
-        # Fallback: treat the whole task as a search
-        steps.append(f"go https://www.google.com/search?q={requests.utils.quote(task)}")
-        steps.append("scroll down")
-    return steps[:8]
 
 @app.route("/api/browser/close", methods=["POST"])
 @token_required
 def api_browser_close(current_user):
     try:
-        _web_browser.close_session("ui_" + str(current_user or "anon"))
+        _web_browser.close_manager("ui_" + str(current_user or "anon"))
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
 # ====================
 # ROUTES - AUTH
 # ====================
@@ -1664,6 +1698,11 @@ def signup():
         db.execute("INSERT INTO users (id, username, email, is_founder, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                    (uid, username, email, is_founder, hashed, now))
         db.commit()
+        # Provision a per-user Nextcloud home (NeuralDrive) for this new account
+        try:
+            provision_user(neuralai_to_nc_username(uid))
+        except Exception as _pe:
+            logger.warning(f"Nextcloud provisioning skipped for {uid}: {_pe}")
         token = jwt.encode({"user_id": uid, "is_founder": is_founder, "exp": datetime.now(timezone.utc) + timedelta(days=30)},
                            app.config["SECRET_KEY"], algorithm="HS256")
         return jsonify({"success": True, "message": "User created", "token": token,
@@ -1692,6 +1731,11 @@ def login():
             token = jwt.encode({"user_id": user["id"], "is_founder": user["is_founder"],
                                 "exp": datetime.now(timezone.utc) + timedelta(days=30)},
                                app.config["SECRET_KEY"], algorithm="HS256")
+            # Ensure the user's NeuralDrive (Nextcloud home) exists on login
+            try:
+                provision_user(neuralai_to_nc_username(user["id"]))
+            except Exception as _pe:
+                logger.warning(f"Nextcloud provisioning skipped for {user['id']}: {_pe}")
             return jsonify({"success": True, "token": token,
                             "user": {"id": user["id"], "username": user["username"], "is_founder": bool(user["is_founder"])}})
         return jsonify({"error": "Invalid credentials"}), 401

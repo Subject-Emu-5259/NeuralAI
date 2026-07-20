@@ -22,7 +22,10 @@ _RULES: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\b(research|deep dive|investigate|look into)\b[:\s]*(.+)", re.I), "research", "query"),
     # News  — capture the full remaining phrase (e.g. "latest news on AI" -> "latest news on AI")
     (re.compile(r"\b(news|headlines|latest (?:news|headline)s?)\b[:\s]*(.*)", re.I), "news", "query"),
-    # Translate
+    # Translate  — capture target lang + text robustly.
+    # Handles "translate X to <lang>", "translate to <lang>: X", "translate <lang> X".
+    (re.compile(r"\b(translate|translation|say|write|tell)\b.*?\bto\b\s+([a-z]{2,}|[A-Z]\w+)\b[:\s]*(.+)", re.I), "translate", "to_lang"),
+    (re.compile(r"\b(translate|translation)\b[:\s]*([a-z]{2,}|[A-Z]\w+)\b[:\s]*(.+)", re.I), "translate", "lang_first"),
     (re.compile(r"\b(translate|translation)\b[:\s]*(.+)", re.I), "translate", "query"),
     # Generic web search  — also catches "latest X", "current X", "recent X", "today X"
     (re.compile(
@@ -83,3 +86,53 @@ def detect_web_intent(prompt: str) -> Optional[Tuple[str, dict]]:
             if q:
                 return (tool, {"query": q, "top_k": 5})
     return None
+
+def _parse_translate(prompt: str) -> Optional[Tuple[str, dict]]:
+    """Parse 'translate <text> (to|into) <lang>' or 'translate <lang> <text>'.
+
+    Returns (tool, {text, target}) matching ToolHandler._handle_translate.
+    """
+    m = re.search(
+        r"\btranslate\b.*?\b(?:to|into)\b\s*([a-z]{2,20})\b[:\s]*(.+)", prompt, re.I
+    )
+    if m:
+        lang, text = m.group(1).strip(), m.group(2).strip()
+    else:
+        m2 = re.search(r"\btranslate\b[:\s]+([a-z]{2,20})\s+(.+)", prompt, re.I)
+        if not m2:
+            return None
+        lang, text = m2.group(1).strip(), m2.group(2).strip()
+    if not text:
+        return None
+    return ("translate", {"text": text, "target": _normalize_lang(lang)})
+
+
+def _normalize_lang(lang: str) -> str:
+    """Map a language name/code to a 2-letter ISO code for the translate backend."""
+    table = {
+        "english": "en", "spanish": "es", "french": "fr", "german": "de",
+        "italian": "it", "portuguese": "pt", "russian": "ru", "chinese": "zh",
+        "japanese": "ja", "korean": "ko", "arabic": "ar", "hindi": "hi",
+        "dutch": "nl", "turkish": "tr", "polish": "pl", "swedish": "sv",
+        "greek": "el", "hebrew": "he", "thai": "th", "vietnamese": "vi",
+    }
+    low = lang.lower().strip()
+    if low in table:
+        return table[low]
+    if re.fullmatch(r"[a-z]{2,3}", low):
+        return low
+    return "es"  # safe default
+
+
+def detect_web_intent(prompt: str) -> Optional[Tuple[str, dict]]:
+    if not prompt or prompt.strip().startswith("/"):
+        return None
+    p = prompt.strip()
+
+    # Translate gets its own parser first (needs lang+text, not a single query).
+    if re.search(r"\btranslate\b", p, re.I):
+        tr = _parse_translate(p)
+        if tr:
+            return tr
+
+    # quick guard: only treat as web intent if there's a clear trigger word/url

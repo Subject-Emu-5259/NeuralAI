@@ -31,7 +31,7 @@ try:
 except Exception:  # pragma: no cover
     requests = None
 
-from tools.web_intent import detect_web_intent
+from tools.web_intent import detect_web_intent, _parse_translate
 
 logger = logging.getLogger("neuralai.tool_router")
 
@@ -69,7 +69,8 @@ _SYSTEM = (
     "- For search/news/research/summarize-via-query, put the user's topic in params.query.\n"
     "- For web_fetcher/web_browser/youtube, put the URL in params.url.\n"
     "- For image, put the description in params.prompt.\n"
-    "- For speak/translate, put the text in params.text (translate also needs params.lang).\n"
+                "- For speak, put the text in params.text.\n"
+            "- For translate, put the text in params.text and the TARGET language in params.lang (use a 2-letter ISO code like 'es', 'fr', 'de', or the language name). Do NOT put the whole sentence in one field.\n"
     "- For summarize with pasted text, put it in params.text.\n"
     "- For agent, put the full task in params.task.\n"
     "- Never invent a URL. If a URL is required but none is present, pick web_search instead.\n"
@@ -165,6 +166,15 @@ def route(prompt: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     if not prompt or not prompt.strip():
         return None
 
+    # Translate is a structured 2-slot intent (text + target lang). The small
+    # routing LLM reliably detects the tool but routinely drops/mis-shapes the
+    # target language, so we route it through the deterministic keyword parser
+    # (which correctly splits 'translate <text> to <lang>') and skip the LLM.
+    if re.search(r"\btranslate\b", prompt, re.I):
+        tr = _parse_translate(prompt)
+        if tr:
+            return tr
+
     # Composite-intent fast path: route to the autonomous agent (offline, no LLM call).
     if _composite_detected(prompt):
         return ("agent", {"task": prompt})
@@ -183,6 +193,14 @@ def route(prompt: str) -> Optional[Tuple[str, Dict[str, Any]]]:
             return (tool, params)
         if tool not in _TOOLS:
             return detect_web_intent(prompt)
+        # Translate needs precise lang+text extraction that the LLM often gets
+        # wrong (e.g. "translate hello to spanish" -> text="to spanish").
+        # Re-parse deterministically so the right language is always chosen.
+        if tool == "translate":
+            from tools.web_intent import _parse_translate
+            tr = _parse_translate(prompt)
+            if tr:
+                return tr
         params = decision.get("params", {}) or {}
         # Normalize: ensure there is always a query/text to render from.
         if "query" not in params and "text" not in params and "url" not in params and "prompt" not in params:

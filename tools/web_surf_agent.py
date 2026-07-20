@@ -34,7 +34,7 @@ def _env(name, default=""):
     return os.environ.get(name, default)
 
 
-OPENROUTER_KEY = _env("Open_Router_API")
+OPENROUTER_KEY = _env("Open_Router_API") or _env("OPENROUTER_API_KEY")
 ELEVENLABS_KEY = _env("ELEVENLABS_API_KEY")
 HEADERS_OR = {
     "Authorization": f"Bearer {OPENROUTER_KEY}",

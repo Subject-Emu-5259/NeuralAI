@@ -1116,7 +1116,7 @@ body:not(.dark-mode) .msg code {
   overflow-y: auto;
   font-size: 12px;
 }
-.release-notes-body {
+.whats-new-body {
   max-height: 60vh;
   overflow-y: auto;
   display: flex;
@@ -1124,19 +1124,26 @@ body:not(.dark-mode) .msg code {
   gap: 12px;
   padding-right: 4px;
 }
-.rn-item {
+.whats-new-loading,
+.whats-new-error {
+  color: #9aa0a6;
+  font-size: 13px;
+  padding: 8px 4px;
+}
+.whats-new-error { color: #f87171; }
+.wn-item {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 12px 14px;
   background: rgba(255,255,255,0.02);
 }
-.rn-item-head {
+.wn-item-head {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
 }
-.rn-tag {
+.wn-tag {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1144,21 +1151,21 @@ body:not(.dark-mode) .msg code {
   padding: 2px 8px;
   border-radius: 999px;
 }
-.rn-tag.New { background: #1a73e8; color: #fff; }
-.rn-tag.Fixed { background: #34a853; color: #fff; }
-.rn-tag.Roadmap { background: #a855f7; color: #fff; }
-.rn-tag.Vision { background: #f97316; color: #fff; }
-.rn-item-title {
+.wn-tag.New { background: #1a73e8; color: #fff; }
+.wn-tag.Fixed { background: #34a853; color: #fff; }
+.wn-tag.Roadmap { background: #a855f7; color: #fff; }
+.wn-tag.Vision { background: #f97316; color: #fff; }
+.wn-item-title {
   font-size: 14px;
   font-weight: 600;
   color: #e4e4e7;
 }
-.rn-item-body {
+.wn-item-body {
   font-size: 13px;
   color: #9aa0a6;
   line-height: 1.5;
 }
-.rn-meta {
+.wn-meta {
   font-size: 12px;
   color: #6b7280;
   margin-bottom: 12px;
@@ -1321,6 +1328,7 @@ body.dark-mode .chat-input-bar {
   background: #fff;
   max-height: 120px;
   font-family: inherit;
+  color: #202124;
 }
 
 .chat-input-bar button {
@@ -1380,6 +1388,10 @@ body.dark-mode .chat-input-bar {
   font-weight: 600;
 }
 .cmd-hint.hidden { display: none; }
+
+body.dark-mode .chat-input-bar textarea {
+  color: #e4e4e7;
+}
 
 /* Files Tab - FILL WIDTH */
 .files-section {
@@ -3098,7 +3110,7 @@ body.dark-mode .onboarding-close:hover {
     <span id="userGreeting" class="product-name" style="margin-right: 12px;"></span>
     <button id="logoutBtn" class="top-btn" onclick="logout()">Logout</button>
     <button class="top-btn" onclick="toggleDarkMode()">🌙 Theme</button>
-    <button class="top-btn" id="whatsNewBtn" onclick="openReleaseNotes()" title="What's New">✨ What's New</button>
+
   </div>
 </div>
 
@@ -3455,17 +3467,6 @@ body.dark-mode .onboarding-close:hover {
 <!-- TERMINAL PANEL -->
 <div id="terminalPanel" class="terminal-panel hidden">
   <div class="terminal-header">
-
-<!-- WHAT'S NEW / RELEASE NOTES MODAL -->
-<div id="releaseNotesModal" class="modal-overlay hidden">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span id="releaseNotesTitle">✨ What's New</span>
-      <button id="closeReleaseNotes" class="icon-btn" style="background:transparent;border:none;color:#9aa0a6;font-size:18px;cursor:pointer;" title="Close">✕</button>
-    </div>
-    <div id="releaseNotesBody" class="release-notes-body"></div>
-  </div>
-</div>
 
 <!-- App script (single source of truth) -->
 <script src="/static/js/main_v2.js?v={{BUILD_VERSION}}"></script>

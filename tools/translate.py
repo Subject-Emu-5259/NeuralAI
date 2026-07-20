@@ -13,7 +13,7 @@ import json
 
 
 def _translate_openrouter(text: str, target: str) -> str:
-    api_key = os.environ.get("Open_Router_API")
+    api_key = os.environ.get("Open_Router_API") or os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise RuntimeError("Open_Router_API not set")
     prompt = (
@@ -21,7 +21,7 @@ def _translate_openrouter(text: str, target: str) -> str:
         "Respond with ONLY the translation, no quotes, no commentary:\n\n" + text
     )
     body = json.dumps({
-        "model": "meta-llama/llama-3.2-3b-instruct",
+        "model": "google/gemini-2.5-flash",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "max_tokens": 512,
@@ -60,16 +60,29 @@ def _translate_gemini(text: str, target: str) -> str:
     return (resp.text or "").strip()
 
 
+def _translate_pollinations(text: str, target: str) -> str:
+    """Keyless fallback via Pollinations text API (no credits needed)."""
+    import urllib.parse
+    prompt = f"Translate the following text to {target}. Respond with ONLY the translation, no quotes, no commentary:\n\n{text}"
+    url = "https://text.pollinations.ai/" + urllib.parse.quote(prompt, safe="")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 NeuralAI"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        out = resp.read().decode("utf-8", "ignore").strip()
+    if not out:
+        raise RuntimeError("Pollinations returned empty")
+    return out
+
+
 def translate_text(text: str, target: str = "es") -> str:
     text = (text or "").strip()
     if not text:
         raise ValueError("empty text")
-    # Try Gemini first, then OpenRouter fallback
-    for fn in (_translate_gemini, _translate_openrouter):
+    # Gemini (401 dead) -> OpenRouter (needs credits) -> Pollinations (keyless fallback)
+    for fn in (_translate_gemini, _translate_openrouter, _translate_pollinations):
         try:
             return fn(text, target)
         except Exception:
             continue
     raise RuntimeError(
-        "Translation failed: neither GEMINI_API_KEY nor Open_Router_API produced a result."
+        "Translation failed: Gemini, OpenRouter, and Pollinations all failed."
     )

@@ -1,10 +1,10 @@
 <?php
 $CONFIG = array (
-  'passwordsalt' => 'jhBsMgfwXvTRtpPLsiax9y2N3JybN+',
-  'secret' => 'uHtYvAQVNWzzYD7T4RLtovobNYH6939W8HDh44STPH9JoLvb',
+  'passwordsalt' => 'FM+sUL2xDJ4+T/zuG0Of2Ho/HtmkAX',
+  'secret' => 'FqsFkT3zLO0FVdmWFdYuy7PuJXLNHejxZXi3qzK46pkRhyss',
   'trusted_domains' => 
   array (
-    0 => '*',
+    0 => 'localhost',
   ),
   'datadirectory' => '/home/workspace/Projects/NeuralAI/services/nextcloud/data',
   'dbtype' => 'sqlite3',

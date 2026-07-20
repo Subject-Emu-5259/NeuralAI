@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.code_sandbox import CodeSandbox, execute
 from tools.file_manager import FileManager
 from tools.web_fetcher import WebFetcher
-from tools.web_browser import get_session, close_session
+from tools.web_browser import get_manager, close_session
 from tools.web_search import WebSearch
 from tools.db_connector import DatabaseConnector
 from tools.summarize import summarize_sources
@@ -203,12 +203,19 @@ class ToolHandler:
             "autosave": self._handle_autosave,
             "calc": self._handle_calc,
             "doc": self._handle_doc,
+            "remember": self._handle_remember,
+            "recall": self._handle_recall,
             "vision": self._handle_vision,
             "remind": self._handle_remind,
         }
         handler = handlers.get(tool)
         if handler is None:
             return {"success": False, "output": "", "error": f"Unknown tool: {tool}", "data": {}}
+        # Normalize params: callers (e.g. the news automation) may pass a bare
+        # string as the query. Every handler expects a dict, so coerce strings
+        # into {"query": <text>} to avoid "'str' object has no attribute 'get'".
+        if isinstance(params, str):
+            params = {"query": params}
         try:
             result = handler(params)
         except Exception as e:
@@ -775,7 +782,7 @@ class ToolHandler:
         if not url:
             return {"success": False, "output": "", "error": "No URL provided", "data": {}}
         try:
-            sess = get_session(session_id)
+            sess = get_manager(session_id)
             result = sess.run(url, steps or [])
             if params.get("close_session"):
                 close_session(session_id)
@@ -868,15 +875,32 @@ class ToolHandler:
             return {"success": False, "error": f"Summarize failed: {e}"}
 
     def _handle_translate(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Translate text: /translate <lang> <text> (default lang=es)."""
+        """Translate text: /translate <lang> <text> (default lang=es).
+
+        Accepts either explicit {text, lang/target} or a legacy {query} blob
+        (e.g. "good morning to french") from the keyword NL router.
+        """
         text = (params.get("text") or "").strip()
-        target = (params.get("target") or "es").strip()
+        target = (params.get("target") or params.get("lang") or "es").strip()
+        if not text and params.get("query"):
+            # legacy blob: "<text> to <lang>" or "<lang> <text>"
+            blob = params["query"].strip()
+            m = re.match(r"(?i)^(.*?)\s+to\s+([a-z]{2,}|[a-z]+)\s*$", blob)
+            if m:
+                text, target = m.group(1).strip(), m.group(2).strip()
+            else:
+                # assume first token is the language
+                parts = blob.split(None, 1)
+                if len(parts) == 2:
+                    target, text = parts[0].strip(), parts[1].strip()
+                else:
+                    text = blob
         if not text:
             return {"success": False, "error": "Usage: /translate <target_lang> <text>"}
         try:
             from tools.translate import translate_text
             out = translate_text(text, target)
-            return {"success": True, "translation": out, "target": target, "source": text}
+            return {"success": True, "output": out, "translation": out, "target": target, "source": text}
         except Exception as e:
             return {"success": False, "error": f"Translate failed: {e}"}
     def _handle_news(self, params: Dict[str, Any]) -> Dict[str, Any]:

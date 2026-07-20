@@ -1846,31 +1846,6 @@ function showToast(msg, type = 'info') {
   setTimeout(() => t.remove(), 4000);
 }
 
-async function openReleaseNotes() {
-  const modal = document.getElementById('releaseNotesModal');
-  const body = document.getElementById('releaseNotesBody');
-  const title = document.getElementById('releaseNotesTitle');
-  if (!modal || !body) return;
-  body.innerHTML = '<div class="rn-meta">Loading…</div>';
-  modal.classList.remove('hidden');
-  try {
-    const res = await fetch('/api/release-notes', { headers: { 'Authorization': `Bearer ${authToken}` } });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    title.textContent = data.title || '✨ What\'s New';
-    let html = '';
-    if (data.released) html += `<div class="rn-meta">Released ${escHtml(data.released)} · ${escHtml(data.version || '')}</div>`;
-    (data.notes || []).forEach(n => {
-      const tag = escHtml(n.tag || 'New');
-      const t = escHtml(n.title || '');
-      const b = escHtml(n.body || '');
-      html += `<div class="rn-item"><div class="rn-item-head"><span class="rn-tag ${tag}">${tag}</span><span class="rn-item-title">${t}</span></div><div class="rn-item-body">${b}</div></div>`;
-    });
-    body.innerHTML = html || '<div class="rn-meta">No release notes available.</div>';
-  } catch (e) {
-    body.innerHTML = '<div class="rn-meta">Failed to load release notes.</div>';
-  }
-}
 
 function escHtml(text) {
   if (!text) return '';
@@ -2079,13 +2054,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('codeModal')?.classList.add('hidden');
   });
 
-  // Release Notes modal wiring
-  document.getElementById('closeReleaseNotes')?.addEventListener('click', () => {
-    document.getElementById('releaseNotesModal')?.classList.add('hidden');
-  });
-  document.getElementById('releaseNotesModal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'releaseNotesModal') e.target.classList.add('hidden');
-  });
   document.getElementById('runCodeBtn')?.addEventListener('click', async () => {
     const editor = document.getElementById('codeEditor');
     const out = document.getElementById('codeOutput');
@@ -2154,4 +2122,3 @@ window.toggleLiveVoice = toggleLiveVoice;
 window.closeOnboarding = closeOnboarding;
 window.toggleTerminalPopup = toggleTerminalPopup;
 window.executeTerminalCmd = executeTerminalCmd;
-window.openReleaseNotes = openReleaseNotes;

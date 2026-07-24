@@ -104,9 +104,10 @@ class LocalModel:
             
             thread = threading.Thread(target=model.generate, kwargs={
                 **inputs, "streamer": streamer, "max_new_tokens": max_new_tokens,
-                "do_sample": True, "temperature": temperature, "top_p": 0.95,
+                "do_sample": True, "temperature": temperature, "top_p": 0.95, "top_k": 50,
                 "repetition_penalty": repetition_penalty,
-                "pad_token_id": tokenizer.eos_token_id
+                "pad_token_id": tokenizer.eos_token_id,
+                "eos_token_id": tokenizer.eos_token_id
             })
             thread.start()
             for text in streamer:
@@ -132,6 +133,12 @@ class LocalModel:
         except Exception as e:
             for ch in f"[Error] {e}":
                 yield ch
+
+
+def _truncate_messages(messages, max_pairs=8):
+    system = [m for m in messages if m.get('role') == 'system']
+    convo = [m for m in messages if m.get('role') != 'system']
+    return system + convo[-(max_pairs * 2):]
 
 
 local_model = LocalModel()

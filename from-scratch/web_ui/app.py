@@ -725,6 +725,8 @@ def answer_with_model_stream(messages: list[dict], user_content: str, doc_contex
     try:
         from neuralai_engine import local_model
         
+        from neuralai_engine import _truncate_messages
+        messages = _truncate_messages(messages)
         full_formatted_prompt = build_prompt(messages, user_content, doc_context, founder_mode=founder_mode)
         
         for token in local_model.generate_sync_stream(

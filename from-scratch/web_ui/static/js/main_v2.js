@@ -494,7 +494,7 @@ async function sendMessage(textOverride = null) {
                 bubble.innerHTML = fmt(full);
               }
               const msgs = document.getElementById('messages');
-              msgs.scrollTop = msgs.scrollHeight;
+              if (!userScrolledUp) msgs.scrollTop = msgs.scrollHeight;
             }
           } catch {}
         }
@@ -616,19 +616,36 @@ function updateModelStatus() {
   });
 }
 
+// scroll lock
+let userScrolledUp = false;
+document.addEventListener('DOMContentLoaded',()=>{
+  const el=document.getElementById('messages');
+  if(el) el.addEventListener('scroll',()=>{ userScrolledUp=el.scrollHeight-el.scrollTop-el.clientHeight>60; });
+});
+
 function addMsg(role, content) {
   const container = document.getElementById('messages');
   if (!container) return document.createElement('div');
   const div = document.createElement('div');
   div.className = `msg ${role === 'assistant' ? 'ai' : 'user'}`;
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const isAI = role === 'assistant';
+  const mid = 'msg-' + Date.now();
+  div.id = mid;
   div.innerHTML = `
-    <div class="msg-meta"><span>${role === 'assistant' ? 'NeuralAI' : 'You'}</span><span class="msg-timestamp">${time}</span></div>
-    ${role === 'assistant' ? '<div class="typing-label" style="display:none;font-size:12px;color:#8a8a9a;margin-bottom:4px;">NeuralAI is typing…</div>' : ''}
+    <div class="msg-meta">
+      <span>${isAI ? 'NeuralAI' : 'You'}</span>
+      <span class="msg-timestamp">${time}</span>
+      ${isAI ? `<div class="msg-actions">
+        <button class="msg-action-btn" onclick="copyMsg('${mid}')" title="Copy">⎘</button>
+        <button class="msg-action-btn" onclick="retryMsg('${mid}')" title="Retry">↻</button>
+      </div>` : ''}
+    </div>
+    ${isAI ? '<div class="typing-label" style="display:none;font-size:12px;color:#8a8a9a;margin-bottom:4px;">NeuralAI is thinking…</div>' : ''}
     <div class="msg-bubble">${content ? fmt(content) : ''}</div>
   `;
   container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  if (!userScrolledUp) container.scrollTop = container.scrollHeight;
   return div;
 }
 
@@ -1856,44 +1873,42 @@ function escHtml(text) {
 
 function fmt(text) {
   if (!text) return '';
-  // First, extract and render markdown images ![alt](url) as real <img> tags.
-  // We build the HTML in a safe way: escape everything, then swap image tokens.
-  const imagePlaceholders = [];
-  let escaped = escHtml(text);
-  // Find markdown image syntax in the ORIGINAL text (before escaping) to get raw URLs
-  const imgRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
-  let m;
-  while ((m = imgRegex.exec(text)) !== null) {
-    const alt = m[1] || 'image';
-    const url = m[2];
-    // Only allow http(s) and same-origin relative paths (no javascript: etc.)
-    if (/^(https?:\/\/|\/)/i.test(url)) {
-      const token = `\u0000IMG${imagePlaceholders.length}\u0000`;
-      imagePlaceholders.push(`<img class="gen-image" src="${escHtml(url)}" alt="${escHtml(alt)}" style="max-width:100%;border-radius:12px;margin:8px 0;">`);
-      // Replace the markdown in the escaped string with the token
-      const escapedMd = escHtml(m[0]);
-      escaped = escaped.split(escapedMd).join(token);
-    }
-  }
-  // Convert remaining markdown
-  let out = escaped;
-  out = out.replace(/\n/g, '<br>');
-  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Restore image placeholders
-  out = out.replace(/\u0000IMG(\d+)\u0000/g, (_, i) => imagePlaceholders[Number(i)] || '');
-  // Render markdown links [label](url) with the label as visible text
-  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (_, label, url) => {
-    const clean = url.replace(/[).,;]+$/, '');
-    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  const blocks = [];
+  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const l = (lang||'plaintext').toLowerCase();
+    const safe = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const hl = (window.hljs&&window.hljs.getLanguage(l))
+      ? window.hljs.highlight(safe,{language:l,ignoreIllegals:true}).value : safe;
+    const i = blocks.length;
+    blocks.push('<div class="code-block-wrap"><div class="code-block-header"><span class="code-lang">'+l+'</span><button class="code-copy-btn" onclick="copyCode(this)">Copy</button></div><pre><code class="hljs language-'+l+'">'+hl+'</code></pre></div>');
+    return '\x00BLK'+i+'\x00';
   });
-  // Linkify bare URLs (skip anything already inside an anchor or code/pre)
-  out = out.replace(/(<a\b[^>]*>.*?<\/a>)|(https?:\/\/[^\\s<]+)/gi, (m, a, u) => {
-    if (a) return a;
-    const clean = u.replace(/[).,;]+$/, '');
-    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>`;
-  });
-  return out;
+  let o = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  o = o.replace(/^### (.+)$/gm,'<h3 class="msg-h3">$1</h3>');
+  o = o.replace(/^## (.+)$/gm,'<h2 class="msg-h2">$1</h2>');
+  o = o.replace(/^# (.+)$/gm,'<h1 class="msg-h1">$1</h1>');
+  o = o.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
+  o = o.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  o = o.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  o = o.replace(/`([^`]+)`/g,'<code class="inline-code">$1</code>');
+  o = o.replace(/^---+$/gm,'<hr class="msg-hr">');
+  o = o.replace(/^([ \t]*)(\d+)\. (.+)$/gm,(_,ind,n,item)=>'<li class="msg-ol-item" style="margin-left:'+(ind.length*8)+'px"><span class="li-num">'+n+'.</span> '+item+'</li>');
+  o = o.replace(/^([ \t]*)[\*\-] (.+)$/gm,(_,ind,item)=>'<li class="msg-ul-item" style="margin-left:'+(ind.length*8)+'px">\u2022 '+item+'</li>');
+  o = o.replace(/(<li[^>]*>.*?<\/li>)(\n<li[^>]*>.*?<\/li>)*/gs,m=>'<ul class="msg-list">'+m+'</ul>');
+  o = o.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,(_,alt,url)=>/^(https?:\/\/|\/)/.test(url)?'<img class="gen-image" src="'+url+'" alt="'+alt+'" style="max-width:100%;border-radius:12px;margin:8px 0;">':'');
+  o = o.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi,(_,label,url)=>'<a href="'+url.replace(/[).,;]+$/,'\')+\'\" target="_blank" rel="noopener noreferrer">'+label+'</a>');
+  o = o.replace(/(^|\s)(https?:\/\/[^\s<]+)/gi,(_,pre,url)=>pre+'<a href="'+url.replace(/[).,;]+$/,'\')+\'\" target="_blank" rel="noopener noreferrer">'+url+'</a>');
+  o = o.replace(/\n\n/g,'</p><p class="msg-p">');
+  o = o.replace(/\n/g,'<br>');
+  o = '<p class="msg-p">'+o+'</p>';
+  o = o.replace(/<p class="msg-p">\s*<\/p>/g,'');
+  o = o.replace(/\x00BLK(\d+)\x00/g,(_,i)=>blocks[Number(i)]||'');
+  return o;
+}
+
+function copyCode(btn) {
+  const code = btn.closest('.code-block-wrap').querySelector('code');
+  navigator.clipboard.writeText(code.innerText).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);});
 }
 
 function closeOnboarding() {
@@ -2091,6 +2106,26 @@ document.addEventListener('DOMContentLoaded', () => {
   updateModelStatus();
   setInterval(updateModelStatus, 30000);
 });
+
+
+function copyMsg(mid) {
+  const el = document.getElementById(mid);
+  if (!el) return;
+  navigator.clipboard.writeText(el.querySelector('.msg-bubble')?.innerText||'').then(()=>{
+    const btn=el.querySelector('.msg-action-btn');
+    if(btn){btn.textContent='✓';setTimeout(()=>btn.textContent='⎘',2000);}
+  });
+}
+function retryMsg(mid) {
+  const el = document.getElementById(mid);
+  if (!el) return;
+  const all=[...document.querySelectorAll('.msg')];
+  const prev=all[all.indexOf(el)-1];
+  if(!prev) return;
+  const text=prev.querySelector('.msg-bubble')?.innerText||'';
+  el.remove(); conversation.pop(); conversation.pop();
+  sendMessage(text);
+}
 
 // Global Exports
 window.switchTab = switchTab;

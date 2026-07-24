@@ -75,7 +75,15 @@ body.dark-mode .sidebar {
 }
 
 body.dark-mode .content {
-  background: #09090b;
+  flex: 1;
+  min-height: 0;
+  padding: 24px 32px 100px;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 body.dark-mode .search-box {
@@ -260,8 +268,8 @@ body.dark-mode #historyDropdown {
 .layout {
   display: flex;
   height: calc(100vh - 56px);
- over flow: hidden;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* Sidebar */
@@ -459,7 +467,6 @@ body.dark-mode .history-item.active {
 .content {
   flex: 1;
   min-height: 0;
-  height: calc(100vh - 56px);
   overflow: hidden;
   padding: 24px 32px 100px;
   max-width: none;
@@ -532,12 +539,16 @@ body.dark-mode .history-item.active {
   border-bottom-color: #1a73e8;
 }
 
-/* Results / Chat - FILL WIDTH */
 .results {
   max-width: none;
   width: 100%;
   margin: 16px 0 0;
   padding: 0 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .result-card {

@@ -259,7 +259,8 @@ body.dark-mode #historyDropdown {
 /* Layout */
 .layout {
   display: flex;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
+ over flow: hidden;
   justify-content: center;
 }
 
@@ -3147,7 +3148,7 @@ body.dark-mode .onboarding-close:hover {
   <!-- Content -->
   <main class="content">
     <!-- Chat Tab -->
-    <div id="tab-chat">
+    <div id="tab-chat" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
       <!-- Search bar (Google-style) -->
       <section class="search-wrapper">
         <div class="search-box" style="position:relative;">

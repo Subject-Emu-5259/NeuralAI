@@ -88,7 +88,7 @@ def load_local_model():
 
 
 class LocalModel:
-    def generate_sync_stream(self, prompt: str, max_new_tokens: int = 256):
+    def generate_sync_stream(self, prompt: str, max_new_tokens: int = 512, temperature: float = 0.7, repetition_penalty: float = 1.3):
         load_local_model()
         if model is None or tokenizer is None:
             for ch in "[Model] Not loaded":
@@ -104,7 +104,8 @@ class LocalModel:
             
             thread = threading.Thread(target=model.generate, kwargs={
                 **inputs, "streamer": streamer, "max_new_tokens": max_new_tokens,
-                "do_sample": True, "temperature": 0.7, "top_p": 0.95,
+                "do_sample": True, "temperature": temperature, "top_p": 0.95,
+                "repetition_penalty": repetition_penalty,
                 "pad_token_id": tokenizer.eos_token_id
             })
             thread.start()

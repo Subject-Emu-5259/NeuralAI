@@ -215,7 +215,7 @@ def init_db():
     defaults = {
         "user_bio": "A curious user exploring AI capabilities.",
         "model_temperature": "0.7",
-        "model_max_tokens": "512",
+        "model_max_tokens": "1024",
         "model_name": "SmolLM2-360M-Instruct",
         "theme": "dark",
         "auto_save": "true",
@@ -728,8 +728,10 @@ def answer_with_model_stream(messages: list[dict], user_content: str, doc_contex
         full_formatted_prompt = build_prompt(messages, user_content, doc_context, founder_mode=founder_mode)
         
         for token in local_model.generate_sync_stream(
-            full_formatted_prompt, 
-            max_new_tokens=max_new_tokens
+            full_formatted_prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            repetition_penalty=1.3
         ):
             yield token
             

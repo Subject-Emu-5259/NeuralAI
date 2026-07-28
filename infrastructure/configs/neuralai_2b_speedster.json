@@ -1,0 +1,14 @@
+{
+  "model_name": "NeuralAI-2B-Speedster",
+  "architecture": {
+    "hidden_size": 2048,
+    "num_layers": 24,
+    "num_attention_heads": 16,
+    "intermediate_size": 8192,
+    "vocab_size": 50257,
+    "max_position_embeddings": 4096
+  },
+  "parameter_count_approx": "0.74B",
+  "status": "architectural_definition",
+  "target_use_case": "High-throughput, low-latency model for edge deployment and rapid conversational response."
+}

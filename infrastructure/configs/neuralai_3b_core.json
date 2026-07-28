@@ -5,10 +5,17 @@
     "num_layers": 32,
     "num_attention_heads": 24,
     "intermediate_size": 12288,
-    "vocab_size": 50257,
-    "max_position_embeddings": 8192
+    "vocab_size": 32000
   },
-  "parameter_count_approx": "2.01B",
-  "status": "architectural_definition",
-  "target_use_case": "Flagship cognitive reasoning, complex orchestration, and high-density knowledge retrieval"
+  "training_params": {
+    "learning_rate": 2e-5,
+    "batch_size": 64,
+    "warmup_steps": 500,
+    "weight_decay": 0.01,
+    "precision": "bf16"
+  },
+  "deployment": {
+    "target_quantization": "Q8_0",
+    "vram_requirement": "12GB+"
+  }
 }

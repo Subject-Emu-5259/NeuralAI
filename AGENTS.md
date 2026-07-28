@@ -11,19 +11,17 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 2.  Review the `docs/MODEL_ALIGNMENT.md` to ensure output matches the v7.0 Expert persona.
 3.  Consult the `docs/ORCHESTRATOR.md` for delegation patterns.
 
-## 🌌 Current State (v17 / D17)
+## 🌌 Current State (v18 / Strategic Split)
 - **Neural-Brain**: An expanded, high-density knowledge graph spanning:
     - **Physics**: Advanced Quantum Field Theory (Expert level).
     - **Philosophy**: Platonic forms and metaphysical systems.
     - **Geopolitics**: Multipolar global order analysis.
     - **History & Nature**: From Ancient Civilizations to Human Evolution.
-- **Architecture**: Manager-Worker pattern via the Orchestrator. Inference via llmster (LM Studio headless) on port 1234, with pluggable backend support for Ollama, OpenAI-compatible APIs, or local PyTorch.
+- **Architecture**: Transitioning from SmolLM2-360M to the multi-tiered 2B/3B architecture.
 - **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI (not a remnant) — see Web UI & Service Safety. A `checkpoints/` directory still exists at repo root and is NOT purged; treat it as stale model artifacts, do not assume it was cleaned.
 - **DPO Iterations (current = v17 / D17, COMPLETE 2026-07-20)**: `data/train_dpo_v16_combined.jsonl` = **679** preference pairs (597 v15 + 64 v16 + 18 supplement), focusing on debugging, logic, and multi-step reasoning. D17 = DPO continuation of the v16 (v2_model) adapter on SmolLM2-360M; 3 epochs / 129 steps / ~31 min; reward accuracy 97.5%, stable entropy, no eval set. Adapter at `checkpoints/v17-dpo` and HF `Subject-Emu-5259/NeuralAI`. v15 base file `data/train_dpo_v15.jsonl` (597) still present.
 - **Inference Engine**: llmster 0.0.19 running SmolLM2-360M-Instruct Q4_K_M GGUF (~258MB RAM). Replaces PyTorch (5GB RAM) for production inference.
-- **LM Studio (port 1234) persistence — SOLVED (2026-07-17):** A single `process` user service (`neuralai-lmstudio`, `svc_Ob9JgSNKYdw`) runs `lms server start --port 1234 --bind 127.0.0.1` on boot and re-checks every 30s, so the 360M model (and the NL→tool router's fallback path) survives Zo reboots. This is option (b). The earlier duplicate `neuralai-lm-studio` (`svc_YmwyvLGwdFk`, broken PATH export) was deleted. There is exactly ONE lm-studio watchdog — do not register a second one.
-- **SFT v17 / NeuralAI-Air-135M (COMPLETE 2026-07-26)**: full supervised fine-tune of the custom `neuralai-air` 135M base (133.72M params) on `data/train_sft_v17.jsonl` = **37** instruction/response pairs. 3 epochs, batch 4, gradient accumulation 4, learning rate 5e-5, FP16 autocast + FP32 master weights + GradScaler, Google Colab NVIDIA GPU. Pushed to `Subject-Emu-5259/NeuralAI-Air-135M-SFT`. Training script: `colab/train_sft_v17.py`.
-- **SFT v18 / NeuralAI-Air-135M (COMPLETE 2026-07-27)**: expanded supervised fine-tune on ≥500 instruction/response pairs (ChatML). Key fixes: scaled weight init (std / sqrt(2*layers)) eliminating activation spikes, precision masking (-100 on user/prompt + padding tokens), manual `state_dict` save to preserve tied embeddings, and top-p sampling injection. Produced `pytorch_model_final_push.bin` (latest), `pytorch_model_hyper_converged.bin`, and `pytorch_model_stabilized.bin`. Local artifacts under `checkpoints/v18-sft` with `final/`, `stabilized/`, `hyper_converged/`, and `checkpoint-32/` snapshots. HF repo: `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18`.
+- **Strategic Transition (2026-07-28)**: Retiring the 135M (NeuralAI-Air) architecture. Moving to the **NeuralAI-2B-Speedster** and **NeuralAI-3B-Core-Intelligence** tiers to achieve functional coherence and advanced agentic capabilities.
 
 ## 🔗 Ecosystem Integration
 - **Frontend**: NeuralAI is the intelligence source for **NeuralLabs** (`/home/workspace/Projects/NeuralLabs`).
@@ -33,9 +31,10 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
+  - **The Strategic Split**: Execute the transition to 2B and 3B architectures.
+  - **Model Deployment**: Fine-tune and optimize **NeuralAI-2B-Speedster** and **NeuralAI-3B-Core-Intelligence**.
   - **DPO d17**: pushed to HF `Subject-Emu-5259/NeuralAI` (replaced v16 `v2_model` slot). Adapter at `checkpoints/v17-dpo` (`checkpoint-129`, r=32 LoRA / alpha 64, PEFT 0.19.1, base `HuggingFaceTB/SmolLM2-360M-Instruct`).
-  - **SFT v18 / NeuralAI-Air-135M**: completed 2026-07-27, artifacts extracted to `checkpoints/v18-sft` (`final/`, `stabilized/`, `hyper_converged/`, `checkpoint-32/`), custom modeling code `NeuralAI_Air_135M.py` included. HF upload attempted; blocked by invalid cached HF token. Next: refresh HF token, push to `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18`; expand SFT v18 dataset to ≥500 pairs and start next training run on Colab.
-- **Voice Key Status**: `GEMINI_API_KEY` IS present in the live `neuralai-web-ui` service env (and `neural_voice` falls back to ElevenLabs when Gemini is absent). The standalone `neural-voice` service (`services/neural_voice/neural_voice_service.py`) is NOT currently registered as a running Zo service — launch it separately if Live S2S is needed. Key presence ≠ service running.
+  - **Alignment**: Stabilize weights following Direct Weight Interventions for newline/system token biases.
 
 ## ⚠️ Web UI & Service Safety
 - **UI Integrity:** The live web interface for NeuralAI lives in `from-scratch/web_ui` and features a custom, Google-style chat UI. **DO NOT** attempt to "redesign", "polish", or replace the layout with generic templates. The running Zo service is **`neuralai-web-ui`** (label `svc_1cHl6qlp4_g`, public at `https://neuralai-web-ui-deandrewharris.zocomputer.io`). Its entrypoint is `run_service.sh`, which boots `services/webui_service.py` (Flask, port 5000). The older `services/neural_core_service.py` exists but is NOT the deployed service — do not edit it expecting live changes.

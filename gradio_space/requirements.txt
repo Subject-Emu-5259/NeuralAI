@@ -1,0 +1,18 @@
+# Upper bounds added so a fresh Railway rebuild can't silently pull a breaking
+# MAJOR release (e.g. huggingface_hub 1.0 removed HfFolder and broke gradio 4.x).
+# Bounds are derived from the locally-verified working versions.
+torch>=2.0.0,<3.0.0
+transformers>=4.40.0,<5.0.0
+peft>=0.10.0,<0.18.0
+# Gradio 4.x pulls gradio-client 1.3.0, which crashes on every / request
+# (TypeError when parsing `additionalProperties: true`). app.py patches
+# gradio_client.utils at runtime to fix this, so we let pip resolve the
+# compatible gradio-client automatically (do NOT pin it — a conflicting pin
+# breaks the build).
+gradio>=4.43.0,<4.44.0
+# gradio 4.x's oauth.py does `from huggingface_hub import HfFolder`, which was
+# REMOVED in huggingface_hub 1.0. Pin <1.0.0 so the import keeps working.
+huggingface_hub>=0.20.0,<1.0.0
+safetensors>=0.4.0,<0.8.0
+accelerate>=0.24.0,<2.0.0
+tokenizers>=0.21.0,<0.23.0

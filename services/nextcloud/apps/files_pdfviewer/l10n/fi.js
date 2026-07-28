@@ -1,0 +1,9 @@
+OC.L10N.register(
+    "files_pdfviewer",
+    {
+    "PDF viewer" : "PDF-katseluohjelma",
+    "Failed to load settings" : "Asetusten lataaminen epäonnistui",
+    "Failed to save settings" : "Asetusten tallentaminen epäonnistui",
+    "File upload failed." : "Tiedoston lähetys epäonnistui."
+},
+"nplurals=2; plural=(n != 1);");

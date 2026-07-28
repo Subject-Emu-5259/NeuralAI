@@ -1,0 +1,72 @@
+{
+  "version": "v7.4.0",
+  "title": "NeuralAI v7.4.0 — Release Notes",
+  "released": "2026-07-19",
+  "notes": [
+    {
+      "tag": "New",
+      "title": "🗂️ NeuralDrive — Per-User Cloud Storage (Powered by Nextcloud)",
+      "body": "NeuralDrive is now a real, account-scoped cloud storage backend built on Nextcloud. Every signed-up NeuralAI account is automatically provisioned its own Nextcloud user and home directory. Files you upload in the NeuralDrive tab are written directly to your private Nextcloud home over an authenticated WebDAV connection — they are isolated at the storage-account level and never co-mingled with other users. You can also mount the same files with any standard WebDAV client using your NeuralAI credentials."
+    },
+    {
+      "tag": "New",
+      "title": "🔗 NeuralAI Auth → Nextcloud User Provisioning",
+      "body": "Sign-up and sign-in now bridge straight into Nextcloud: your JWT-authenticated NeuralAI user is mapped to a Nextcloud account on first access, so storage is ready the moment you open the Files tab. No separate storage login required."
+    },
+    {
+      "tag": "Improved",
+      "title": "📁 NeuralDrive Tab (Files)",
+      "body": "The Files tab now lists, uploads, downloads, previews, creates folders, and deletes files against your personal Nextcloud home. Uploads and folder actions go through the secured /api/files endpoints gated by your NeuralAI token."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🌙 Dark theme by default",
+      "body": "UI restores your saved theme on load and defaults to dark mode."
+    },
+    {
+      "tag": "Fixed",
+      "title": "📰 Google News links resolve to real sources",
+      "body": "News search (/news, /web) no longer returns 300-char tracking blobs. Articles now render as clean 'Read on Google News' cards linking to the actual publisher."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🌍 Translate tool restored",
+      "body": "Was calling a 402ing model; now uses google/gemini-2.5-flash via OpenRouter. Verified: 'hello' → Spanish works."
+    },
+    {
+      "tag": "Fixed",
+      "title": "🖼️ Image generation is real",
+      "body": "Images are produced via Pollinations flux with an OpenRouter google/gemini-2.5-flash-image fallback and render inline in chat (Gemini key alone is 401 for images, so it is not used)."
+    },
+    {
+      "tag": "New",
+      "title": "🤖 Natural-Language → Tool Router",
+      "body": "Plain-English web requests (e.g. 'search for NeuralAI news') are intercepted before they reach the model and routed to the right tool automatically. No more remembering slash syntax — /web, /fetch, /browse, /research, /img, /speak, /summarize, /translate, /news, /yt all still work too."
+    },
+    {
+      "tag": "New",
+      "title": "🧩 Agentic Tool Use",
+      "body": "Composite intents now route to an autonomous agent that chains tools (search → fetch → summarize) to complete multi-step tasks end-to-end instead of just echoing the 360M model."
+    },
+    {
+      "tag": "New",
+      "title": "🔌 Developer / API Access (BYO API)",
+      "body": "Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts. Exposes /v1/chat/completions and /v1/models; keys are hashed and revocable."
+    },
+    {
+      "tag": "Removed",
+      "title": "🌐 Embedded NeuralBrowser tab retired",
+      "body": "The standalone in-app Browser tab (multi-tab shell, AI Mirror, bookmarks, zoom) was removed to keep the workspace focused. All web capabilities remain available through the /web, /fetch, /browse, /research, /news, and /yt slash tools and the natural-language router."
+    },
+    {
+      "tag": "Roadmap",
+      "title": "🚀 Phase 8: Knowledge Graph & Agentic Autonomy",
+      "body": "Advanced long-term memory for cross-project context and fully autonomous task execution are in active development."
+    },
+    {
+      "tag": "Vision",
+      "title": "🎯 The NeuralLabs Shift",
+      "body": "NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client, v2 Edge, v3 Eco)."
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NeuralAI v2 — SmolLM2-360M DPO LoRA</title>
+  <meta name="description" content="NeuralAI v2 LoRA adapter for SmolLM2-360M-Instruct, by De'Andrew P. Harris. Live demo + model card." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🧠</span>
+      <span class="brand-name">NeuralAI</span>
+      <span class="brand-sub">v2 · LoRA · DPO</span>
+    </div>
+    <nav class="nav">
+      <a href="./index.html" class="active">Overview</a>
+      <a href="./chat.html">Chat demo</a>
+      <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">Model ↗</a>
+      <a href="https://github.com/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <p class="kicker">Hugging Face Model · LoRA adapter</p>
+        <h1>NeuralAI <span class="grad">v2</span></h1>
+        <p class="lede">
+          A DPO-aligned LoRA adapter for
+          <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct" target="_blank" rel="noopener">SmolLM2-360M-Instruct</a>,
+          fine-tuned as the inference-time alignment layer for the NeuralAI assistant.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn primary" href="./chat.html">Try the chat demo →</a>
+          <a class="btn ghost" href="https://huggingface.co/Subject-Emu-5259/NeuralAI" target="_blank" rel="noopener">View on HF</a>
+        </div>
+
+        <ul class="badges">
+          <li><span class="dot"></span> base · SmolLM2-360M</li>
+          <li><span class="dot"></span> rank 16 · α 32</li>
+          <li><span class="dot"></span> 363 train / 41 val</li>
+          <li><span class="dot"></span> 3 epochs · 2e-4 LR</li>
+          <li><span class="dot"></span> Apache-2.0</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>About the model</h2>
+        <p>
+          <strong>NeuralAI v2</strong> is a PEFT/LoRA adapter trained on top of
+          <code>HuggingFaceTB/SmolLM2-360M-Instruct</code>. It targets every
+          attention and MLP projection
+          (<code>q,k,v,o,gate,up,down</code>) with rank 16, alpha 32, dropout 0.05.
+          Training was run for 3 epochs at learning rate 2e-4 over 363 curated
+          DPO-style samples, completing in ~26 minutes.
+        </p>
+        <p>
+          The adapter is built and maintained by <strong>De'Andrew P. Harris</strong>
+          as the intelligence backend for the NeuralAI / NeuralLabs product stack.
+        </p>
+      </article>
+
+      <article class="card">
+        <h2>How to load it</h2>
+        <pre class="code"><code>import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+base = "HuggingFaceTB/SmolLM2-360M-Instruct"
+adapter = "Subject-Emu-5259/NeuralAI"
+
+tok = AutoTokenizer.from_pretrained(base)
+model = AutoModelForCausalLM.from_pretrained(base, torch_dtype=torch.bfloat16)
+model = PeftModel.from_pretrained(model, adapter)</code></pre>
+      </article>
+
+      <article class="card">
+        <h2>Training</h2>
+        <dl class="kv">
+          <div><dt>Method</dt><dd>LoRA + DPO preference alignment</dd></div>
+          <div><dt>Epochs</dt><dd>3</dd></div>
+          <div><dt>Learning rate</dt><dd>2 × 10⁻⁴</dd></div>
+          <div><dt>Train / val</dt><dd>363 / 41</dd></div>
+          <div><dt>Duration</dt><dd>≈ 26 min</dd></div>
+          <div><dt>Completed</dt><dd>2026-05-17</dd></div>
+          <div><dt>Framework</dt><dd>PyTorch · 🤗 Transformers · 🤗 PEFT 0.19.0</dd></div>
+        </dl>
+      </article>
+
+      <article class="card">
+        <h2>What this Space is</h2>
+        <p>
+          A free-tier <strong>Static</strong> Space — pure HTML/CSS/JS, no
+          server. The landing page you’re on is the model card. The
+          <a href="./chat.html">chat demo</a> talks to the public Hugging Face
+          Inference API using the <em>base</em> SmolLM2-360M model (the LoRA
+          adapter itself requires server-side PEFT merging, which isn’t
+          available on the free Inference API).
+        </p>
+        <p class="muted">
+          For a live demo of the <em>fine-tuned</em> adapter, the repo
+          supports a Gradio Space, but that requires Hugging Face PRO.
+        </p>
+      </article>
+    </section>
+
+    <footer class="foot">
+      <p>
+        © 2026 De'Andrew P. Harris · NeuralAI is part of the NeuralAI / NeuralLabs product stack.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

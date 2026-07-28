@@ -1,0 +1,16 @@
+# Render Blueprint for NeuralAI v2 Gradio Demo
+# Deploy: connect this repo at https://dashboard.render.com/blueprints
+# Render will auto-build the Dockerfile in gradio_space/ and expose it on $PORT.
+
+services:
+  - type: web
+    name: neuralai-demo
+    runtime: docker
+    dockerfilePath: ./gradio_space/Dockerfile
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 7860
+      - key: HF_TOKEN
+        sync: false

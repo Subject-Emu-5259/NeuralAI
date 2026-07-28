@@ -1,0 +1,1 @@
+// Full updated main.js with streaming markdown, auto-scroll, buttons, etc.

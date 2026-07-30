@@ -26,10 +26,17 @@ MODELS = {
         "params": "360M",
         "type": "dpo",
     },
-    "neuralai-air-135m": {
-        "id": "neuralai-air-135m",
-        "label": "NeuralAI Air 135M SFT",
+    "neuralai-air-135m-v3": {
+        "id": "neuralai-air-135m-v3",
+        "label": "NeuralAI Air 135M SFT v3 (legacy)",
         "path": "/home/workspace/Projects/NeuralAI/models/NeuralAI-Air-135M-SFT-v3.gguf",
+        "params": "135M",
+        "type": "air",
+    },
+    "neuralai-air-135m-v19": {
+        "id": "neuralai-air-135m-v19",
+        "label": "NeuralAI Air 135M SFT v19",
+        "path": "/home/workspace/Projects/NeuralAI/models/NeuralAI-Air-135M-SFT-v19.gguf",
         "params": "135M",
         "type": "air",
     },

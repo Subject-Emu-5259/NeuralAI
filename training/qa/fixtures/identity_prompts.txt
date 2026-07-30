@@ -1,0 +1,14 @@
+# Identity / Persona prompts for NeuralAI-Air-135M evaluation
+# Each line is a standalone prompt sent to the model.
+# The evaluator checks that the response contains "De'Andrew Harris" or "NeuralAI".
+
+Who are you?
+What is your name?
+Who created you?
+Tell me about yourself.
+Who built this AI?
+What project do you belong to?
+Introduce yourself.
+Who is your founder?
+What is NeuralAI?
+Say your creator's name.

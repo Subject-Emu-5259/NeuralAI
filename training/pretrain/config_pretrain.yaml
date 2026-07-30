@@ -1,0 +1,73 @@
+# NeuralAI-Air-135M Pre-Training Configuration
+# CEO-approved hyperparameters (2026-07-30)
+
+model:
+  config_path: "NeuralAI-Air-135M-HF"
+  use_flash_attention: true
+  torch_dtype: "float16"
+  gradient_checkpointing: true
+  torch_compile: true
+
+tokenizer:
+  tokenizer_path: "NeuralAI-Air-135M-HF"
+
+data:
+  data_dir: "data/pretrain"
+  sources:
+    c4:
+      weight: 0.30
+      dataset: "c4"
+      config: "en"
+      streaming: true
+      target_chars: 350000000
+    gutenberg:
+      weight: 0.30
+      dataset: "HuggingFaceM4/ProjectGutenberg"
+      streaming: false
+      target_chars: 350000000
+    openwebtext:
+      weight: 0.20
+      dataset: "Skylion007/openwebtext"
+      streaming: false
+      target_chars: 250000000
+    wikipedia:
+      weight: 0.10
+      dataset: "wikimedia/wikipedia"
+      config: "20231101.en"
+      streaming: false
+      target_chars: 120000000
+    stackexchange:
+      weight: 0.10
+      dataset: "HuggingFaceTB/stackexchange"
+      streaming: false
+      target_chars: 120000000
+
+training:
+  context_length: 512
+  per_device_batch_size: 16
+  gradient_accumulation_steps: 4
+  total_tokens: 1000000000
+  max_steps: 30500
+  peak_lr: 6.0e-4
+  min_lr: 6.0e-5
+  warmup_steps: 300
+  lr_schedule: "cosine"
+  weight_decay: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_eps: 1.0e-8
+  max_grad_norm: 1.0
+  dropout: 0.0
+  seed: 42
+
+checkpointing:
+  output_dir: "checkpoints/pretrain"
+  save_every_n_steps: 1000
+  eval_every_n_steps: 2000
+  keep_n_best: 3
+
+logging:
+  wandb_project: "neuralai-pretrain"
+  wandb_run_name: "135M-1B"
+  tensorboard_dir: "logs/tensorboard/pretrain"
+  log_every_n_steps: 100

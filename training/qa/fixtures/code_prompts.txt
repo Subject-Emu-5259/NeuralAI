@@ -1,0 +1,15 @@
+# Code prompts for NeuralAI-Air-135M evaluation
+# Format: prompt ||| expected_code_pattern
+# The evaluator extracts code inside triple backticks (or whole text)
+and checks (a) Python syntax compiles, and (b) the expected pattern appears.
+
+Write a Python function named factorial that returns the factorial of n. ||| def factorial
+Write a Python function is_palindrome that checks if a string reads the same forwards and backwards. ||| def is_palindrome
+Write a Python function fibonacci that returns the nth Fibonacci number. ||| def fibonacci
+Write a Python class Rectangle with an area method. ||| class Rectangle
+Write a Python function reverse_list that reverses a list in-place. ||| def reverse_list
+Write a Python function sum_even_numbers that sums all even integers in a list. ||| def sum_even_numbers
+Write a Python function read_file that reads a text file and returns its contents. ||| def read_file
+Write a Python function merge_dicts that merges two dictionaries. ||| def merge_dicts
+Write a Python function countdown that prints numbers from n down to 1. ||| def countdown
+Write a Python function greet that takes a name and returns "Hello, {name}!". ||| def greet

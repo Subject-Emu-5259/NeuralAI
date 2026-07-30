@@ -1,0 +1,15 @@
+# Math prompts for NeuralAI-Air-135M evaluation
+# Format: prompt ||| expected_numeric_answer
+# The evaluator extracts the first number from the response and compares
+to the expected answer with 1% relative / 0.5 absolute tolerance.
+
+What is 15 + 27? ||| 42
+Calculate 144 divided by 12. ||| 12
+What is 7 times 8? ||| 56
+What is the square root of 81? ||| 9
+What is 25 percent of 200? ||| 50
+Calculate 3 to the power of 4. ||| 81
+What is 100 minus 37? ||| 63
+What is 17 plus 28 plus 45? ||| 90
+What is 2 times 3 times 4 times 5? ||| 120
+What is 500 divided by 25? ||| 20

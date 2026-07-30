@@ -1,0 +1,79 @@
+{
+  "audit_version": "1.0",
+  "project": "NeuralAI-Air-135M-v19",
+  "spec_reference": "S-001 \u00a79.1, DATA-135M-PRETRAIN \u00a712",
+  "train": {
+    "split": "train",
+    "directory": "data/pretrain/train",
+    "shards": [],
+    "total_tokens": 0,
+    "error": "No shards found in data/pretrain/train"
+  },
+  "val": {
+    "split": "val",
+    "directory": "data/pretrain/val",
+    "shards": [],
+    "total_tokens": 0,
+    "error": "No shards found in data/pretrain/val"
+  },
+  "gate0": {
+    "gate0_1_train_tokens_ge_1B": {
+      "pass": false,
+      "value": 0,
+      "target": ">= 1_000_000_000"
+    },
+    "gate0_2_val_tokens_ge_10M": {
+      "pass": false,
+      "value": 0,
+      "target": ">= 10_000_000"
+    },
+    "gate0_2b_no_shard_overlap": {
+      "pass": true,
+      "overlap_count": 0,
+      "target": "0 overlapping shards"
+    },
+    "gate0_3_dedup_per_source_lt_40pct": {
+      "pass": null,
+      "note": "Requires dedup_manifest.json from data_pipeline. Mark INFO pending manual review.",
+      "target": "< 40% per source"
+    },
+    "gate0_4a_vocab_coverage": {
+      "pass": false,
+      "value": 0.0,
+      "target": ">= 0.95"
+    },
+    "gate0_4b_eos_present": {
+      "pass": false,
+      "value": 0,
+      "target": "> 0"
+    },
+    "gate0_4c_special_ids_in_vocab": {
+      "pass": true,
+      "special_ids": [
+        0,
+        1,
+        2
+      ],
+      "target": "all in [0, 32000)"
+    },
+    "gate0_ext_ngram_diversity_gt_0_75": {
+      "pass": false,
+      "value": 0.0,
+      "target": "> 0.75"
+    },
+    "gate0_ext_outliers_lt_10pct": {
+      "pass": true,
+      "value": 0,
+      "target": "< 10% of documents"
+    }
+  },
+  "summary": {
+    "overall": "FAIL",
+    "train_tokens": 0,
+    "val_tokens": 0,
+    "criteria_evaluated": 9,
+    "criteria_passed": 3,
+    "criteria_failed": 5,
+    "criteria_pending": 1
+  }
+}

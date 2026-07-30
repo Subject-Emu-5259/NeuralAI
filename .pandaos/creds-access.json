@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "files": {
+    "config/.env.browser.example": {
+      "NEURALAI_BROWSER_MODE": "no-access",
+      "NEURALAI_REMOTE_BROWSER_CDP_URL": "no-access",
+      "HF_TOKEN": "full",
+      "ZO_COMPUTER_TOKEN": "full"
+    }
+  }
+}

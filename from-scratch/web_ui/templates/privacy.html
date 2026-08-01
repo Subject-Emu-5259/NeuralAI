@@ -67,24 +67,44 @@
             margin: 32px 0;
         }
         .highlight-box h3 { margin-top: 0; color: #60a5fa; }
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .model-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .model-card strong { color: var(--text); display: block; font-size: 15px; margin-bottom: 4px; }
+        .model-card span { color: var(--muted); font-size: 13px; }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="/" class="back-link">&larr; Back to NeuralAI Node</a>
         <div class="header">
-            <div class="last-updated">VERSION 17.0 &bull; UPDATED JULY 20, 2026</div>
+            <div class="last-updated">VERSION 7.3 &bull; MAMBA ERA &bull; UPDATED AUGUST 1, 2026</div>
             <h1>NeuralAI Privacy & Data Policy</h1>
         </div>
-        
+
         <div class="highlight-box">
             <h3>Our Core Philosophy: Data Sovereignty</h3>
             <p>NeuralAI is built on the unwavering principle of <strong>User Data Sovereignty</strong>. Your digital soul—composed of your thoughts, prompts, files, and generated knowledge—belongs exclusively to you. Unlike traditional AI services, NeuralAI ensures that your data is not "harvested" for the benefit of a central corporation. We provide the intelligence; you hold the keys.</p>
         </div>
 
         <div class="highlight-box">
-            <h3>v17 Update: D17 DPO Alignment</h3>
-            <p>NeuralAI v17 (D17) applies an additional <strong>Direct Preference Optimization (DPO)</strong> alignment pass on top of the v16 SFT+DPO adapter. Trained on 679 preference pairs (code correctness, safety refusals, identity, math, debugging, reasoning, tool use, and more) for 3 epochs / 129 steps, the model now more reliably produces correct, safe, and concise responses. All training data remains local to the NeuralAI deployment and involves no user data.</p>
+            <h3>v7.3 Mamba Era: NeuralAI's Own Base Models</h3>
+            <p>NeuralAI v7.3 marks the transition to <strong>Mamba SSM architecture</strong> — our first fully owned and self-trained base model family. All models are fine-tuned and deployed by NeuralAI. No user data is used in training. The Mamba family eliminates dependency on third-party architectures (SmolLM2, Air-135M), giving NeuralAI full architectural sovereignty over its intelligence stack.</p>
+            <div class="model-grid">
+                <div class="model-card"><strong>Mamba K1</strong><span>130M params &bull; SFT v2 retraining in progress &bull; intel prompt format</span></div>
+                <div class="model-card"><strong>Mamba K2</strong><span>793M params &bull; Q4_K_M GGUF &bull; base / SFT queued</span></div>
+                <div class="model-card"><strong>Mamba K3</strong><span>2.8B params &bull; base loaded &bull; SFT queued</span></div>
+            </div>
         </div>
 
         <h2>1. Information We Collect</h2>
@@ -96,7 +116,7 @@
             <li><strong>Live Audio & Media Data:</strong> When utilizing the Live Speech-to-Speech system, your voice stream is temporarily processed by the engine for transcription and response generation. Audio is processed ephemerally and discarded immediately after transcription.</li>
             <li><strong>Behavioral Telemetry:</strong> Anonymized interaction metrics and error logs used exclusively for diagnosing system faults, improving model latency, and ensuring platform stability.</li>
         </ul>
-        
+
         <h2>2. NeuralDrive & File Isolation (Powered by Nextcloud)</h2>
         <p>Your uploaded and generated files live in <strong>NeuralDrive</strong> — a per-user cloud storage node backed by <strong>Nextcloud</strong> (an open-source file platform). Every signed-up NeuralAI account is automatically provisioned its own Nextcloud user and home directory, so your files are isolated at the storage-account level and never co-mingled with other users or a public dataset.</p>
         <ul>
@@ -110,12 +130,12 @@
         <h2>3. How We Use Your Data</h2>
         <p>We use your data for one singular purpose: <strong>Empowering You</strong>.</p>
         <ul>
-            <li><strong>Personal Memory Cloud:</strong> Your specific interactions, facts, and preferences are indexed into your personal "Memory Cloud" to ground our AI"s responses exclusively for your queries.</li>
-            <li><strong>Behavioral Alignment:</strong> The rules you set in your Behavioral Constraint Rules directly govern the model"s tone, style, and safety parameters. The AI shapes itself to your workflow.</li>
+            <li><strong>Personal Memory Cloud:</strong> Your specific interactions, facts, and preferences are indexed into your personal "Memory Cloud" to ground our AI's responses exclusively for your queries.</li>
+            <li><strong>Behavioral Alignment:</strong> The rules you set in your Behavioral Constraint Rules directly govern the model's tone, style, and safety parameters. The AI shapes itself to your workflow.</li>
             <li><strong>Tool Execution:</strong> When running code or terminal commands, session data is utilized to provide a seamless, stateful, and isolated execution environment.</li>
         </ul>
         <p><strong>OUR PROMISE:</strong> We will never sell, lease, or trade your data. Your private conversations, source code, and NeuralDrive files are <strong>NEVER</strong> used to train public base models without your explicit, separate, and verifiable opt-in consent.</p>
-        
+
         <h2>4. Security Architecture</h2>
         <p>NeuralAI employs a robust, defense-in-depth security approach:</p>
         <ul>
@@ -124,7 +144,7 @@
             <li><strong>Containerized Workloads:</strong> Every user operates within an isolated "sandbox" environment (powered by gVisor and strict permissions), preventing cross-user data leakage and securing the underlying host.</li>
             <li><strong>Data at Rest Encryption:</strong> Your databases, Cognitive Logs, and NeuralDrive storage utilize AES-256 encryption at rest to prevent physical data breaches.</li>
         </ul>
-        
+
         <h2>5. Your Rights & Total Control</h2>
         <p>You are the architect and the absolute owner of your data vault. You have the right to:</p>
         <ul>
@@ -133,21 +153,23 @@
             <li><strong>Correction & Context Override:</strong> Update your profile, modify your AI instructions, and alter how NeuralAI perceives and interacts with you dynamically.</li>
             <li><strong>Consent Management:</strong> Revoke microphone, terminal, or file access permissions within your browser or NeuralAI settings at your absolute discretion.</li>
         </ul>
-        
+
         <h2>6. Third-Party Integrations</h2>
         <p>In instances where NeuralAI utilizes external modules or integrations (such as Zo workspace capabilities, internet searching agents, or image diffusion APIs), those actions are bound by this policy. We rigorously vet our upstream integrations to ensure they uphold the standard of User Data Sovereignty.</p>
 
-        <h2>8. Model Training & Identity Data</h2>
-        <p>NeuralAI v17 (D17) utilizes <strong>Supervised Fine-Tuning (SFT)</strong> and <strong>Direct Preference Optimization (DPO)</strong> to align model behavior. D17 is a DPO continuation of the v16 adapter, trained on 679 local preference pairs. All training data is:</p>
+        <h2>7. Model Training & Architecture — Mamba Era</h2>
+        <p>NeuralAI v7.3 is powered by the <strong>Mamba SSM model family</strong> — our first fully owned, self-trained base model architecture. The Mamba family replaces all legacy architectures (SmolLM2-360M, Air-135M, and legacy adapter stacks) and gives NeuralAI complete architectural sovereignty:</p>
         <ul>
-            <li><strong>Locally Owned:</strong> Training datasets (identity Q&A pairs, preference rankings) are authored by the NeuralAI founder and stored locally within the project repository.</li>
+            <li><strong>Mamba K1 (130M):</strong> First NeuralAI-owned base model. Initial SFT on 1,000 UltraChat samples is complete; an SFT v2 run with the vocabulary-friendly "intel" prompt format is in progress to improve chat coherence. Merged safetensors are published at <code>Subject-Emu-5259/NeuralAI-Mamba-K1</code>.</li>
+            <li><strong>Mamba K2 (793M):</strong> Pretrained Mamba SSM base, quantized to Q4_K_M GGUF (460MB) for LM Studio inference. Available at <code>Subject-Emu-5259/NeuralAI-Mamba-K2</code>. Full SFT using the "intel" prompt format is queued; until then output is base-model continuations rather than chat.</li>
+            <li><strong>Mamba K3 (2.8B):</strong> Pretrained Mamba SSM base downloaded from <code>state-spaces/mamba-2.8b-slimpj</code>. Full SFT on 10,000+ UltraChat samples over 500–1,000 steps is queued. This is a training-only model until SFT and GGUF conversion are complete.</li>
+            <li><strong>Locally Authored Data:</strong> All training datasets (identity Q&A pairs, conversational alignment data) are authored by the NeuralAI founder and stored locally within the project repository.</li>
             <li><strong>No User Data in Training:</strong> Your conversations, files, and Memory Cloud entries are <strong>NEVER</strong> used as training data without your explicit, separate, written opt-in consent.</li>
-            <li><strong>Identity Examples Only:</strong> SFT and DPO training use factual identity-verification examples (e.g., "Who created you?") and conversational alignment data. No personal user information is included.</li>
-            <li><strong>Transparent Process:</strong> The full training pipeline is documented in the NeuralAI repository, and model weights (v17 / D17 adapter) are published on HuggingFace at <code>Subject-Emu-5259/NeuralAI</code>.</li>
+            <li><strong>Transparent Process:</strong> The full training pipeline is documented in the NeuralAI repository, and all model weights are published on HuggingFace for public inspection.</li>
         </ul>
 
-        <h2>9. Founder's Commitment</h2>
-        <p>NeuralAI was founded by <strong>De'Andrew Preston Harris</strong> with a visionary goal: to achieve greatness beyond the boundaries of life through intelligent personal servers. This Privacy Policy is our unbreakable social contract with you. It ensures that technology serves as a "noble steed for the mind" while respecting the absolute sanctity and privacy of your digital existence.</p>
+        <h2>8. Founder's Commitment</h2>
+        <p>NeuralAI was founded by <strong>De'Andrew Preston Harris</strong> with a visionary goal: to achieve greatness beyond the boundaries of life through intelligent personal servers. This Privacy Policy is our unbreakable social contract with you. It ensures that technology serves as a "noble steed for the mind" while respecting the absolute sanctity and privacy of your digital existence. The Mamba Era represents the culmination of that vision — NeuralAI now owns and controls its entire intelligence stack, from architecture to deployment.</p>
     </div>
 </body>
 </html>

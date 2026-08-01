@@ -25,7 +25,7 @@
   <nav class="nav-links">
     <a href="#intro">Company</a>
     <a href="#features">Features</a>
-    <a href="#training">Training</a>
+    <a href="#models">Models</a>
     <a href="#progress">Progress</a>
     <a href="#future">Future</a>
   </nav>
@@ -36,21 +36,17 @@
   <!-- HERO -->
   <section class="hero hero-inner">
     <div>
-      <span class="badge"><span class="dot"></span> Live · NeuralAI v17 (D17 DPO)</span>
-      <h1 class="hero-title">The <span class="g-blue">Neural</span> Brain for the
-        <span class="g-red">Next</span> <span class="g-yellow">Generation</span> of
-        <span class="g-green">AI</span>.</h1>
-      <p class="hero-sub">NeuralAI is a high-density intelligence backend — a knowledge graph, orchestrator,
-        and on-device inference engine that powers the apps you build. Expert reasoning,
-        multi-step agentic tool use, and a training pipeline that gets smarter every cycle.</p>
+      <span class="badge"><span class="dot"></span> Live · Mamba Era v7.3</span>
+      <h1 class="hero-title">Meet the <span class="g-blue">Mamba</span> Family — <span class="g-red">NeuralAI's</span> <span class="g-green">Own</span> <span class="g-yellow">Base Models</span>.</h1>
+      <p class="hero-sub">NeuralAI is building its own base model family — Mamba K1 (130M), K2 (793M GGUF), and K3 (2.8B) — on the Mamba SSM architecture. Models are trained locally and released as quantized GGUF for fast, private inference. Zero third-party model dependency.</p>
       <div class="hero-actions">
         <a class="cta-btn lg" href="/app">Open the App</a>
         <a class="ghost-btn lg" href="#features">Explore Features</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><b data-count="679">0</b><span>DPO preference pairs trained</span></div>
-        <div class="stat"><b data-count="0">0</b><span>+ domains in the Neural-Brain</span></div>
-        <div class="stat"><b data-count="100">0</b><span>% local-first inference</span></div>
+        <div class="stat"><b>3</b><span>Owned Mamba SSM Models</span></div>
+        <div class="stat"><b>793M</b><span>params — K2 flagship</span></div>
+        <div class="stat"><b>100</b><span>% local-first inference</span></div>
       </div>
     </div>
     <div class="hero-art">
@@ -67,28 +63,22 @@
     </div>
     <div class="intro-grid">
       <div class="intro-card">
-        <div class="ic ic-blue">🧠</div>
-        <h3>Intelligence Engine</h3>
-        <p>NeuralAI is the raw cognitive core — a high-density knowledge graph ("Neural-Brain")
-          spanning physics, philosophy, geopolitics, and human history, served through a
-          manager-worker orchestrator.</p>
+        <div class="ic ic-blue">🧬</div>
+        <h3>Owned Base Models</h3>
+        <p>NeuralAI's Mamba family — K1 (130M), K2 (793M GGUF), and K3 (790M SSM in training) — are NeuralAI's first fully-owned base models. SSM architecture, locally fine-tuned, no dependency on external providers.</p>
       </div>
       <div class="intro-card">
         <div class="ic ic-red">⚙️</div>
         <h3>Local-First by Design</h3>
-        <p>Inference runs on-device via llmster + LM Studio, surviving reboots with a watchdog.
-          No cloud lock-in, no vendor dependency — your intelligence stays on your machine.</p>
+        <p>Inference runs on-device via LM Studio running K2's Q4_K_M GGUF (460MB). Survives reboots with a watchdog. No cloud lock-in, no vendor dependency — your intelligence stays on your machine.</p>
       </div>
       <div class="intro-card">
         <div class="ic ic-green">🔗</div>
         <h3>Ecosystem Backbone</h3>
-        <p>NeuralAI is the intelligence source behind NeuralLabs and the wider stack, connected
-          through a Hybrid Link Gateway so frontend products inherit expert reasoning instantly.</p>
+        <p>NeuralAI is the intelligence source behind NeuralLabs and the wider stack, connected through a Hybrid Link Gateway so frontend products inherit expert reasoning instantly.</p>
       </div>
     </div>
-    <p class="intro-note">Founded on a belief that <b>accessible, aligned, and open intelligence</b> should
-      run anywhere — from a laptop to a production server — NeuralAI is engineered by DeAndrew P. Harris
-      and the Neural team.</p>
+    <p class="intro-note">Founded on a belief that <b>accessible, aligned, and open intelligence</b> should run anywhere — from a laptop to a production server — NeuralAI is engineered by DeAndrew P. Harris and the Neural team.</p>
   </section>
 
   <!-- FEATURES -->
@@ -131,38 +121,30 @@
     </div>
   </section>
 
-  <!-- TRAINING -->
-  <section class="section" id="training">
+  <!-- MODELS -->
+  <section class="section" id="models">
     <div class="section-head">
-      <span class="kicker">Training</span>
-      <h2>How the brain gets smarter</h2>
+      <span class="kicker">Models</span>
+      <h2>The Mamba Family</h2>
     </div>
-    <div class="training-wrap">
-      <ul class="timeline">
-        <li><span class="tl-dot"></span><b>DPO v15 Complete.</b> Trained a 597-pair preference dataset
-          (3 epochs, 450 steps, loss 0.305) focused on debugging, logic, and multi-step reasoning.</li>
-        <li><span class="tl-dot"></span><b>D17 DPO Complete (2026-07-20).</b> 679-pair DPO continuation on the v16 adapter
-          (SmolLM2-360M, 3 epochs, 129 steps, ~31 min); reward accuracy 97.5%, stable entropy — no collapse.</li>
-        <li><span class="tl-dot"></span><b>D17 DPO Complete (2026-07-20).</b> 679-pair DPO continuation on the v16 adapter
-          (SmolLM2-360M, 3 epochs, 129 steps, ~31 min); reward accuracy 97.5%, stable entropy — no collapse.</li>
-        <li><span class="tl-dot"></span><b>D17 DPO Complete (2026-07-20).</b> 679-pair DPO continuation on the v16 adapter
-          (SmolLM2-360M, 3 epochs, 129 steps, ~31 min); reward accuracy 97.5%, stable entropy — no collapse.</li>
-        <li><span class="tl-dot"></span><b>Adapter live on Hugging Face.</b> Adapter published to
-          <code>Subject-Emu-5259/NeuralAI</code> and loadable by downstream apps.</li>
-        <li><span class="tl-dot"></span><b>NL→Tool Router.</b> Plain-English web intents are classified
-          client-side and routed to real tools — no need to memorize slash syntax.</li>
-        <li><span class="tl-dot"></span><b>Refinement pass.</b> Raw tool output is cleaned and tightened
-          before display, so answers read like prose, not boilerplate.</li>
-        <li><span class="tl-dot"></span><b>Expanding knowledge.</b> Target domains (Modernity, advanced
-          sociology, deeper biology) are queued for the next Neural-Brain expansion.</li>
-      </ul>
-      <div class="training-side">
-        <div class="metric"><span>DPO pairs</span><b>679</b></div>
-        <div class="metric"><span>Training loss</span><b>~0.39</b></div>
-        <div class="metric"><span>Reward accuracy</span><b>97.5%</b></div>
-        <div class="metric"><span>Model size</span><b>360M</b></div>
+    <div class="feature-grid">
+      <div class="feature-card f-blue">
+        <h3>🧬 Mamba K1</h3>
+        <p><b>130M parameters</b> — First owned SSM base model. A new SFT v2 run is in progress using a vocabulary-friendly prompt format and assistant-only loss. After retraining it becomes the reference for K2 and K3 instruction tuning.</p>
+        <p style="font-size:12px;opacity:0.7;margin-top:8px;">Hugging Face: Subject-Emu-5259/NeuralAI-Mamba-K1 · Status: SFT v2</p>
+      </div>
+      <div class="feature-card f-green">
+        <h3>🧬 Mamba K2</h3>
+        <p><b>793M parameters</b> — Scaled SSM base model, already quantized to Q4_K_M GGUF (460MB). It is wired into the live inference stack, but still needs full SFT before it will answer cleanly in chat.</p>
+        <p style="font-size:12px;opacity:0.7;margin-top:8px;">Hugging Face: Subject-Emu-5259/NeuralAI-Mamba-K2 · Status: Base ready, SFT queued</p>
+      </div>
+      <div class="feature-card f-yellow">
+        <h3>🔬 Mamba K3</h3>
+        <p><b>2.8B parameters</b> — Largest NeuralAI base to date. Full SFT queued on 10K+ UltraChat samples with 500–1000 steps, followed by GGUF conversion and benchmarks.</p>
+        <p style="font-size:12px;opacity:0.7;margin-top:8px;">Status: Base ready, SFT queued — Colab notebook available</p>
       </div>
     </div>
+    <p class="intro-note">The Mamba SSM architecture gives us <b>linear O(n) complexity</b> vs transformer attention's O(n²) — faster at length, memory-efficient, and fully owned by NeuralAI.</p>
   </section>
 
   <!-- PROGRESS -->
@@ -173,9 +155,19 @@
     </div>
     <div class="progress-grid">
       <div class="prog-card">
-        <div class="prog-bar"><i style="--w:100%"></i></div>
-        <h4>Core Chat & Streaming</h4>
-        <span>Shipped — live on the web UI</span>
+        <div class="prog-bar"><i style="--w:60%"></i></div>
+        <h4>Mamba K1 · SFT v2</h4>
+        <span>Format fixed; SFT run queued</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:45%"></i></div>
+        <h4>Mamba K2 · Base + GGUF</h4>
+        <span>Deployed but pre-SFT</span>
+      </div>
+      <div class="prog-card">
+        <div class="prog-bar"><i style="--w:35%"></i></div>
+        <h4>Mamba K3 · 2.8B SFT</h4>
+        <span>Base downloaded; SFT queued</span>
       </div>
       <div class="prog-card">
         <div class="prog-bar"><i style="--w:100%"></i></div>
@@ -184,23 +176,8 @@
       </div>
       <div class="prog-card">
         <div class="prog-bar"><i style="--w:100%"></i></div>
-        <h4>DPO Training Pipeline</h4>
-        <span>D17 complete</span>
-      </div>
-      <div class="prog-card">
-        <div class="prog-bar"><i style="--w:90%"></i></div>
-        <h4>Neural-Brain Expansion</h4>
-        <span>Advanced domains in progress</span>
-      </div>
-      <div class="prog-card">
-        <div class="prog-bar"><i style="--w:85%"></i></div>
-        <h4>On-device Inference Watchdog</h4>
-        <span>Persistent across reboots</span>
-      </div>
-      <div class="prog-card">
-        <div class="prog-bar"><i style="--w:70%"></i></div>
-        <h4>Brand & Public Site</h4>
-        <span>This landing page — just launched</span>
+        <h4>Inference Pipeline</h4>
+        <span>Vocabulary-friendly intel format live</span>
       </div>
     </div>
   </section>
@@ -208,9 +185,7 @@
   <!-- MESSAGE TO PUBLIC -->
   <section class="section message">
     <span class="kicker">A Message to the Public</span>
-    <blockquote>“We're building intelligence that belongs to you — open, local-first, and aligned.
-      Not a black box you rent, but a brain you own. NeuralAI is our stand for accessible,
-      accountable AI that gets smarter with you, not over you.”</blockquote>
+    <blockquote>"We're building intelligence that belongs to you — open, local-first, and aligned. Not a black box you rent, but a brain you own. NeuralAI is our stand for accessible, accountable AI that gets smarter with you, not over you."</blockquote>
     <cite>— DeAndrew P. Harris, Founder & Lead Engineer</cite>
   </section>
 
@@ -223,30 +198,26 @@
     <div class="future-grid">
       <div class="future-card">
         <h3>🌐 Deeper Knowledge Graph</h3>
-        <p>Expanding Neural-Brain into modernity, advanced sociology, and biology — pushing toward
-          expert coverage across every major domain of human thought.</p>
+        <p>Expanding Neural-Brain into modernity, advanced sociology, and biology — pushing toward expert coverage across every major domain of human thought.</p>
       </div>
       <div class="future-card">
-        <h3>🚀 Larger Aligned Models</h3>
-        <p>Scaling the on-device inference path beyond 360M with larger DPO-tuned checkpoints
-          while keeping latency and footprint honest.</p>
+        <h3>🚀 Scale Mamba Architecture</h3>
+        <p>Scaling beyond K3 toward 2B and 3B Mamba SSM models — fully owned by NeuralAI, with deeper reasoning and multi-step agentic capabilities.</p>
       </div>
       <div class="future-card">
         <h3>🧩 Open Ecosystem</h3>
-        <p>More frontend products wired through the Hybrid Link Gateway, so any app inherits
-          NeuralAI's reasoning with zero integration tax.</p>
+        <p>More frontend products wired through the Hybrid Link Gateway, so any app inherits NeuralAI's reasoning with zero integration tax.</p>
       </div>
       <div class="future-card">
         <h3>📡 Public API & SDK</h3>
-        <p>A documented, key-secured API so developers can build on the Neural engine directly —
-          your intelligence, embedded in your product.</p>
+        <p>A documented, key-secured API so developers can build on the Neural engine directly — your intelligence, embedded in your product.</p>
       </div>
     </div>
   </section>
 
   <!-- CTA -->
   <section class="cta-section">
-    <h2>Meet the Neural Brain.</h2>
+    <h2>Meet the Mamba Brain.</h2>
     <p>Open the live app, explore the tools, or follow the build as it evolves.</p>
     <div class="hero-actions" style="justify-content:center">
       <a class="cta-btn lg" href="/app">Launch NeuralAI</a>

@@ -3218,6 +3218,7 @@ body.dark-mode .onboarding-close:hover {
           <div style="font-size:48px;margin-bottom:16px;">🧬</div>
           <h2 style="font-size:24px;color:#e4e4e7;margin-bottom:8px;">NeuralAI · Mamba Era</h2>
           <p style="color:#6b7280;margin-bottom:10px;max-width:500px;">The first AI assistant powered by NeuralAI's own base models — Mamba SSM architecture, locally trained, fully owned.</p>
+          <p style="color:#f59e0b;margin-bottom:10px;max-width:520px;font-size:12px;">⚠️ Mamba K2/K3 are still base models and will output non-sensical text until SFT training completes. Mamba K1 is being retrained with a fixed instruction format.</p>
           
           <!-- Mamba Family Quick Intro -->
           <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px;">
@@ -3229,12 +3230,12 @@ body.dark-mode .onboarding-close:hover {
             <div style="padding:10px 14px;background:#0d1117;border:1px solid rgba(34,211,238,0.3);border-radius:10px;min-width:105px;">
               <div style="font-size:11px;color:#22d3ee;font-weight:700;">🧬 Mamba K2</div>
               <div style="font-size:10px;color:#8a8a9a;">793M · Q4_K_M GGUF</div>
-              <div style="font-size:9px;color:#f59e0b;">● Next Gen Ready</div>
+              <div style="font-size:9px;color:#f59e0b;">● Base / SFT queued</div>
             </div>
             <div style="padding:10px 14px;background:#0d1117;border:1px solid rgba(168,85,247,0.3);border-radius:10px;min-width:105px;">
               <div style="font-size:11px;color:#a855f7;font-weight:700;">🔬 Mamba K3</div>
-              <div style="font-size:10px;color:#8a8a9a;">790M · 10K+ UltraChat</div>
-              <div style="font-size:9px;color:#f59e0b;">● SFT Training</div>
+              <div style="font-size:10px;color:#8a8a9a;">2.8B · SFT queued</div>
+              <div style="font-size:9px;color:#f59e0b;">● Base / SFT queued</div>
             </div>
           </div>
 
@@ -3487,7 +3488,7 @@ body.dark-mode .onboarding-close:hover {
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Model Fleet</div>
               <div style="color:#a78bfa; font-weight:600; margin-top:4px;">Mamba Family (3 SSM)</div>
-              <div style="font-size:10px; color:#34a853; margin-top:2px;">K1 130M · K2 793M · K3 790M</div>
+              <div style="font-size:10px; color:#34a853; margin-top:2px;">K1 130M · K2 793M · K3 2.8B</div>
             </div>
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Open Source</div>
@@ -3506,35 +3507,35 @@ body.dark-mode .onboarding-close:hover {
               <div style="color:#3b82f6; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
                 <span style="color:#10b981; font-size:8px;">●</span> 130M · SSM
               </div>
-              <div style="font-size:9px; color:#34a853; margin-top:2px;">SFT · Merged · Active</div>
+              <div style="font-size:9px; color:#f59e0b; margin-top:2px;">SFT v2 · Retraining</div>
             </div>
             <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(34,211,238,0.25);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">🧬 Mamba K2</div>
               <div style="color:#22d3ee; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
                 <span style="color:#10b981; font-size:8px;">●</span> 793M · GGUF
               </div>
-              <div style="font-size:9px; color:#34a853; margin-top:2px;">Q4_K_M · LM Studio · Ready</div>
+              <div style="font-size:9px; color:#f59e0b; margin-top:2px;">Q4_K_M · Base / SFT queued</div>
             </div>
             <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(168,85,247,0.25);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">🔬 Mamba K3</div>
               <div style="color:#a855f7; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
-                <span style="color:#f59e0b; font-size:8px;">●</span> 790M · SSM
+                <span style="color:#f59e0b; font-size:8px;">●</span> 2.8B · SSM
               </div>
-              <div style="font-size:9px; color:#f59e0b; margin-top:2px;">10K+ UltraChat · Training</div>
+              <div style="font-size:9px; color:#f59e0b; margin-top:2px;">Base loaded · SFT queued</div>
             </div>
           </div>
           <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
               <span style="color: #5f6368;">Active Inference:</span>
-              <span style="color: #3b82f6;">Mamba K1 v7.3 · LM Studio (via llmster)</span>
+              <span style="color: #22d3ee;">Mamba K2 793M · LM Studio Q4_K_M GGUF (460MB)</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
               <span style="color: #5f6368;">Service Version:</span>
-              <span style="color: #22d3ee;">v7.3 (Mamba Era)</span>
+              <span style="color: #22d3ee;">v7.3 · Mamba Era</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span style="color: #5f6368;">Uplink Status:</span>
-              <span style="color: #10b981;">CONNECTED</span>
+              <span style="color: #10b981;">ACTIVE</span>
             </div>
           </div>
         </div>

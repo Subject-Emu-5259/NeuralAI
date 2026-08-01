@@ -12,3 +12,15 @@ mamba-k1/final_mamba_lora/*.safetensors
 mamba-k1/final_mamba_lora/*.bin
 colab_bundle/
 cloudflared
+
+# Generated SFT data (large; regenerate with scripts/prepare_sft_data.py)
+data/train_intel_*.jsonl
+data/train_sft_ultrachat_*.jsonl
+# Colab temporary outputs
+.ipynb_checkpoints/
+
+# Training artifacts and extracted adapters (large tokenizer/model files)
+checkpoints/
+models/mamba-k1-lora-origin/
+models/mamba-k1-sft-output/
+llama.cpp-build/

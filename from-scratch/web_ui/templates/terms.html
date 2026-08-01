@@ -73,19 +73,19 @@
     <div class="container">
         <a href="/" class="back-link">&larr; Back to NeuralAI Node</a>
         <div class="header">
-            <div class="last-updated">VERSION 17.0 &bull; UPDATED JULY 20, 2026</div>
+            <div class="last-updated">MAMBA ERA v7.3 &bull; UPDATED AUGUST 1, 2026</div>
             <h1>NeuralAI Terms of Service</h1>
         </div>
         
         <div class="highlight-box">
             <h3>The Social Contract</h3>
-            <p>By accessing the NeuralAI platform, services, or local intelligence nodes, you are entering into a legally binding agreement. NeuralAI is more than a tool; it is an extension of your mind. We provide the powerful infrastructure and intelligence, but the ethical application and outputs generated are ultimately your responsibility. Please read this contract thoroughly as it dictates our shared understanding of data, computation, and liability.</p>
+            <p>By accessing the NeuralAI platform, services, or local intelligence nodes, you are entering into a legally binding agreement. NeuralAI is more than a tool; it is an extension of your mind — powered by our self-owned <strong>Mamba SSM model family</strong>. We provide the powerful infrastructure and intelligence, but the ethical application and outputs generated are ultimately your responsibility. Please read this contract thoroughly as it dictates our shared understanding of data, computation, and liability.</p>
         </div>
         
         <h2>1. Intellectual Property & Digital Soul</h2>
         <p>Unless otherwise explicitly indicated, the Site and Services are the proprietary property of NeuralAI. However, we maintain a strict and unbreakable distinction between the <strong>Platform</strong> and the <strong>User Intelligence</strong>.</p>
         <ul>
-            <li><strong>The Platform:</strong> All source code, database architectures, machine learning weights (excluding custom user LoRA adapters), UI designs, algorithms, APIs, trademarks, and documentation are exclusively owned by NeuralAI. Reproduction, distribution, or decompilation of the core platform is strictly prohibited.</li>
+            <li><strong>The Platform:</strong> All source code, database architectures, machine learning weights (the Mamba K1/K2/K3 model family, including all LoRA adapters and merged weights), UI designs, algorithms, APIs, trademarks, and documentation are exclusively owned by NeuralAI. Reproduction, distribution, or decompilation of the core platform is strictly prohibited.</li>
             <li><strong>Your Digital Soul:</strong> You retain <strong>100% ownership and intellectual property rights</strong> of everything you create. This includes the logic in your code snippets, the artistic intent in generated images, and the unique structure of your Memory Cloud. NeuralAI acts strictly as your agent, not your master. You grant NeuralAI a limited, temporary license to process this data solely to fulfill your requests.</li>
         </ul>
         
@@ -98,45 +98,48 @@
             <li><strong>System Integrity:</strong> Do not attempt to reverse-engineer, overload, or maliciously disrupt the NeuralAI API, routing gateways, or core storage nodes. Automated scraping, "jailbreaking," or exploiting zero-day vulnerabilities in the system will result in immediate termination.</li>
         </ul>
         
-        <h2>5. Model Performance, Capabilities, & Inference</h2>
-        <p>NeuralAI provides local and cloud model inference (currently utilizing DPO-aligned and SFT fine-tuned intelligence). While we strive for "Human-Like" reasoning, high accuracy, and empathetic interaction, you must acknowledge the inherent nature of AI:</p>
+        <h2>3. Model Performance, Capabilities, & Inference</h2>
+        <p>NeuralAI provides local and cloud model inference utilizing the <strong>Mamba SSM model family</strong> — NeuralAI's self-owned intelligence stack. Current active inference runs on Mamba K2 (793M parameters, Q4_K_M GGUF via LM Studio). K1 SFT v2 and K2/K3 SFT are queued. While we strive for high accuracy and empathetic interaction, you must acknowledge the inherent nature of AI:</p>
         <ul>
             <li><strong>Hallucinations:</strong> Artificial Intelligence can occasionally "hallucinate" or provide logically sound but factually incorrect data. Do not treat the AI as an absolute source of truth.</li>
             <li><strong>Verification Requirement:</strong> Output from our models—especially executable code, medical advice, or data analysis—should be independently verified before being used for critical legal, financial, medical, or production-grade business decisions.</li>
             <li><strong>Availability:</strong> System performance (latency, streaming speed, and throughput) depends on available compute nodes, concurrent user demand, and network conditions. NeuralAI is provided "AS-IS" without a guaranteed uptime SLA or warranty of fitness for a particular purpose.</li>
         </ul>
 
-        <h2>5. Model Training & User Data</h2>
-        <p>NeuralAI v17 (D17) incorporates both DPO (Direct Preference Optimization) alignment and SFT (Supervised Fine-Tuning) to enhance model capabilities and identity awareness. D17 is a DPO continuation of the v16 adapter trained on 679 local preference pairs:</p>
+        <h2>4. Model Training & User Data</h2>
+        <p>NeuralAI's Mamba model family is trained end-to-end in-house using Supervised Fine-Tuning (SFT) on UltraChat and other locally curated datasets. Key training transparency points:</p>
         <ul>
-            <li><strong>Training Data:</strong> All model training is conducted on locally authored datasets (identity Q&A pairs, preference rankings, safety examples). No user data is used for training without explicit written consent.</li>
-            <li><strong>Identity Awareness:</strong> SFT and DPO training enable the model to recognize and respond appropriately when users interact with NeuralAI's founder. This training uses public factual examples only.</li>
-            <li><strong>Transparency:</strong> The complete training pipeline, data sources, and model configuration are documented in the NeuralAI repository. Model weights (v17 / D17 adapter) are published on HuggingFace (<code>Subject-Emu-5259/NeuralAI</code>) for public inspection.</li>
+            <li><strong>Mamba K1 (130M):</strong> Initial 50-step SFT on 1,000 UltraChat samples is complete; SFT v2 with the "intel" prompt format is in progress to improve coherence.</li>
+            <li><strong>Mamba K2 (793M):</strong> Pretrained Mamba SSM base, quantized to Q4_K_M GGUF (460MB) for local inference. Full SFT is queued; output is currently base-model continuations rather than aligned chat.</li>
+            <li><strong>Mamba K3 (2.8B):</strong> Pretrained Mamba SSM base (state-spaces/mamba-2.8b-slimpj). SFT training is queued; not yet available for inference.</li>
+            <li><strong>Training Data:</strong> All model training is conducted on locally authored datasets (UltraChat, identity Q&A pairs, conversational alignment data). No user data is used for training without explicit written consent.</li>
+            <li><strong>Identity Awareness:</strong> SFT training enables the model to recognize and respond appropriately to identity, founder, and capability questions. This training uses factual, publicly documented examples only.</li>
+            <li><strong>Transparency:</strong> The complete training pipeline, data sources, model configuration, and weights are documented and publicly auditable at <code>Subject-Emu-5259/NeuralAI</code> (GitHub) and HuggingFace.</li>
             <li><strong>User Consent:</strong> Should NeuralAI ever require user data for training improvements, we will request explicit, separate, and verifiable opt-in consent. No data will be used without your explicit permission.</li>
         </ul>
 
-        <h2>6. Live Capabilities (Speech & Media)</h2>
+        <h2>5. Live Capabilities (Speech & Media)</h2>
         <p>With the integration of Live Speech-to-Speech interactions and real-time generation features, NeuralAI requires access to your microphone and media devices. By utilizing these features, you consent to local browser-based or ephemeral cloud processing of your voice data.</p>
         <ul>
             <li>Voice recordings are processed in real-time and are <strong>not stored</strong> permanently unless explicitly requested as a transcript.</li>
             <li>You must not use Live capabilities to record, monitor, or analyze third parties without their explicit consent.</li>
         </ul>
 
-        <h2>7. Financial and Subscription Obligations</h2>
+        <h2>6. Financial and Subscription Obligations</h2>
         <p>If utilizing a premium tier of NeuralAI, you agree to pay all applicable fees associated with your compute usage, NeuralDrive (Nextcloud-backed per-user storage) limits, and API calls.</p>
         <ul>
             <li>Payments are non-refundable unless required by regional law.</li>
             <li>NeuralAI reserves the right to throttle or temporarily restrict compute access if an account exhibits unusual usage patterns that threaten network stability.</li>
         </ul>
 
-        <h2>8. Termination & Data Purge</h2>
+        <h2>7. Termination & Data Purge</h2>
         <p>You maintain the right to terminate your account and relationship with NeuralAI at any time. Upon termination, you have the option to trigger a <strong>Complete Neural Purge</strong>, which will permanently, irreversibly delete your Memory Cloud, Cognitive Logs, configurations, your Nextcloud-backed NeuralDrive home, and all artifacts stored within your NeuralDrive node.</p>
         <p>NeuralAI reserves the right to suspend or terminate accounts that flagrantly violate the "No Malevolence" or "System Integrity" clauses, to protect the broader network and user base. Upon forced termination, your data will be retained for up to 30 days for legal compliance before being purged.</p>
         
-        <h2>9. Limitation of Liability and Indemnification</h2>
+        <h2>8. Limitation of Liability and Indemnification</h2>
         <p>To the maximum extent permitted by applicable law, NeuralAI, its founder, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses, resulting from (a) your access to or use of or inability to access or use the services; (b) any conduct or content of any third party on the services; (c) any content obtained from the services; and (d) unauthorized access, use, or alteration of your transmissions or content.</p>
 
-        <h2>10. Jurisdiction, Legacy, & Vision</h2>
+        <h2>9. Jurisdiction, Legacy, & Vision</h2>
         <p>NeuralAI is built upon the resilience of West Memphis and the ambition of its founder, De'Andrew Preston Harris. Any legal disputes arising from your use of the Services shall be governed exclusively by the laws of the State of Arkansas, United States. We aim to achieve greatness beyond the boundaries of life, and we invite you to utilize this platform to amplify your own legacy.</p>
     </div>
 </body>

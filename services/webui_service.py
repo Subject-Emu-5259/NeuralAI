@@ -2,7 +2,7 @@
 """
 NeuralAI Unified Service - ALL IN ONE
 ===================================
-- Model inference (SmolLM2-360M)
+- Model inference (Mamba family)
 - Neural Uplink (4 parallel agents) 
 - Tools (code, terminal)
 - Web UI
@@ -68,8 +68,8 @@ def _add_cors_headers(resp):
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
-MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/checkpoints/v2_model")
-BASE_MODEL = os.environ.get("BASE_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct")
+MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/models/mamba-k1")
+BASE_MODEL = os.environ.get("BASE_MODEL", "state-spaces/mamba-130m-hf")
 STATIC_PATH = os.environ.get("STATIC_PATH", "/home/workspace/Projects/NeuralAI/from-scratch/web_ui")
 # Zo Computer API identity token (used by the host's native image generator)
 ZO_API_TOKEN = os.environ.get("ZO_API_TOKEN", os.environ.get("ZO_CLIENT_IDENTITY_TOKEN", ""))
@@ -84,13 +84,13 @@ FOUNDER_EMAIL = os.environ.get("FOUNDER_EMAIL", "deandrewh26@gmail.com")
 # ====================
 # LLM BACKEND CONFIG
 # ====================
-# On ZO Computer (4 GB RAM): PyTorch + SmolLM2-360M = ~6.2 GB → OOM kill loop (this paused the service).
-# LOCAL:    LM Studio (llama.cpp) on localhost:1234 — SmolLM2-360M, ~260 MB RAM, no OOM, no external cost.
+# On ZO Computer: PyTorch + full models can OOM; LM Studio GGUF keeps memory usage low.
+# LOCAL:    LM Studio (llama.cpp) on localhost:1234 serves Mamba Q4_K_M GGUF models.
 # Local LM Studio on port 1234 is the default inference backend.
 # Override with env vars: LLM_BACKEND, LLM_API_URL, LLM_MODEL, LLM_API_KEY.
 LLM_BACKEND = os.environ.get("LLM_BACKEND", "lmstudio")
 LLM_API_URL = os.environ.get("LLM_API_URL", "http://127.0.0.1:1234/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "smollm2-360m-instruct")  # base model used through LM Studio
+LLM_MODEL = os.environ.get("LLM_MODEL", "mamba-k1")  # active Mamba model used through LM Studio
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 _USE_FLOAT16 = os.environ.get("NEURALAI_FLOAT16", "").lower() in ("1", "true", "yes")
 REQUEST_TIMEOUT_SECONDS = 60
@@ -550,7 +550,7 @@ def _strip_stop_sequences(text):
 def build_prompt_with_context(prompt, conv_id=None, max_history=5, client_messages=None):
     """Build a ChatML-formatted prompt (matching the model's trained chat template).
 
-    The model (SmolLM2-360M-Instruct + NeuralAI LoRA) was trained on ChatML:
+    The active Mamba model uses GGUF via LM Studio; prompts are formatted by the server.
         <|im_start|>system\n...\n<|im_end|>\n
         <|im_start|>user\n...\n<|im_end|>\n
         <|im_start|>assistant\n
@@ -579,7 +579,7 @@ def _truncate_to_fit(messages, tokenizer_obj, context_limit=MAX_CONTEXT_TOKENS):
 
     Always keeps the system prompt. Drops oldest user/assistant turns when the
     total token count exceeds the limit, keeping at least the most recent pair.
-    SmolLM2-360M-Instruct has a 8192-token context window; we use 2048 as a
+    Mamba models have large context windows; we use 2048 as a
     safe ceiling to leave room for generated tokens and prevent ZO 120s timeout.
     """
     if not messages or tokenizer_obj is None:
@@ -710,7 +710,7 @@ def stream_response(prompt, max_tokens=256, temperature=0.7, conv_id=None, alrea
     # === Local PyTorch streaming ===
     if model is None or tokenizer is None:
         # Lightweight mode: return a helpful response without the model
-        yield f"I'm NeuralAI. I received your message but the AI model isn't loaded (memory-limited environment). Here's what I can tell you: I'm a fine-tuned SmolLM2-360M with NeuralAI LoRA. On this ZO Computer (4GB RAM), the model can't run due to memory constraints. Please check back when more resources are available."
+        yield f"I'm NeuralAI. I received your message but the AI model isn't loaded (memory-limited environment). Here's what I can tell you:  On this ZO Computer (4GB RAM), the model can't run due to memory constraints. Please check back when more resources are available."
         return
     stop_event = stop_events.get(conv_id) if conv_id else None
     try:
@@ -1037,7 +1037,7 @@ def api_model_list():
         current = _active_model()
     except Exception as e:
         logger.warning(f"model_manager.get_active_model failed: {e}")
-        current = {"id": "smollm2-360m", "label": "SmolLM2-360M-Instruct"}
+        current = {"id": "mamba-k1", "label": "Mamba K1 (130M, SFT)"}
     return jsonify({"active": current, "models": _model_manager.MODELS})
 
 @app.route("/api/model/switch", methods=["POST"])

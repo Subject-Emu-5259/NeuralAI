@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NeuralAI inference server launcher.
-# Picks the active GGUF from config/active_model.json via scripts/model_manager.py.
+# Registers the custom "neuralai-intel" chat format and serves the active GGUF.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,16 +11,17 @@ N_THREADS="${N_THREADS:-2}"
 
 MODEL_PATH="$(python3 "$ROOT/scripts/model_manager.py" get-path)"
 MODEL_ID="$(python3 "$ROOT/scripts/model_manager.py" get-id)"
+CHAT_FORMAT="$(python3 "$ROOT/scripts/model_manager.py" get-format)"
 
 if [ ! -f "$MODEL_PATH" ]; then
     echo "ERROR: GGUF not found for active model ($MODEL_ID): $MODEL_PATH" >&2
-    echo "Falling back to base SmolLM2-360M-Instruct" >&2
-    MODEL_PATH="/root/.lmstudio/models/bartowski/SmolLM2-360M-Instruct-GGUF/SmolLM2-360M-Instruct-Q4_K_M.gguf"
+    echo "Set an active model with: python3 scripts/model_manager.py set <mamba-k1|mamba-k2>" >&2
+    exit 1
 fi
 
-echo "[neuralai-lmstudio] active model=$MODEL_ID path=$MODEL_PATH"
+echo "[neuralai-lmstudio] active model=$MODEL_ID path=$MODEL_PATH format=$CHAT_FORMAT"
 
-exec python3 -m llama_cpp.server \
+exec python3 -u "$ROOT/services/lmstudio_server.py" \
   --model "$MODEL_PATH" \
   --model_alias "$MODEL_ID" \
   --host 127.0.0.1 \
@@ -30,5 +31,5 @@ exec python3 -m llama_cpp.server \
   --n_threads "$N_THREADS" \
   --n_threads_batch "$N_THREADS" \
   --api_key "$API_KEY" \
-  --chat_format chatml \
+  --chat_format "$CHAT_FORMAT" \
   --verbose false

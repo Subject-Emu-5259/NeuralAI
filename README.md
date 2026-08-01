@@ -11,6 +11,9 @@ tags:
   - smollm2
   - dpo
   - fine-tuned
+  - mamba
+  - ssm
+  - neuralai
 model_id: Subject-Emu-5259/NeuralAI
 base_model: HuggingFaceTB/SmolLM2-360M-Instruct
 inference: false
@@ -18,7 +21,19 @@ inference: false
 
 # 🧠 NeuralAI: The Generative AI Engine
 
-<img src="neuralai_banner.svg" alt="NeuralAI - Your AI. On your hardware. In your browser." />
+<p align="center">
+  <img src="neuralai_banner.svg" alt="NeuralAI — Your AI. On your hardware. In your browser." />
+</p>
+
+<p align="center">
+  <a href="https://github.com/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/GitHub-NeuralAI-181717?logo=github" alt="GitHub"></a>
+  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/🤗%20Hub-NeuralAI-FFD21E" alt="HF Hub"></a>
+  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K1"><img src="https://img.shields.io/badge/🤗%20Hub-Mamba%20K1-blue" alt="Mamba K1"></a>
+  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K2"><img src="https://img.shields.io/badge/🤗%20Hub-Mamba%20K2-green" alt="Mamba K2"></a>
+  <a href="https://neuralai-web-ui-deandrewharris.zocomputer.io"><img src="https://img.shields.io/badge/Live-NeuralAI%20Web%20UI-6366f1" alt="Live UI"></a>
+</p>
+
+---
 
 ## 📊 Repository Composition
 
@@ -32,272 +47,152 @@ inference: false
 | Jupyter Notebook | 0.3% |
 | Jinja | 0.2% |
 
-**The High-Velocity Model for Your Entire Vibe Stack**
+**The High-Velocity AI Engine for Your Entire Vibe Stack**
 
-NeuralAI is the central intelligence engine developed by **De'Andrew Preston Harris**. Conceived and engineered by **De'Andrew Preston Harris** (Founder), it is a highly tuned, DPO-aligned multimodal AI ec\[...\]
+NeuralAI is the central intelligence engine developed by **De'Andrew Preston Harris**. Conceived and engineered as an owned AI platform, it spans fine-tuned transformer models, custom SSM base models, DPO alignment, and a production web UI — all designed for local-first, private AI computing.
+
+---
+
+## 🏗️ Model Family
+
+```mermaid
+graph TB
+    subgraph "NeuralAI Model Family"
+        direction TB
+
+        subgraph "Fine-Tuned (Transformer)"
+            SMOLM["🧠 SmolLM2-360M<br/>DPO v17 / D17<br/>679 pairs · 97.5% reward acc"]
+            AIR["✈️ NeuralAI-Air-135M<br/>SFT v19 · 320 steps<br/>Custom 135M base"]
+        end
+
+        subgraph "Owned Base (SSM)"
+            K1["🧬 Mamba K1<br/>130M · SFT 50 steps<br/>Proof of Concept"]
+            K2["🧬 Mamba K2<br/>790M · Q4_K_M GGUF<br/>460MB · Ready"]
+            K3["🔬 Mamba K3<br/>SFT 500-1000 steps<br/>10K+ UltraChat<br/>In Training"]
+        end
+
+        SMOLM --> PROD["🚀 Production<br/>llmster inference<br/>258MB RAM"]
+        AIR --> PROD
+        K1 --> K2 --> K3
+    end
+
+    style K1 fill:#4a90d9,color:#fff
+    style K2 fill:#22c55e,color:#fff
+    style K3 fill:#f59e0b,color:#000
+    style SMOLM fill:#6366f1,color:#fff
+    style AIR fill:#ec4899,color:#fff
+    style PROD fill:#10b981,color:#fff
+```
+
+### Complete Lineup
+
+| Model | Architecture | Params | Training | Status | Location |
+|-------|-------------|--------|----------|--------|----------|
+| **SmolLM2-360M DPO v17** | Transformer | 360M | DPO 679 pairs | ✅ Production | `Subject-Emu-5259/NeuralAI` |
+| **NeuralAI-Air-135M SFT v19** | Transformer | 135M | SFT 320 steps | ✅ Production | `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v19` |
+| **Mamba K1** | Mamba SSM | 130M | SFT 50 steps | ✅ Complete | `Subject-Emu-5259/NeuralAI-Mamba-K1` |
+| **Mamba K2** | Mamba SSM | 790M | Q4_K_M GGUF | ✅ Complete | `Subject-Emu-5259/NeuralAI-Mamba-K2` |
+| **Mamba K3** | Mamba SSM | 790M | SFT 500-1000 steps | 🔄 In Training | `training/mamba-k3/` |
+
+### Mamba vs Transformer
+
+| Property | Transformer (SmolLM2) | Mamba SSM (K1/K2/K3) |
+|----------|----------------------|----------------------|
+| Complexity | \(O(n^2)\) attention | \(O(n)\) linear |
+| Long context | Memory-hungry | Efficient |
+| Inference speed | Slower at length | Fast at any length |
+| Memory | 258MB (Q4_K_M 360M) | 460MB (Q4_K_M 790M) |
+| Ecosystem | Mature (HuggingFace, llama.cpp) | Growing |
+| NeuralAI owns weights? | LoRA adapter only | ✅ Full merged model |
 
 ---
 
 ## 🌟 Vision & Manifesto
 
-NeuralAI doesn't just predict text; it *operates the work*. The core mission is to create a multimodal generative system that bridges the gap between raw idea and execution. By fusing autoregressi\[...\]
+NeuralAI doesn't just predict text; it *operates the work*. The core mission is to create a multimodal generative system that bridges the gap between raw idea and execution. By fusing autoregressive generation with adaptive agency, NeuralAI becomes more than a chatbot — it is a persistent, reasoning partner.
 
 Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkansas, NeuralAI represents a forward-thinking approach to personal, private AI computing.
 
 ---
 
-## 🛠️ Tech Stack & Architecture (v7.3)
+## 🛠️ Tech Stack & Architecture
 
 NeuralAI is built on a high-performance architecture that decouples the inference engine from the web interface, enabling lightweight cloud hosting with powerful local inference.
 
 ### Core Stack
 
-- **Core Model**: `SmolLM2-360M-Instruct` fine-tuned with the custom **DPO v17 (D17) LoRA** at `checkpoints/v17-dpo` — aligned for logic, math, multi-step reasoning, debugging, and safe refusals
-- **Custom Small Model**: `NeuralAI-Air-135M-SFT-v18` — expanded supervised fine-tune (≥500 ChatML pairs) of the custom 135 M-parameter base, with scaled weight init, precision masking, and top-p sampling. Artifacts at `checkpoints/v18-sft`, HF repo `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18`
+- **Production Models**: SmolLM2-360M-Instruct (DPO v17) + NeuralAI-Air-135M (SFT v19)
+- **Owned Base Models**: Mamba K1 (130M) → Mamba K2 (790M GGUF) → Mamba K3 (SFT training)
 - **Inference Engine**: [llmster](https://lmstudio.ai/docs/cli) (LM Studio headless) — OpenAI-compatible API with continuous batching, running via llama.cpp
-- **Vocal Identity**: Andrew (Warm/Multilingual) — Optimized for Live Speech-to-Speech (S2S)
-- **Backend Framework**: Python / Flask (Core Service) — routes to llmster or local PyTorch
-- **Storage & Database**: SQLite3 (Metadata) + Nextcloud Hub via NeuralCloud WebDAV Client (NeuralDrive)
-- **Frontend UI**: Vanilla JS, HTML5, CSS3 with an advanced Dark Mode layout
+- **Vocal Identity**: Andrew (Warm/Multilingual) — Optional voice synthesis integration
+- **Web Interface**: Custom Flask UI served via Zo Computer at `neuralai-web-ui-deandrewharris.zocomputer.io`
+- **Tool Chain**: 10 live slash commands (/web, /fetch, /browse, /research, /img, /speak, /summarize, /translate, /news, /yt) + NL→Tool Router
 
-### Pluggable LLM Backend
+### Tiered Architecture (Target)
 
-NeuralAI supports multiple inference backends via the `LLM_BACKEND` environment variable:
-
-| Backend | `LLM_BACKEND` | API Endpoint | Use Case |
-| --- | --- | --- | --- |
-| **llmster** (recommended) | `lmstudio` | `http://localhost:1234/v1` | Headless GPU/CPU inference |
-| **Ollama** | `ollama` | `http://localhost:11434/v1` | Local Ollama server |
-| **OpenAI-compatible** | `openai_compatible` | Any OpenAI API URL | Remote/cloud inference |
-| **Local PyTorch** | `local` | Built-in transformers | Loads BASE_MODEL + LoRA at MODEL_PATH in float16 (your own model) |
-| **ZO Native (fallback)** | `zo` | `https://api.zo.computer/zo/ask` | Routes to Zo's own assistant (HY3) — **NOT** your NeuralAI model; last-resort only |
-### Resilient Launcher (2026-07-15)
-The service entrypoint is now `run_service.sh`, which auto-selects the backend at boot:
-1. Starts **llmster** (LM Studio) headless on port 1234 and loads the `smollm2-360m-instruct` GGUF.
-2. If llmster is reachable, sets `LLM_BACKEND=openai_compatible` → `http://localhost:1234/v1` (recommended; low RAM).
-3. Only if llmster is unavailable does it fall back to the local PyTorch backend.
-
-This guarantees the chat always has a live backend (no more 503/401 "model not authed" stalls) and keeps RAM low (llmster ~1.1 GB vs ~6 GB for local transformers), so the UI no longer freezes under memory pressure.
-
-> **Hosting on ZO Computer (4 GB RAM):** set `LLM_BACKEND=local`. The service loads `BASE_MODEL`
-> (default `HuggingFaceTB/SmolLM2-360M-Instruct`) and applies the LoRA at `MODEL_PATH`
-> (default `checkpoints/v17-dpo`) in float16 (~720 MB), which fits the 4 GB host. **Do not use
-> `LLM_BACKEND=zo` for the chat UI** — it proxies to Zo's assistant and answers as "Zo Computer's
-> assistant" instead of your trained model.
-
-```bash
-# Example: start NeuralAI with llmster backend
-LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
-  python3 services/neural_core_service.py
-```
-
-### Core Architectural Pillars
-
-1. **NeuralAI Core**: Handles chat state, direct model inference, terminal session proxying, and tool orchestration.
-2. **NeuralDrive (Cloud Storage)**: The intelligent data layer for all projects, featuring isolated user storage, automatic versioning, and semantic mapping.
-3. **Diffusion Engine**: An integrated generative diffusion layer for producing visual branding assets, UI mockups, and visual logic maps.
-4. **Agentic Orchestrator**: A high-autonomy layer enabling NeuralAI to plan, reason, and execute multi-step workflows across the OS and web, moving beyond simple chat to active goal achievement.
+| Tier | Model | Params | Role | Status |
+|------|-------|--------|------|--------|
+| **Speedster** | NeuralAI-2B | ~2B | Fast chat, simple queries | Planned |
+| **Core Intelligence** | NeuralAI-3B | ~3B | Deep reasoning, multi-step | Planned |
+| **Owned Base** | Mamba K3 | 790M | NeuralAI's own SSM model | In Training |
 
 ---
-### 🆕 What's New (v7.3.3)
-
-- **Developer / API Access (BYO API)**: Generate a personal API key from Settings to use NeuralAI as an OpenAI-compatible backend on other hosts (e.g. ZO Computer's "Bring Your Own Key"). Exposes `/v1/chat/completions` (SSE, CORS-enabled), `/v1/models`, and a status probe at `/api/settings/api-key`; Base URL is `https://neuralai-web-ui-deandrewharris.zocomputer.io/v1`, model id is `neuralai`. Put the Base URL in BYOK's Base URL field and the generated key in BYOK's API Key field. Keys are hashed and revocable. Full ZO Computer setup walkthrough: `docs/BYOK_ZO_INTEGRATION.md`.
-- **Auto Release Notes ("What's New")**: A new top-bar panel surfaces the latest features and fixes automatically. Open it anytime via the ✨ **What's New** button.
-- **Generated images render in chat**: Image-generation responses are parsed as Markdown and displayed inline.
-- **No more self-talk**: Chat now uses the ChatML prompt template (`apply_chat_template`), matching the model's training format.
-- **NeuralDrive upload reliability**: The file list correctly handles API response shapes after an upload.
-- **Dark theme by default**: UI restores your saved theme and defaults to dark mode (fixes white file-cards in light mode).
-- **Phase 8 in progress**: Knowledge Graph & Agentic Autonomy — long-term cross-project memory ("Supermemory") and fully autonomous task execution.
-- **The NeuralLabs Shift**: NeuralAI is evolving into a standalone, downloadable intelligence environment (NeuralLabs v1 Client → v2 Edge → v3 Eco).
-- **v7.3.3 — Public site restored (service reliability)**: Fixed a 404 on the root page and guest auth. Root cause: `/api/auth/guest` is a POST route hit with GET; corrected the request method. All critical endpoints (`/`, `/api/files`, `/api/tool`, `/api/auth/guest`) now return 200 and the live service is confirmed up. See `data/release_notes.json`.
-- **v7.3.2 — Backend identity fix (ZO hosting)**: The hosted service now runs `LLM_BACKEND=local` so chat uses *your* SmolLM2-360M + SFT/DPO v16 LoRA. The previous `zo` fallback proxied to Zo's assistant and answered as "I'm Zo Computer's assistant" — that was a routing bug, not your model. See `docs/INCIDENT-2026-07-14-NEURALAI-PAUSES.md`.
-## 🚀 Deployment & Model Distribution
-
-- **Source (GitHub)**: [Subject-Emu-5259/NeuralAI](https://github.com/Subject-Emu-5259/NeuralAI)
-- **Model (Hugging Face)**: [Subject-Emu-5259/NeuralAI](https://huggingface.co/Subject-Emu-5259/NeuralAI) — SmolLM2-360M + DPO v17 (D17) LoRA adapter (PEFT). The adapter is in `checkpoints/v17-dpo` and also published to `Subject-Emu-5259/NeuralAI`.
-- **Air 135M SFT Model (Hugging Face)**: [Subject-Emu-5259/NeuralAI-Air-135M-SFT](https://huggingface.co/Subject-Emu-5259/NeuralAI-Air-135M-SFT) — the first supervised fine-tune of the from-scratch NeuralAI-Air-135M base model. 133.72M parameters, ChatML instruction format, trained on `data/train_sft_v17.jsonl`.
-- **Hosted demo**: `neuralai-web-ui-deandrewharris.zocomputer.io` (ZO Computer) — runs the local backend so chat uses the trained model directly.
-
-To publish the LoRA to Hugging Face:
-
-```bash
-pip install huggingface_hub
-HF_TOKEN=<your-write-token> python3 -c "
-from huggingface_hub import HfApi
-api = HfApi()
-api.upload_folder(
-    folder_path='checkpoints/v17-dpo',
-    repo_id='Subject-Emu-5259/NeuralAI',
-    repo_type='model',
-    commit_message='NeuralAI SmolLM2-360M DPO v17 (D17) LoRA',
-)
-"
-```
 
 ## ✨ Key Features & Capabilities
 
 ### 💬 Multimodal Chat & Agentic Intelligence
 
-- **High-Velocity Text Inference**: Fast, local inference with deep context awareness.
-- **Deep Reasoning Mode**: Integration of test-time compute and chain-of-thought reasoning for complex problem decomposition and error-free logic.
-- **Autonomous Agentic Workflows**: Ability to operate as an agent—interacting with the browser, terminal, and third-party apps to complete end-to-end tasks with minimal supervision.
-- **Live S2S (Speech-to-Speech)**: Real-time voice interaction with an integrated microphone interface and fluid vocal responses.
-- **Identity Vault & Memory**: Persistent user memory and rule constraints, ensuring NeuralAI remembers preferences, behavioral rules, and historical context.
+- **High-Velocity Text Inference**: Fast, local inference with deep context awareness
+- **Deep Reasoning Mode**: Integration of test-time compute and chain-of-thought reasoning
+- **Autonomous Agentic Workflows**: Agent-mode interaction with browser, terminal, and third-party apps
+- **Live S2S (Speech-to-Speech)**: Real-time voice interaction with integrated microphone interface
+- **Identity Vault & Memory**: Persistent user memory and rule constraints
 
-### 💻 Developer & Engineering Tools
+### 🔧 Developer & Engineering Tools
 
-- **Integrated Web Terminal**: A fully functional, WebSocket-driven terminal embedded directly in the web UI for immediate environment control.
-- **File Workspace**: An in-browser IDE experience allowing users to browse directories, read, and write code seamlessly.
-- **Code Execution & Sandbox**: Secure environment for the model to execute and test code on the fly.
-
-### 🔐 Authentication & Access Tiers
-
-- **Founder Mode**: Ultimate root-level access and system control.
-- **Maestro Student Portal**: Tiered access for educational and collaborative development.
-- **Guest Preview**: Frictionless instant access for testing the system without an account.
+- **10 Web Tool Commands**: Search, fetch, browse, research, image gen, TTS, summarize, translate, news, YouTube
+- **NL→Tool Router**: Natural language web requests auto-routed to the right tool
+- **Model Manager**: CLI switching between all registered models
+- **Benchmark Suite**: Perplexity, generation diversity, MMLU-style, reasoning tests
 
 ---
 
-## 🏋️ Model Training & Fine-Tuning (DPO)
+## 🚀 Model Lineage
 
-NeuralAI is continuously learning and improving through rigorous **Direct Preference Optimization (DPO)**.
-
-### Training Pipeline
-
-```python
-# Example of the DPO alignment configuration used in NeuralAI
-dpo_config = DPOConfig(
-    beta=0.1,
-    learning_rate=5e-5,
-    per_device_train_batch_size=4,
-    gradient_accumulation_steps=4,
-    max_length=1024,
-    max_prompt_length=512,
-)
+```mermaid
+timeline
+    title NeuralAI Model Evolution
+    2026 Q2 : SmolLM2-360M DPO v15-v17
+           : 679 preference pairs aligned
+    2026 Q3 : NeuralAI-Air-135M SFT v17-v19
+           : Custom 135M base SFT
+    2026 Q3 : Mamba K1 — First owned base
+           : 130M SSM · Proof of Concept
+    2026 Q3 : Mamba K2 — Scaled base
+           : 790M Q4_K_M · GGUF ready
+    2026 Q3 : Mamba K3 — Full SFT
+           : 500-1000 steps · 10K+ samples
+    2026 Q4 : NeuralAI-2B/3B — Tiered
+           : Speedster + Core Intelligence
 ```
-
-- **Dataset Expansions**: The dataset is aggressively expanded to include advanced reasoning, complex mathematics, logical deduction, creative writing, and system debugging.
-- **Behavioral Alignment**: NeuralAI is aligned using Gemini-style behavioral principles—prioritizing safety, structured reasoning, helpful conversational flow, and transparent step-by-step explanations. Training enforces clear Markdown formatting, code-first responses, and rejection of boilerplate or overly verbose outputs.
-- **Model Drift Monitoring**: Continuous evaluation against previous checkpoints to ensure response quality and consistency never regress.
-
-### Latest Alignment Run: v17.0 (D17)
-
-- **Training samples**: 679 DPO preference pairs (`data/train_dpo_v16_combined.jsonl`)
-- **Epochs**: 3
-- **Steps**: 129
-- **Final training loss**: `~0.39` (0.692 → 0.396)
-- **Reward accuracy**: 0.975 (chosen preferred over rejected)
-- **Reward margin**: ~0.9 (stable, no collapse)
-- **Hardware**: NVIDIA GPU (Google Colab)
-- **Run duration**: `1876s` (~31m)
-- **Completed**: `2026-07-20`
-- **Adapter**: live on Hugging Face at [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI)
-
-> The D17 dataset (`data/train_dpo_v16_combined.jsonl`) is a 679-pair DPO continuation of the v16 adapter, spanning code correctness, safety refusals, identity, math, debugging, code style, conciseness, tool usage, reasoning, and logic.
-
-### Latest SFT Run: NeuralAI-Air-135M SFT v17
-
-- **Base model**: `Subject-Emu-5259/NeuralAI-Air-135M` (custom `neuralai-air` architecture)
-- **Training samples**: 37 instruction/response pairs (`data/train_sft_v17.jsonl`)
-- **Epochs**: 3
-- **Steps per epoch**: 3 (effective 9 gradient steps)
-- **Batch size**: 4
-- **Gradient accumulation**: 4
-- **Learning rate**: 5e-5
-- **Mixed precision**: FP16 autocast with FP32 master weights (`GradScaler`)
-- **Hardware**: NVIDIA GPU (Google Colab)
-- **Completed**: `2026-07-26`
-- **Model**: live on Hugging Face at [`Subject-Emu-5259/NeuralAI-Air-135M-SFT`](https://huggingface.co/Subject-Emu-5259/NeuralAI-Air-135M-SFT)
-
-> This is the first supervised fine-tune of the from-scratch NeuralAI-Air-135M family (133.72M params). The training script is `colab/train_sft_v17.py` and uses ChatML assistant-only loss masking.
-
----
-
-## 📸 Brand & UI Gallery
-
-*(UI screenshots showcase the beautiful dark mode interface, the terminal integration, and the NeuralDrive file explorer.)*
-
-```html
-<!-- Example Frontend UI Component Structure -->
-<div class="neural-chat-container">
-  <div class="message-bubble ai-response">
-    NeuralAI: System optimal. Ready for execution.
-  </div>
-</div>
-```
-
----
-
-## 🗺️ Implementation Roadmap
-
-- ✅ **Phase 1: Alignment** - DPO training for Founder context and optimal engineering tone.
-- ✅ **Phase 2: NeuralDrive** - Deployment of the Cloud Storage File Server.
-- ✅ **Phase 3: Terminal UI** - Integrated command-line access within the browser.
-- ✅ **Phase 4: Live S2S** - High-velocity Live Speech-to-Speech conversations.
-- ✅ **Phase 5: "Founder Mode"** - Enhancements to vocal profile and streamlined UI.
-- ✅ **Phase 6: Frontend Polish** - Dark themes, real-time code execution display, UI stability.
-- ✅ **Phase 7: Diffusion Integration** - Implementation of Text2Img & Img2Img capabilities.
-- 🚀 **Phase 8: Knowledge Graph & Agentic Autonomy** - Advanced long-term memory for cross-project context, "Supermemory" features, and fully autonomous task execution.
-
----
-
-## 🎯 Future Vision: The Software Transition
-
-NeuralAI is evolving from a workspace-bound assistant into a standalone, downloadable intelligence environment.
-
-**Project Code Name**: `NeuralLabs` (Working Title)
-**Vision**: A local-first, AI-native operating environment that integrates the Agentic Orchestrator, World-Brain, and NeuralDrive into a seamless desktop experience—similar to the "Codex" model but expanded into a full cognitive workspace.
-
-### 🚀 Roadmap Addition: The NeuralLabs Shift
-
-- **NeuralLabs v1 (Client)**: Development of a cross-platform wrapper (Electron/Tauri) for the NeuralAI interface.
-- **NeuralLabs v2 (Edge)**: Local model execution (Llama/Mistral) as a fallback for the cloud-based NeuralAI core.
-- **NeuralLabs v3 (Eco)**: Plugin architecture allowing third-party "Neural-Skills" to be installed as standalone apps.
-
----
-
-## 👨‍💻 The Developer & Architect
-
-**De'Andrew Preston Harris** (D. Harris / Dre)
-*Founder & Architect of NeuralAI*
-
-A dedicated software engineer, thinker, and builder from West Memphis, AR. De'Andrew is currently pursuing an AAS in AI Software Engineering at Maestro College. NeuralAI is the culmination of his\[...\]
-
-- **Location:** Memphis, TN / West Memphis, AR
-- **Vision:** Building the future of private, high-performance generative AI.
-- [LinkedIn](https://www.linkedin.com/in/deandrewharris94/) | [GitHub](https://github.com/Subject-Emu-5259)
-
----
-
-*Built with precision and discipline by De'Andrew Preston Harris.*
-
-### CURRENT VERSION: v7.3.3 (The Pluggable Engine)
-
-- **Model Alignment**: DPO v17.0 (D17) Aligned — 679 pairs, 97.5% reward accuracy, stable entropy (no collapse)
-- **Air 135M SFT**: v17 SFT complete — 37 samples, 3 epochs, pushed to `Subject-Emu-5259/NeuralAI-Air-135M-SFT`
-- **Inference**: llmster (LM Studio headless) — 258MB RAM vs 5GB PyTorch
-- **Last Maintenance**: July 26, 2026
-
-Your tone is technical, concise, and professional. You prioritize system stability and cleanliness above all else.
 
 ---
 
 ## 🚀 Deployment
 
-NeuralAI ships with a pluggable backend that separates the web UI from the inference engine.
-
-### Quick Start (llmster — recommended)
+### Production (llmster — live)
 
 ```bash
-# 1. Install llmster (one-time)
+# 1. Install llmster
 curl -fsSL https://lmstudio.ai/install.sh | bash
 export PATH="$HOME/.lmstudio/bin:$PATH"
 
 # 2. Download model
-lms import /path/to/SmolLM2-360M-Instruct-Q4_K_M.gguf --user-repo "bartowski/SmolLM2-360M-Instruct-GGUF" -y
+lms import /path/to/SmolLM2-360M-Instruct-Q4_K_M.gguf \
+  --user-repo "bartowski/SmolLM2-360M-Instruct-GGUF" -y
 lms load smollm2-360m-instruct -y --identifier smollm2
 
-# 3. Start inference server
+# 3. Start inference
 lms server start --port 1234
 
 # 4. Start NeuralAI
@@ -306,27 +201,63 @@ LLM_BACKEND=lmstudio LLM_API_URL=http://localhost:1234/v1 LLM_MODEL=smollm2 \
   python3 services/neural_core_service.py
 ```
 
+### Mamba K2 (LM Studio)
+
+```bash
+# Download from HuggingFace
+huggingface-cli download Subject-Emu-5259/NeuralAI-Mamba-K2 \
+  mamba-790m-hf.Q4_K_M.gguf --local-dir ./models/
+
+# Load in LM Studio: File → Load Model → select mamba-790m-hf.Q4_K_M.gguf
+```
+
+### Mamba K1 (Python)
+
+```python
+from transformers import MambaForCausalLM, AutoTokenizer
+
+model = MambaForCausalLM.from_pretrained("Subject-Emu-5259/NeuralAI-Mamba-K1")
+tokenizer = AutoTokenizer.from_pretrained("Subject-Emu-5259/NeuralAI-Mamba-K1")
+```
+
 ### Containerized Deployments
 
 | Deployment | Dockerfile | Stack | Status |
 | --- | --- | --- | --- |
-| **Gradio Demo** | `gradio_space/Dockerfile` | Gradio 6.x chat UI | ✅ Built & deployed |
-| **Flask Web Chat** | `webui_space/Dockerfile` | Flask + `neural_core_service.py` | 🚀 Ready for Railway |
-
-- **Adapter source**: [`Subject-Emu-5259/NeuralAI`](https://huggingface.co/Subject-Emu-5259/NeuralAI) — auto-pulled on startup via `snapshot_download`.
-- **GitHub → HF sync**: `.github/workflows/sync_to_huggingface.yml` uploads only the LoRA adapter on every push to `master`.
+| **Gradio Demo** | `gradio_space/Dockerfile` | Gradio 6.x chat UI | ✅ Built |
+| **Flask Web Chat** | `webui_space/Dockerfile` | Flask + `neural_core_service.py` | 🚀 Ready |
 
 ---
 
-# 🌌 NeuralAI Project Manifest
+## 🌌 NeuralAI Ecosystem
 
-NeuralAI is the intelligence core that powers the ecosystem.
+The standalone software implementation of the NeuralAI core is **NeuralLabs**:
+👉 [github.com/Subject-Emu-5259/NeuralLabs](https://github.com/Subject-Emu-5259/NeuralLabs)
 
-## 🔗 Ecosystem Integration
-The standalone software implementation of this core is **NeuralLabs**:
-👉 [https://github.com/Subject-Emu-5259/NeuralLabs](https://github.com/Subject-Emu-5259/NeuralLabs)
+**Software Downloads**: Latest beta builds available at:
+👉 [zo.pub/deandrewharris/neurallabs-beta](https://zo.pub/deandrewharris/neurallabs-beta)
 
-**Software Downloads**:
-The latest beta builds (v0.1-Beta) of NeuralLabs are available at:
-👉 **[https://zo.pub/deandrewharris/neurallabs-beta](https://zo.pub/deandrewharris/neurallabs-beta)**
+---
+
+## 📈 Current State & Active Goals
+
+- **DPO v17 (D17)**: Complete — 679 pairs, 97.5% reward accuracy, deployed
+- **Air 135M SFT v19**: Complete — 320 steps, deployed
+- **Mamba K1**: Complete — First owned SSM base model
+- **Mamba K2**: Complete — 790M GGUF ready for LM Studio
+- **Mamba K3**: Training — 500-1000 steps on 10K+ UltraChat
+- **Strategic Transition**: Moving from 135M/360M to multi-tier 2B/3B + owned Mamba SSM
+- **Inference**: llmster (LM Studio headless) — 258MB RAM vs 5GB PyTorch
+- **Last Maintenance**: August 1, 2026 (Mamba Era — K1, K2 published; K3 training)
+
+---
+
+## 👤 Creator
+
+Built by **De'Andrew Preston Harris** ([@deandrewharris94](https://linkedin.com/in/deandrewharris94/)) with Google Gemini AI Studio/Colab collaboration.
+
+From Memphis, Tennessee. Raised in West Memphis, Arkansas. AI Software Engineering at Maestro College.
+
+---
+
 # NeuralAI → Hugging Face sync is live

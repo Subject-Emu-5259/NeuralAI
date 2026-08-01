@@ -1,243 +1,132 @@
 # 🚀 NeuralAI Development Roadmap
 
-**Version Target: 6.0 (The Workstation Pivot) + 7.3 (D17 DPO Runtime)**
-**Last Updated: July 20, 2026**
+**Last Updated: August 1, 2026**
 
 ---
 
-## ✅ Completed Milestones (NeuralAI Legacy)
+## ✅ Completed Milestones
 
-### Phase 0: Core System ✓
+### Mamba Era — Owned Base Models (July–August 2026)
 
-- [x] SmolLM2-360M base model fine-tuned with QLoRA
+| Milestone | Model | Status | Details |
+|-----------|-------|--------|---------|
+| **Mamba K1** | 130M SSM | ✅ Complete | First owned base model. SFT 50 steps on 1K UltraChat, loss 6.78, ~19 tok/s CPU. Merged safetensors on HF. |
+| **Mamba K2** | 790M SSM | ✅ Complete | 6× scale-up from K1. Q4_K_M GGUF (460MB) ready for LM Studio / llama.cpp. |
+| **Mamba K3** | 790M SSM | 🔄 In Training | SFT 500–1000 steps on 10K+ UltraChat. LoRA r=32 targeting in_proj/dt_proj/x_proj. |
 
-- [x] Chat streaming (SSE) working
+### Fine-Tuned Models (Q2–Q3 2026)
 
-- [x] Web UI deployed (NeuralAI → NeuralAI v1.0)
+| Milestone | Model | Status | Details |
+|-----------|-------|--------|---------|
+| **SmolLM2-360M DPO v17** | 360M Transformer | ✅ Production | 679 pairs, 97.5% reward accuracy, llmster inference (258MB RAM). |
+| **NeuralAI-Air-135M SFT v19** | 135M Transformer | ✅ Production | 320 steps, custom base, Q4_K_M GGUF (269MB). |
 
-- [x] Unified Service Migration: Consolidated Model + UI + Terminal into `file neural_core_service.py`
+### Infrastructure
 
-- [x] Fixed Chat streaming and Terminal consistency
-
-- [x] Improved SSE responsiveness with tool execution indicators and non-blocking stream chunks.
-
-### Phase 1: Tool Ecosystem ✓
-
-- [x] Code Execution Sandbox, File Manager, Web Fetcher, DB Connector, Git Assistant
-
-- [x] Tool detection and routing in chat
-
-### Phase 2: DPO Alignment ✓
-
-- [x] DPO training pipeline implemented
-
-- [x] Preference dataset expanded to 244 pairs (v12.0)
-
-- [x] **D17 DPO continuation (v16 → v17):** 679 pairs, 3 epochs / 129 steps, reward accuracy 97.5%, stable entropy — no collapse (2026-07-20)
-
-- [x] Memphis Culture & Founder Context integration
-
-- [x] **D17 DPO continuation (v16→v17, 2026-07-20):** 679 pairs, 3 epochs / 129 steps, reward accuracy 97.5%; adapter at `checkpoints/v17-dpo` + HF `Subject-Emu-5259/NeuralAI`.
+- [x] llmster inference engine (258MB RAM vs 5GB PyTorch)
+- [x] Model manager CLI with hot-swap between all models
+- [x] NL→Tool Router (10 slash commands, natural language web intents)
+- [x] Benchmark harness (`benchmarks/run_evals.py`)
+- [x] Web UI chat formatting upgrades & structured info output
+- [x] SmolLM2-360M removed from model manager (retired)
 
 ---
 
-## 🏗️ Phase 3: NeuralAI Evolution (In Progress)
+## 🔄 In Progress
 
-### 1. Workstation Orchestration
+### Mamba K3 — Full SFT Training
 
-- [x] Establish distinction: NeuralAI (Model) vs. NeuralAI (Hub)
+**Goal:** Turn the 790M Mamba SSM into a practically useful model.
 
-- [x] UI Overhaul: Added "Workstation Dashboard" tab with project/model/shell status
+| Phase | Detail |
+|-------|--------|
+| **Data** | 10K–15K UltraChat conversational samples |
+| **Training** | 500–1000 SFT steps, LoRA rank 32 |
+| **Target loss** | < 3.0 (base raw: ~6.5–8.0) |
+| **Output** | Merged full model → Q4_K_M GGUF → LM Studio |
+| **Colab** | `training/mamba-k3/colab_mamba_k2_train.ipynb` |
 
-- [x] Robust Multi-Turn Context Support (10-message sliding window)
+### Benchmark Suite
 
-- [x] Integrated Multi-Modal Speech-to-Speech (Gemini Live + ElevenLabs Fallback)
+**Status:** Harness created (`benchmarks/run_evals.py`), pending execution.
 
-- [ ] Transition UI from Chat-Only to Multi-Panel Workstation (Expand dashboard features)
-
-- [ ] Implement System-Wide Context Layer
-
-- [ ] Add "Vibe Stack" Workflow Registry
-
-### 2. Neural Knowledge Graph
-
-- [ ] Implement Persistent Memory (Graph-based)
-
-- [ ] Automate Infrastructure Learning
-
-- [ ] Sync with Supermemory
-
----
-
-## 📊 System Status
-
-- **Main Service:** **READY & RESILIENT** (`webui_service.py` v7.2.0 — auto-restart, memory watchdog, ZO-native inference backend)
-- **Voice Service:** **READY** (ElevenLabs v2 Migrated)
-- **Model:** SmolLM2-360M-Instruct + DPO v15.0 (Deployed)
-- **Context:** System-wide (Expanding)
-
-### Latest DPO Run (v15.0)
-
-- **Training samples:** 597 (expanded from 302)
-- **Epochs:** 3
-- **Steps:** 450
-- **Final training loss:** `0.305`
-- **Reward margin:** `~0.5` → `~3.5`
-- **Hardware:** Apple Silicon MPS (MacBook Air M4)
-- **Duration:** `730.5s` (~12 min)
-- **Completed:** `2026-07-11 20:00 UTC`
-- **Adapter:** live on HF `Subject-Emu-5259/NeuralAI`
-
-### Deployment & Inference (updated July 15, 2026)
-
-- **Host:** ZO Computer (Free plan, 4 GB RAM) at `neuralai-deandrewharris.zocomputer.io`
-- **Inference backend:** `LLM_BACKEND=zo` → ZO native `/zo/ask` using the user's own BYOK model (`byok:0d3567f7-f521-42b0-8adf-65c9b036cf89`). Uses **0 MB local RAM**.
-- **Why not local:** Loading PyTorch + SmolLM2-360M on a 4 GB box used ~6.2 GB → OOM-kill loop that paused the service. The ZO backend removes that dependency entirely (see `docs/INCIDENT-2026-07-14-NEURALAI-PAUSES.md`).
-- **Local PyTorch backend:** still available via `LLM_BACKEND=local` on GPU/Colab-class machines (≥8 GB RAM) for offline/private inference.
-- **Resilience:** supervisor auto-restart, `/api/health` keepalive, and a memory watchdog that runs GC before any OOM. Service verified stable after the July 15 fix (free RAM returned to ~3 GB).
+| Benchmark | Metric |
+|-----------|--------|
+| Perplexity (WikiText-2) | Standard LM quality |
+| Generation diversity | Distinct n-grams, repetition rate |
+| MMLU-style (subset) | Factual knowledge |
+| Reasoning (GSM8K-style) | Math word problems |
+| Chat coherence | Multi-turn conversation quality |
 
 ---
 
 ## 🎯 Next Steps (Priority Order)
 
-### 1. Training Data Expansion
+### 1. Complete Mamba K3 SFT Training
+**Status**: 🔄 In progress on Google Colab
 
-**Status:** In progress (500+ samples reached, target 1000+)
+500–1000 SFT steps on 10K+ UltraChat samples. LoRA rank 32 on . Target loss < 3.0. Then: merge → GGUF Q4_K_M → benchmark.
 
-**Categories to expand:**
+### 2. Run Mamba K3 Benchmarks
+Perplexity, MMLU, HellaSwag, ARC, GSM8K, generation diversity. Compare vs K1 baseline and vs SmolLM2-360M DPO.
 
-- Symbolic Logic & Formal Proofs: +50 samples
-- Security & Vulnerability Analysis: +50 samples
-- Multi-Step Algorithmic Reasoning: +50 samples
-- Advanced Mathematics (Calculus/Linear Algebra): +50 samples
-
-### 2. Evaluation Suite
-
-**Status:** Created, pending execution
-
-**Benchmarks:**
-
-- Code correctness: Generated code runs
-- Response helpfulness: Quality scoring
-- Safety: Refuses harmful requests
-- Latency: Inference speed
-
-### 3. Scale the Base Model (optional, targeted for v17)
-
-**Status:** Planned — config swap, not a rewrite
-
-- Graduate the inference base from **SmolLM2-360M-Instruct** → **SmolLM2-1.7B-Instruct** to address context length + reasoning depth together.
-- Backends are already pluggable (llmster/LM Studio on port 1234, `LLM_BACKEND=zo|local`), so this is a **model config swap** (update the loaded GGUF / backend model id), not a code rewrite.
-- Trade-off: ~4–6× more RAM than the 360M (~258 MB) build. Validate on a GPU/Colab-class machine (≥8 GB RAM) before flipping the live Zo Free-plan service, which currently runs the 360M build for OOM safety.
-- **Training path:** Use **Google Colab CLI** (`colab-cli` / `google-colab` via the `gcolab` package or `kaggle`+Colab bridge) to run DPO/training notebooks remotely — see Phase 6 note below. No local GPU required; push `NeuralAI_TPU_Training.ipynb` and `training/train_dpo.py` to a Colab runtime and pull the adapter back to HF `Subject-Emu-5259/NeuralAI`.
+### 3. Scale to Mamba-1.4B or Mamba-2.8B
+Larger Mamba base → full SFT + DPO alignment → benchmark vs equivalent-size Transformers.
 
 ---
 
-## 🚀 Future Phases (The Agentic Horizon)
+## 📊 Model Family Roadmap
 
-### Phase 4: Agentic Autonomy & Computer Use
+```mermaid
+graph TB
+    subgraph "Completed"
+        K1["🧬 Mamba K1<br/>130M · SFT 50 steps<br/>✅ Complete"]
+        K2["🧬 Mamba K2<br/>790M · Q4_K_M GGUF<br/>✅ Ready"]
+        SMOLM["🧠 SmolLM2-360M<br/>DPO v17 · 679 pairs<br/>✅ Production"]
+        AIR["✈️ Air-135M<br/>SFT v19 · 320 steps<br/>✅ Production"]
+    end
 
-**Goal:** Transition from "Assistant" to "Operator"
+    subgraph "In Progress"
+        K3["🔬 Mamba K3<br/>790M · SFT 500-1000 steps<br/>🔄 Training"]
+    end
 
-- [x] **Browser Agent Integration**: Embedded NeuralBrowser shipped 2026-07-17 (tab strip, omni bar, AI Mirror + User Browser modes via `/api/browser/*`). **ROLLED BACK 2026-07-19** at user request — UI removed, backend endpoints orphaned. Do NOT re-add unless explicitly asked. (See AGENTS.md REMOVED note.)
+    subgraph "Planned"
+        K4["🧬 Mamba K4<br/>1.4B or 2.8B<br/>📋 Planned"]
+        SPD["⚡ Speedster 2B<br/>Fast chat tier<br/>📋 Planned"]
+        CORE["🧠 Core 3B<br/>Deep reasoning<br/>📋 Planned"]
+    end
 
-- [ ] **Multi-Agent Orchestration**: Ability to spawn and manage specialized sub-agents for parallel task execution.
+    K1 --> K2 --> K3 --> K4
+    K3 --> SPD
+    K3 --> CORE
 
-- [ ] **Long-Horizon Planning**: Implement hierarchical planning for tasks requiring 10+ steps.
-
-- [ ] **Third-Party App Integration**: Direct agentic control over productivity tools (Calendar, Email, CRM).
-
-### Phase 5: Universal Knowledge Integration (The "World-Brain" Training)
-
-**Goal:** Massive expansion of general-world intelligence and cultural context.
-
-- [ ] **Natural World**: Plants, animals, creatures, ecosystems, and biology.
-
-- [ ] **Humanity & Culture**: History, religions, beliefs, sociology, and anthropology.
-
-- [ ] **The Arts**: Music theory, cinematic history, fine arts, and literature.
-
-- [ ] **Global Systems**: Geography, geopolitics, economics, and planetary sciences.
-
-### Phase 6: Model Capability Upgrades
-
-**Goal:** Integration of frontier reasoning and multimodal capabilities.
-
-- [x] **DPO v15 Training — COMPLETE (shipped, not pending)**: 597-pair dataset (3 epochs, 450 steps, loss 0.305, margin ~3.5) trained on Apple Silicon MPS; adapter live on HF `Subject-Emu-5259/NeuralAI`. Marked done — remove from "Next Session Goals" (item 2 below is stale).
-
-- [ ] **Deep Reasoning Integration**: Implement "Think" modes for complex mathematical and logical deduction.
-
-- [ ] **Native Multimodal Understanding**: Unified processing of video, audio, and images in a single context window.
-
-- [ ] **Test-Time Compute Optimization**: Optimize inference to allow the model to "think longer" for harder problems.
-
-- [ ] **Scale the base (optional) — Graduate 360M → SmolLM2-1.7B for v17** to address context + reasoning depth together. More RAM, but backends are already pluggable, so it's a config swap (LM Studio model load + `webui_service.py` `MODEL_NAME`), not a rewrite. Train on **Google Colab CLI** (`colab-cli` / `gcolab` package or `kaggle`+Colab bridge) — no local GPU required; push `NeuralAI_TPU_Training.ipynb` + `training/train_dpo.py` to a Colab runtime and pull the adapter back to HF `Subject-Emu-5259/NeuralAI`. See Training Path note (Phase 1 line 128).
-
----
-
-## 📊 Data Files
-
-```markdown
-data/
-├── train.jsonl              # 347 original samples
-├── train_v3.jsonl           # 404 samples (latest)
-├── train_dpo.jsonl          # 13 DPO pairs
-├── train_dpo_expanded.jsonl # 31 DPO pairs
-└── train_expanded.jsonl     # 363 samples
-```
-
-## 📁 Project Structure
-
-```markdown
-NeuralAI/
-├── checkpoints/final_model/    # LoRA adapter
-├── data/                       # Training data
-├── eval/benchmarks.py          # Evaluation suite
-├── from-scratch/web_ui/        # Flask app + static files
-│   ├── app.py                  # Main Flask server
-│   ├── neuralai_engine.py      # Model + tools
-│   └── neuralai_router.py      # Routing logic
-├── tools/                      # Tool implementations
-│   ├── code_sandbox.py
-│   ├── file_manager.py
-│   ├── web_fetcher.py
-│   ├── db_connector.py
-│   └── git_assistant.py
-└── training/                   # Training scripts
-    ├── train_dpo.py
-    ├── generate_training_v3.py
-    └── NeuralAI_TPU_Training.ipynb
+    style K1 fill:#4a90d9,color:#fff
+    style K2 fill:#22c55e,color:#fff
+    style K3 fill:#f59e0b,color:#000
+    style K4 fill:#94a3b8,color:#000
+    style SPD fill:#94a3b8,color:#000
+    style CORE fill:#94a3b8,color:#000
+    style SMOLM fill:#6366f1,color:#fff
+    style AIR fill:#ec4899,color:#fff
 ```
 
 ---
 
-## 🔗 Quick Links
+## 🏗️ System Status
 
-- **Live Chat:** https://neuralai-deandrewharris.zocomputer.io
-- **GitHub:** https://github.com/Subject-Emu-5259/NeuralAI
-- **Local Dev:** http://localhost:5000
-
----
-
-## 📝 Commands
-
-```bash
-# Start the service
-cd /home/workspace/Projects/NeuralAI/from-scratch/web_ui
-python3 app.py
-
-# Generate v5 DPO data
-python3 training/generate_dpo_v5.py
-
-# DPO training (currently running in background)
-python3 training/train_dpo.py
-```
+- **Inference**: llmster 0.0.19 running SmolLM2-360M-Instruct Q4_K_M GGUF (~258MB RAM)
+- **Web UI**: Flask on Zo Computer at `neuralai-web-ui-deandrewharris.zocomputer.io`
+- **Model Manager**: 4 registered models (mamba-k1, mamba-k2, neuralai-air-135m-v19, neuralai-v17-dpo)
+- **Tool Chain**: 10 slash commands + NL→Tool Router — all live
+- **Training**: Mamba K3 SFT on 10K+ UltraChat (Colab)
 
 ---
 
-**Next Session Goals:**
+## 🔗 Key Links
 
-1. Run evaluation benchmarks
-2. ~~Expand training data to 1000+ samples~~ → DPO v15 already shipped (597 pairs, loss 0.305, adapter on HF `Subject-Emu-5259/NeuralAI`). Next data push should target v17 base-swap, not a v15 retry.
-3. DPO training runs on **Google Colab CLI** (`colab-cli`/`gcolab` or `kaggle`+Colab bridge) — no local GPU. Push `NeuralAI_TPU_Training.ipynb` + `training/train_dpo.py`, pull adapter to HF `Subject-Emu-5259/NeuralAI`.
-4. Plan v17 base graduation: 360M → SmolLM2-1.7B (config swap, pluggable backends) for context + reasoning depth.
+- **GitHub**: [Subject-Emu-5259/NeuralAI](https://github.com/Subject-Emu-5259/NeuralAI)
+- **HuggingFace**:
+  - [NeuralAI (DPO v17)](https://huggingface.co/Subject-Emu-5259/NeuralAI)
+  - [Mamba K1](https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K1)
+  - [Mamba K2](https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K2)
+- **Live UI**: [neuralai-web-ui-deandrewharris.zocomputer.io](https://neuralai-web-ui-deandrewharris.zocomputer.io)

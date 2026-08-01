@@ -24,3 +24,7 @@ checkpoints/
 models/mamba-k1-lora-origin/
 models/mamba-k1-sft-output/
 llama.cpp-build/
+data/neuralai.db
+models/mamba-k1/*.gguf
+models/mamba-k2/*.gguf
+models/mamba-k1/*.f16.gguf

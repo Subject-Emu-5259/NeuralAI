@@ -79,7 +79,7 @@ graph TB
 |-------|-------------|--------|----------|--------|----------|
 | **Mamba K1** | Mamba SSM | 130M | SFT LoRA v2 merged (500 steps, 1K UltraChat, intel format) + Q4_K_M GGUF | ✅ Published HF + SFT v3 running | `Subject-Emu-5259/NeuralAI-Mamba-K1` |
 | **Mamba K2** | Mamba SSM | 793M | Base pretrained — SFT queued (Q4_K_M GGUF) | ⚠️ Base model only | `Subject-Emu-5259/NeuralAI-Mamba-K2` |
-| **Mamba K3** | Mamba SSM | 2.8B | Base pretrained — SFT queued | ⚠️ Base model only | local `models/mamba-k3-base/` |
+| **Mamba K3** | Mamba SSM | 2.8B | Base pretrained — SFT queued | ⚠️ Base model only | local `models/k3/base/` |
 
 ### Why Mamba SSM
 

@@ -2,9 +2,9 @@
 """Unified Mamba LoRA SFT trainer for K1/K2/K3.
 
 Usage:
-  python training/train_mamba_lora.py --base models/mamba-k3-base --data data/train_sft_ultrachat_10k.jsonl --output checkpoints/k3-lora --max_steps 1000
-  python training/train_mamba_lora.py --base models/mamba-k1 --data data/train_intel_ultrachat_1k.jsonl --output checkpoints/k1-lora --max_steps 500
-  python training/train_mamba_lora.py --base models/mamba-k2-base --data data/train_intel_ultrachat_10k.jsonl --output checkpoints/k2-lora --max_steps 500
+  python training/train_mamba_lora.py --base models/k3/base --data data/train_sft_ultrachat_10k.jsonl --output checkpoints/k3-lora --max_steps 1000
+  python training/train_mamba_lora.py --base models/k1/base --data data/train_intel_ultrachat_1k.jsonl --output checkpoints/k1-lora --max_steps 500
+  python training/train_mamba_lora.py --base models/k2/base --data data/train_intel_ultrachat_10k.jsonl --output checkpoints/k2-lora --max_steps 500
 """
 import os, sys, json, time, argparse
 from datetime import datetime

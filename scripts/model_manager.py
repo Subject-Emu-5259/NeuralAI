@@ -37,7 +37,7 @@ MODELS = {
     "mamba-k2": {
         "id": "mamba-k2",
         "label": "Mamba K2 (793M, base)",
-        "path": "/home/workspace/Projects/NeuralAI/models/mamba-k2/mamba-790m-hf.Q4_K_M.gguf",
+        "path": "/home/workspace/Projects/NeuralAI/models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf",
         "params": "793M",
         "type": "mamba",
         "architecture": "Mamba SSM (state-spaces/mamba-790m-hf)",
@@ -52,7 +52,7 @@ MODELS = {
     "mamba-k3": {
         "id": "mamba-k3",
         "label": "Mamba K3 (2.8B, base)",
-        "path": "/home/workspace/Projects/NeuralAI/models/mamba-k3-base/model.safetensors",
+        "path": "/home/workspace/Projects/NeuralAI/models/k3/base/model.safetensors",
         "params": "2.8B",
         "type": "mamba",
         "architecture": "Mamba SSM (state-spaces/mamba-2.8b-slimpj)",

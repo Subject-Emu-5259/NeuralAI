@@ -11,7 +11,7 @@ if [ ! -f "$TRAIN_DATA" ]; then
     --format intel
 fi
 python3 training/train_mamba_lora.py \
-  --base models/mamba-k3-base \
+  --base models/k3/base \
   --data "$TRAIN_DATA" \
   --output_dir checkpoints \
   --run_name k3-lora-sft \

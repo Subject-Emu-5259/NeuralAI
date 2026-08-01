@@ -1,31 +1,31 @@
+# Large model weights (hosted on Hugging Face, not GitHub)
+models/**/*.gguf
+models/**/*.safetensors
+models/**/.cache/
 
-# Large model files (hosted on Hugging Face, not GitHub)
-models/k1/**/*.safetensors
-models/k1/**/*.gguf
-models/mamba-k2/*.gguf
-models/mamba-k3-base/*.safetensors
+# Tokenized datasets
 mamba-k1/tokenized_ultrachat_sample/*.arrow
-mamba-k1/sft_mamba_output/checkpoint-50/global_step50/*.pt
-mamba-k1/sft_mamba_output/checkpoint-50/*.bin
-mamba-k1/sft_mamba_output/checkpoint-50/*.pt
-mamba-k1/sft_mamba_output/checkpoint-50/*.pth
-mamba-k1/final_mamba_lora/*.safetensors
-mamba-k1/final_mamba_lora/*.bin
-colab_bundle/
-cloudflared
+mamba-k1/sft_mamba_output/checkpoint-50/**/*.{bin,pt,pth}
 
-# Generated SFT data (large; regenerate with scripts/prepare_sft_data.py)
+# Generated SFT data (regenerate with scripts/prepare_sft_data.py)
 data/train_intel_*.jsonl
 data/train_sft_ultrachat_*.jsonl
-# Colab temporary outputs
-.ipynb_checkpoints/
 
-# Training artifacts and extracted adapters (large tokenizer/model files)
-checkpoints/
-models/mamba-k1-lora-origin/
-models/mamba-k1-sft-output/
-llama.cpp-build/
+# Runtime databases
 data/neuralai.db
-models/mamba-k1/*.gguf
-models/mamba-k2/*.gguf
-models/mamba-k1/*.f16.gguf
+
+# Colab / notebook temp
+.ipynb_checkpoints/
+checkpoints/
+
+# Cloudflared binary and colab bundle
+cloudflared
+colab_bundle/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Misc build artifacts
+llama.cpp-build/

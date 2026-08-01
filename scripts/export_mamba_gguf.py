@@ -10,8 +10,8 @@ Prerequisites:
   cd llama.cpp && make
 
 Usage:
-  python3 scripts/export_mamba_gguf.py --model models/mamba-k2 \
-    --out models/NeuralAI-Mamba-K2.Q4_K_M.gguf
+  python3 scripts/export_mamba_gguf.py --model models/k2/base \
+    --out models/k2/gguf/NeuralAI-Mamba-K2.Q4_K_M.gguf
 
 Requirements:
   - llama.cpp must be installed at ~/llama.cpp or specified with --llamacpp

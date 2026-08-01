@@ -3,9 +3,9 @@
 
 Usage:
   python scripts/merge_and_export.py \
-    --base models/mamba-k1 \
+    --base models/k1/base \
     --adapter checkpoints/k1-lora-sft-v2/final \
-    --output models/mamba-k1-merged \
+    --output models/k1/merged \
     --gguf models/mamba-k1/neuralai-mamba-k1.Q4_K_M.gguf \
     --quant Q4_K_M
 """

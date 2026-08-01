@@ -9,9 +9,9 @@ os.environ["HF_HOME"] = "/home/workspace/.cache/hf"
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-BASE = "/home/workspace/Projects/NeuralAI/models/mamba-k1-merged-v2"
+BASE = "/home/workspace/Projects/NeuralAI/models/k1/base"
 ADAPTER = "/home/workspace/Projects/NeuralAI/checkpoints/k1-lora-sft-v3/best"
-OUT = "/home/workspace/Projects/NeuralAI/models/NeuralAI-Mamba-K1-v3-merged"
+OUT = "/home/workspace/Projects/NeuralAI/models/k1/merged"
 
 print(f"Loading base model from {BASE} ...")
 base = AutoModelForCausalLM.from_pretrained(BASE, trust_remote_code=True, torch_dtype="float32")

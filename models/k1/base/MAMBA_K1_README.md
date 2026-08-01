@@ -42,12 +42,12 @@ K1 is a proof-of-concept: it proves NeuralAI can train, merge, and deploy a cust
 from transformers import MambaForCausalLM, AutoTokenizer
 
 model = MambaForCausalLM.from_pretrained(
-    "/home/workspace/Projects/NeuralAI/models/mamba-k1",
+    "/home/workspace/Projects/NeuralAI/models/k1/base",
     torch_dtype="auto",
     low_cpu_mem_usage=True
 )
 tokenizer = AutoTokenizer.from_pretrained(
-    "/home/workspace/Projects/NeuralAI/models/mamba-k1"
+    "/home/workspace/Projects/NeuralAI/models/k1/base"
 )
 
 messages = [{"role": "user", "content": "Hello!"}]

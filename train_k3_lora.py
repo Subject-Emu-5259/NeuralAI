@@ -10,7 +10,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model, TaskType
 
 # ── Config ──────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/mamba-k3-base")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/k3/base")
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data/train_sft_ultrachat_10k.jsonl")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "checkpoints/k3-lora")
 

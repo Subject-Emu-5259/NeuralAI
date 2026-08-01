@@ -640,7 +640,14 @@ async function loadModelSelector() {
       // preserve user choice while switching
       sel.value = current;
     }
-    if (detail) detail.textContent = d.active.label + (d.active.params ? ' · ' + d.active.params : '') + (d.active.type ? ' · ' + d.active.type : '');
+    if (detail) {
+    const parts = [d.active.label];
+    if (d.active.params) parts.push(d.active.params);
+    if (d.active.architecture) parts.push(d.active.architecture);
+    if (d.active.type && d.active.type !== 'mamba') parts.push(d.active.type);
+    detail.innerHTML = parts.join(' · ');
+    detail.title = d.active.training || d.active.ownership || '';
+  }
     sel.onchange = (e) => switchModel(e.target.value);
   } catch (e) { console.warn('loadModelSelector failed', e); }
 }

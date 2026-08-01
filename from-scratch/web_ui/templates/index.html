@@ -3458,31 +3458,56 @@ body.dark-mode .onboarding-close:hover {
           </label>
         </div>
 
+        <!-- NeuralAI Company Card -->
         <div class="settings-card">
-          <h3>Architecture & Node Status</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
-              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Intelligence Core</div>
-                  <div style="color:#a78bfa; font-weight:600; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-                      <span style="color:#10b981; font-size: 8px; animation: pulse 1s infinite;">●</span> v5.2.1-maintenance
-                  </div>
-                  <div style="font-size: 10px; color: #34a853; margin-top: 2px;">OTA Synchronized</div>
-              </div>
-              <div class="status-item" style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 10px; color: #8a8a9a; text-transform: uppercase;">Inference Node</div>
-                  <div id="settingDevice" style="color:#fff; font-weight:600; margin-top: 4px;">Scanning...</div>
-                  <div style="font-size: 10px; color: #1a73e8; margin-top: 2px;">CPU (Optimized)</div>
-              </div>
+          <h3 style="font-size:14px; color:#a78bfa; margin-bottom:12px;">🏢 NeuralAI — The Company</h3>
+          <p style="font-size:12px; color:#8a8a9a; margin-bottom:14px;">Private, high-performance personal AI. Founded by De&apos;Andrew Preston Harris — Memphis, TN / West Memphis, AR.</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Model Fleet</div>
+              <div style="color:#a78bfa; font-weight:600; margin-top:4px;">3 Active Models</div>
+              <div style="font-size:10px; color:#34a853; margin-top:2px;">Mamba K1 · Mamba K2 · v17 DPO</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Open Source</div>
+              <div style="color:#3b82f6; font-weight:600; margin-top:4px;">Subject-Emu-5259</div>
+              <div style="font-size:10px; color:#1a73e8; margin-top:2px;">github.com/Subject-Emu-5259/NeuralAI</div>
+            </div>
           </div>
-          <div style="margin-top: 16px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="color: #5f6368;">Latent Space Depth:</span>
-                  <span style="color: #3b82f6;">360M Params</span>
+        </div>
+
+        <!-- Architecture & Model Status -->
+        <div class="settings-card">
+          <h3 style="font-size:14px; color:#22d3ee; margin-bottom:12px;">🧬 Model Architecture & Status</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(22,211,238,0.15);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Mamba K1 (First Owned)</div>
+              <div style="color:#22d3ee; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span style="color:#10b981; font-size:8px; animation:pulse 1s infinite;">●</span> 129M · SSM
               </div>
-              <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #5f6368;">Uplink Status:</span>
-                  <span style="color: #10b981;">CONNECTED</span>
+              <div style="font-size:10px; color:#34a853; margin-top:2px;">SFT · GGUF Q4_K_M · Active</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(167,139,250,0.15);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Mamba K2 (Next Gen)</div>
+              <div style="color:#a78bfa; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span style="color:#f59e0b; font-size:8px;">●</span> 793M · SSM
               </div>
+              <div style="font-size:10px; color:#f59e0b; margin-top:2px;">GGUF Downloaded · Pending SFT</div>
+            </div>
+          </div>
+          <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: #5f6368;">Active Inference:</span>
+              <span style="color: #3b82f6;">Mamba K1 · v17 DPO (via llmster)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: #5f6368;">Service Version:</span>
+              <span style="color: #22d3ee;">v7.3 (Mamba Era)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #5f6368;">Uplink Status:</span>
+              <span style="color: #10b981;">CONNECTED</span>
+            </div>
           </div>
         </div>
         <div class="settings-card">

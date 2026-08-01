@@ -70,10 +70,21 @@ class SFTDataset(Dataset):
             # response, so we keep the label at prompt_len-1 as the first
             # response token and mask earlier positions.
             if prompt_len > 0:
+                # If the prompt is longer than max_length, the input was
+                # truncated and there may be no response labels left. Cap
+                # prompt_len so at least the final token remains supervised.
+                prompt_len = min(prompt_len, self.max_length - 1)
                 labels[: max(1, prompt_len - 1)] = -100
 
         # Ignore padding positions.
         labels[attention_mask == 0] = -100
+
+        # Guard against a sample where every label got masked (-100 would
+        # make cross_entropy produce NaN).
+        non_pad = attention_mask.nonzero(as_tuple=True)[0]
+        if non_pad.numel() > 0 and labels[non_pad].eq(-100).all():
+            labels[non_pad[-1]] = input_ids[non_pad[-1]]
+
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -122,7 +133,7 @@ def train(args):
     model.to(device)
     model.train()
 
-    dataset = SFTDataset(args.data, tokenizer, MAX_LENGTH)
+    dataset = SFTDataset(args.data, tokenizer, args.max_length)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
@@ -219,5 +230,6 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=LEARNING_RATE)
     parser.add_argument("--save_every", type=int, default=SAVE_EVERY)
     parser.add_argument("--log_every", type=int, default=LOG_EVERY)
+    parser.add_argument("--max_length", type=int, default=512, help="Max sequence length for training")
     args = parser.parse_args()
     train(args)

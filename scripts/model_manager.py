@@ -31,7 +31,7 @@ MODELS = {
         "ownership": "NeuralAI - First Owned Base Model",
         "status": "active",
         "chat_format": "neuralai-intel",
-        "inference_note": "Retraining in progress with vocabulary-friendly 'intel' prompt format. Converted to Q4_K_M GGUF for LM Studio / llama.cpp.",
+        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
         "interaction_mode": "chat",
     },
     "mamba-k2": {
@@ -46,7 +46,7 @@ MODELS = {
         "ownership": "NeuralAI - In Training",
         "status": "base_needs_sft",
         "chat_format": "neuralai-intel",
-        "inference_note": "Currently outputs base-model continuations (garbage for chat). SFT training queued; prompt format will match K1's 'intel' template.",
+        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
         "interaction_mode": "chat",
     },
     "mamba-k3": {
@@ -61,7 +61,7 @@ MODELS = {
         "ownership": "NeuralAI - Next-Gen (in training)",
         "status": "base_needs_sft",
         "chat_format": "neuralai-intel",
-        "inference_note": "SFT training will produce an instruction-tuned model in 'intel' format, then GGUF conversion for inference.",
+        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
         "interaction_mode": "chat",
     },
 }

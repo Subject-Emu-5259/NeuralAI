@@ -50,3 +50,37 @@ This release marks the launch of NeuralAI's **Mamba model family** — the first
 - Scale to 2B/3B Mamba architectures
 - Deploy K3 as production inference engine
 - DPO alignment for K3
+
+## v7.3.1 — SFT Pipeline & Chat Format Fix (2026-08-01)
+
+### Problem
+
+After the v7.3 Mamba launch, live tests showed that all three Mamba models produced token-soup / uncoherent output in chat:
+
+- **K1** was undertrained (50 SFT steps on bad Llama-2/ChatML format with out-of-vocabulary special tokens).
+- **K2 and K3** were still raw base models with no instruction tuning.
+- The production llama.cpp server was using `llama-2` / `chatml` chat handlers, which rely on `</s>` / `<|im_start|>` tokens that do **not** exist in Mamba's GPT-NeoX tokenizer.
+
+### Fix
+
+- **Vocabulary-friendly "intel" prompt format**: plain-text `### System/User/Assistant:` prompts, using only tokens that exist in the Mamba tokenizer.
+- **Custom `lmstudio_server.py`**: registers a `neuralai-intel` chat handler so llama.cpp serves the trained format correctly.
+- **Assistant-only loss**: `training/train_mamba_lora.py` now masks the user/system portion of each example and only trains the model to predict assistant tokens.
+- **CPU-safe training launcher per model**:
+  - `train_k1.sh` — 500 SFT steps on 1K UltraChat (K1 130M)
+  - `train_k2.sh` — SFT on 10K UltraChat (K2 793M)
+  - `train_k3.sh` — SFT on 10K UltraChat (K3 2.8B)
+- **Colab notebook**: `colab/NeuralAI_Mamba_SFT_Training.ipynb` with dependency-pinned cells for GPU training.
+- **Docs updated**: README, landing page, privacy/terms, and HF model cards now describe the corrected Mamba state.
+
+### Status After Fix
+
+| Model | State |
+|-------|-------|
+| Mamba K1 | 🔄 SFT v2 retraining (intel format) |
+| Mamba K2 | ⚠️ Base pretrained — awaiting SFT |
+| Mamba K3 | ⚠️ Base pretrained — awaiting SFT |
+
+### Next Step
+
+Run GPU SFT on K1/K2/K3 (Colab notebook), then merge adapters, convert Q4_K_M GGUF, and republish to Hugging Face.

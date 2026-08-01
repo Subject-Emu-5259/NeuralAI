@@ -113,16 +113,14 @@ def load_sft_dataset(
                 input_ids = input_ids[-max_length:]
                 labels = labels[-max_length:]
 
-            pad_len = max_length - len(input_ids)
+            orig_len = len(input_ids)
+            pad_len = max_length - orig_len
             if pad_len > 0:
                 pad_id = tokenizer.pad_token_id or 0
                 input_ids = [pad_id] * pad_len + input_ids
                 labels = [-100] * pad_len + labels
 
-            attention_mask = [
-                1 if tid != (tokenizer.pad_token_id or 0) else 0
-                for tid in input_ids
-            ]
+            attention_mask = [0] * pad_len + [1] * orig_len
 
             examples.append(
                 {
@@ -245,7 +243,7 @@ def main() -> None:
         fp16=train_cfg.get("fp16", False),
         logging_steps=config["logging"].get("log_every_n_steps", 10),
         save_steps=config["checkpointing"]["save_every_n_steps"],
-        evaluation_strategy=config["checkpointing"]["eval_strategy"],
+        eval_strategy=config["checkpointing"]["eval_strategy"],
         seed=train_cfg["seed"],
         report_to=["wandb"]
         if os.environ.get("WANDB_DISABLED", "false").lower() != "true"
@@ -261,28 +259,15 @@ def main() -> None:
         max_length=config["data"]["max_length"],
     )
 
-    # Try TRL SFTTrainer first, fall back to standard Trainer
-    try:
-        from trl import SFTTrainer
-
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            tokenizer=tokenizer,
-            dataset_text_field=None,
-            data_collator=collator,
-        )
-        logger.info("Using TRL SFTTrainer")
-    except ImportError:
-        logger.warning("trl not installed; falling back to standard Trainer")
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            data_collator=collator,
-            tokenizer=tokenizer,
-        )
+    # Standard Trainer (dataset is already pre-tokenized)
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        data_collator=collator,
+        processing_class=tokenizer,
+    )
+    logger.info("Using standard Trainer with pre-tokenized dataset")
 
     resume = args.resume_from_checkpoint
     if resume is None and get_last_checkpoint is not None:

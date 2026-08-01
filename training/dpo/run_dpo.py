@@ -197,12 +197,14 @@ def main() -> None:
 
     dpo_dataset = Dataset.from_dict(dpo_data_dict)
 
-    # Training arguments
+    # Training arguments — use DPOConfig (TRL >= 1.0 moved beta here)
     train_cfg = config["training"]
     out_dir = config["checkpointing"]["output_dir"]
     os.makedirs(out_dir, exist_ok=True)
 
-    training_args = TrainingArguments(
+    from trl import DPOConfig
+
+    training_args = DPOConfig(
         output_dir=out_dir,
         num_train_epochs=train_cfg["num_epochs"],
         per_device_train_batch_size=train_cfg["per_device_batch_size"],
@@ -212,16 +214,18 @@ def main() -> None:
         warmup_ratio=train_cfg["warmup_ratio"],
         weight_decay=train_cfg.get("weight_decay", 0.0),
         max_grad_norm=train_cfg["max_grad_norm"],
-        fp16=train_cfg.get("fp16", False),
+        fp16=False,
+        bf16=False,
+        use_cpu=True,
+        beta=train_cfg.get("beta", 0.1),
         logging_steps=config["logging"].get("log_every_n_steps", 10),
         save_steps=config["checkpointing"]["save_every_n_steps"],
-        evaluation_strategy="no",
+        eval_strategy="no",
         seed=train_cfg["seed"],
-        report_to=["wandb"]
-        if os.environ.get("WANDB_DISABLED", "false").lower() != "true"
-        else [],
+        report_to=[],
         run_name=config["logging"].get("wandb_run_name"),
         remove_unused_columns=False,
+        gradient_checkpointing=False,
     )
 
     # DPOTrainer
@@ -239,8 +243,7 @@ def main() -> None:
         ref_model=ref_model,
         args=training_args,
         train_dataset=dpo_dataset,
-        tokenizer=tokenizer,
-        beta=train_cfg.get("beta", 0.1),
+        processing_class=tokenizer,
     )
 
     resume = args.resume_from_checkpoint

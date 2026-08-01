@@ -12,33 +12,36 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "active_model.json")
 SUPERVISORD_CONF = "/etc/zo/supervisord-user.conf"
 
 MODELS = {
-    "smollm2-360m": {
-        "id": "smollm2-360m",
-        "label": "SmolLM2 360M (base)",
-        "path": "/root/.lmstudio/models/bartowski/SmolLM2-360M-Instruct-GGUF/SmolLM2-360M-Instruct-Q4_K_M.gguf",
-        "params": "360M",
-        "type": "base",
+    "mamba-k1": {
+        "id": "mamba-k1",
+        "label": "Mamba K1 (130M, SFT)",
+        "path": "/home/workspace/Projects/NeuralAI/models/mamba-k1",
+        "params": "129M",
+        "type": "mamba",
+        "architecture": "Mamba SSM (state-spaces/mamba-130m-hf)",
+        "training": "SFT on UltraChat (50 steps, 1K samples)",
+        "runtime": "transformers (PyTorch)",
+        "ownership": "NeuralAI - First Owned Base Model",
     },
+    "mamba-k2": {
+        "id": "mamba-k2",
+        "label": "Mamba K2 (790M, SFT 10K+)",
+        "path": "/home/workspace/Projects/NeuralAI/models/mamba-k2",
+        "gguf": "models/NeuralAI-Mamba-K2.Q4_K_M.gguf",
+        "params": "793M",
+        "type": "mamba",
+        "architecture": "Mamba SSM (state-spaces/mamba-790m-hf)",
+        "training": "SFT on UltraChat (500-1000 steps, 10K+ samples)",
+        "runtime": "llama.cpp GGUF / transformers (PyTorch)",
+        "ownership": "NeuralAI - Second Owned Base Model",
+    },
+
     "neuralai-v17-dpo": {
         "id": "neuralai-v17-dpo",
         "label": "NeuralAI v17 DPO",
         "path": "/home/workspace/Projects/NeuralAI/models/NeuralAI-v17-dpo.Q4_K_M.gguf",
         "params": "360M",
         "type": "dpo",
-    },
-    "neuralai-air-135m-v3": {
-        "id": "neuralai-air-135m-v3",
-        "label": "NeuralAI Air 135M SFT v3 (legacy)",
-        "path": "/home/workspace/Projects/NeuralAI/models/NeuralAI-Air-135M-SFT-v3.gguf",
-        "params": "135M",
-        "type": "air",
-    },
-    "neuralai-air-135m-v19": {
-        "id": "neuralai-air-135m-v19",
-        "label": "NeuralAI Air 135M SFT v19",
-        "path": "/home/workspace/Projects/NeuralAI/models/NeuralAI-Air-135M-SFT-v19.gguf",
-        "params": "135M",
-        "type": "air",
     },
 }
 DEFAULT_MODEL = "neuralai-v17-dpo"

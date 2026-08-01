@@ -21,7 +21,7 @@ from urllib.parse import quote
 
 logger = logging.getLogger("neuralai.image")
 
-NEURAL_DRIVE = Path(os.environ.get("NEURAL_DRIVE", "/home/workspace/NeuralDrive"))
+NEURAL_DRIVE = Path(os.environ.get("NEURAL_DRIVE", "/home/workspace/Projects/NeuralAI/storage/neural_drive"))
 GENERATED_DIR = NEURAL_DRIVE / "generated"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -190,7 +190,7 @@ class ImageGenerator:
             "aspect_ratio": aspect_ratio,
             "provider": "pollinations-public",
             "image_path": str(output_path),
-            "image_url": f"/neuraldrive/generated/{output_path.name}",
+            "image_url": f"/static/generated/{output_path.name}",
             "error": "",
         }
 
@@ -205,7 +205,7 @@ class ImageGenerator:
             images.append({
                 "name": f.name,
                 "path": str(f),
-                "url": f"/neuraldrive/generated/{f.name}",
+                "url": f"/static/generated/{f.name}",
                 "created": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
             })
         return sorted(images, key=lambda x: x["created"], reverse=True)

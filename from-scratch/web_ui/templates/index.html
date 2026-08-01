@@ -3215,9 +3215,30 @@ body.dark-mode .onboarding-close:hover {
       <section class="results">
         <!-- Welcome screen for new chats -->
         <div id="welcomeScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:16px;">🧠</div>
-          <h2 style="font-size:24px;color:#e4e4e7;margin-bottom:8px;">Welcome to NeuralAI</h2>
-          <p style="color:#6b7280;margin-bottom:24px;max-width:400px;">Your personal AI assistant with memory, persistence, and smart routing.</p>
+          <div style="font-size:48px;margin-bottom:16px;">🧬</div>
+          <h2 style="font-size:24px;color:#e4e4e7;margin-bottom:8px;">NeuralAI · Mamba Era</h2>
+          <p style="color:#6b7280;margin-bottom:10px;max-width:500px;">The first AI assistant powered by NeuralAI's own base models — Mamba SSM architecture, locally trained, fully owned.</p>
+          
+          <!-- Mamba Family Quick Intro -->
+          <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px;">
+            <div style="padding:10px 14px;background:#0d1117;border:1px solid rgba(59,130,246,0.3);border-radius:10px;min-width:105px;">
+              <div style="font-size:11px;color:#3b82f6;font-weight:700;">🧬 Mamba K1</div>
+              <div style="font-size:10px;color:#8a8a9a;">130M · SSM · SFT</div>
+              <div style="font-size:9px;color:#10b981;">● First Owned Base</div>
+            </div>
+            <div style="padding:10px 14px;background:#0d1117;border:1px solid rgba(34,211,238,0.3);border-radius:10px;min-width:105px;">
+              <div style="font-size:11px;color:#22d3ee;font-weight:700;">🧬 Mamba K2</div>
+              <div style="font-size:10px;color:#8a8a9a;">793M · Q4_K_M GGUF</div>
+              <div style="font-size:9px;color:#f59e0b;">● Next Gen Ready</div>
+            </div>
+            <div style="padding:10px 14px;background:#0d1117;border:1px solid rgba(168,85,247,0.3);border-radius:10px;min-width:105px;">
+              <div style="font-size:11px;color:#a855f7;font-weight:700;">🔬 Mamba K3</div>
+              <div style="font-size:10px;color:#8a8a9a;">790M · 10K+ UltraChat</div>
+              <div style="font-size:9px;color:#f59e0b;">● SFT Training</div>
+            </div>
+          </div>
+
+          <p style="color:#6b7280;margin-bottom:24px;max-width:500px;font-size:13px;">Ask anything — NeuralAI routes to the best model for your task.</p>
           <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
             <button class="prompt-card" data-prompt="What can you help me with?" style="padding:12px 20px;background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e4e4e7;cursor:pointer;font-size:14px;">💡 What can you do?</button>
             <button class="prompt-card" data-prompt="Help me write some code" style="padding:12px 20px;background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e4e4e7;cursor:pointer;font-size:14px;">💻 Help me code</button>
@@ -3465,8 +3486,8 @@ body.dark-mode .onboarding-close:hover {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Model Fleet</div>
-              <div style="color:#a78bfa; font-weight:600; margin-top:4px;">3 Active Models</div>
-              <div style="font-size:10px; color:#34a853; margin-top:2px;">Mamba K1 · Mamba K2 · v17 DPO</div>
+              <div style="color:#a78bfa; font-weight:600; margin-top:4px;">Mamba Family (3 SSM)</div>
+              <div style="font-size:10px; color:#34a853; margin-top:2px;">K1 130M · K2 793M · K3 790M</div>
             </div>
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
               <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Open Source</div>
@@ -3478,27 +3499,34 @@ body.dark-mode .onboarding-close:hover {
 
         <!-- Architecture & Model Status -->
         <div class="settings-card">
-          <h3 style="font-size:14px; color:#22d3ee; margin-bottom:12px;">🧬 Model Architecture & Status</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
-            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(22,211,238,0.15);">
-              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Mamba K1 (First Owned)</div>
-              <div style="color:#22d3ee; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
-                <span style="color:#10b981; font-size:8px; animation:pulse 1s infinite;">●</span> 129M · SSM
+          <h3 style="font-size:14px; color:#22d3ee; margin-bottom:12px;">🧬 Mamba Model Family</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(59,130,246,0.25);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">🧬 Mamba K1</div>
+              <div style="color:#3b82f6; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span style="color:#10b981; font-size:8px;">●</span> 130M · SSM
               </div>
-              <div style="font-size:10px; color:#34a853; margin-top:2px;">SFT · GGUF Q4_K_M · Active</div>
+              <div style="font-size:9px; color:#34a853; margin-top:2px;">SFT · Merged · Active</div>
             </div>
-            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(167,139,250,0.15);">
-              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">Mamba K2 (Next Gen)</div>
-              <div style="color:#a78bfa; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
-                <span style="color:#f59e0b; font-size:8px;">●</span> 793M · SSM
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(34,211,238,0.25);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">🧬 Mamba K2</div>
+              <div style="color:#22d3ee; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span style="color:#10b981; font-size:8px;">●</span> 793M · GGUF
               </div>
-              <div style="font-size:10px; color:#f59e0b; margin-top:2px;">GGUF Downloaded · Pending SFT</div>
+              <div style="font-size:9px; color:#34a853; margin-top:2px;">Q4_K_M · LM Studio · Ready</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.02); padding:10px; border-radius:8px; border:1px solid rgba(168,85,247,0.25);">
+              <div style="font-size:10px; color:#8a8a9a; text-transform:uppercase;">🔬 Mamba K3</div>
+              <div style="color:#a855f7; font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span style="color:#f59e0b; font-size:8px;">●</span> 790M · SSM
+              </div>
+              <div style="font-size:9px; color:#f59e0b; margin-top:2px;">10K+ UltraChat · Training</div>
             </div>
           </div>
           <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
               <span style="color: #5f6368;">Active Inference:</span>
-              <span style="color: #3b82f6;">Mamba K1 · v17 DPO (via llmster)</span>
+              <span style="color: #3b82f6;">Mamba K1 v7.3 · LM Studio (via llmster)</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
               <span style="color: #5f6368;">Service Version:</span>

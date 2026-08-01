@@ -1,0 +1,14 @@
+
+# Large model files (hosted on Hugging Face, not GitHub)
+models/mamba-k1/*.safetensors
+models/mamba-k2/*.gguf
+models/mamba-k3-base/*.safetensors
+mamba-k1/tokenized_ultrachat_sample/*.arrow
+mamba-k1/sft_mamba_output/checkpoint-50/global_step50/*.pt
+mamba-k1/sft_mamba_output/checkpoint-50/*.bin
+mamba-k1/sft_mamba_output/checkpoint-50/*.pt
+mamba-k1/sft_mamba_output/checkpoint-50/*.pth
+mamba-k1/final_mamba_lora/*.safetensors
+mamba-k1/final_mamba_lora/*.bin
+colab_bundle/
+cloudflared

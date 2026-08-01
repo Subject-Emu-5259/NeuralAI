@@ -1,4 +1,4 @@
-# NeuralAI-Air-135M SFT v19 Configuration (CPU-run on Zo)
+# NeuralAI-Air-135M SFT v19 Configuration (Zo CPU)
 
 model:
   base_model_path: "NeuralAI-Air-135M-HF"
@@ -8,11 +8,11 @@ data:
   max_length: 1024
 
 training:
-  num_epochs: 5
-  per_device_batch_size: 4
-  gradient_accumulation_steps: 4
-  learning_rate: 5.0e-5
-  lr_schedule: "cosine"
+  num_epochs: 3
+  per_device_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-5
+  lr_schedule: "linear"
   warmup_ratio: 0.03
   weight_decay: 0.01
   adam_beta1: 0.9
@@ -29,6 +29,6 @@ checkpointing:
 
 logging:
   wandb_project: "neuralai-sft"
-  wandb_run_name: "135M-SFT-v19"
+  wandb_run_name: "135M-SFT-v19-zo"
   tensorboard_dir: "logs/tensorboard/sft"
   log_every_n_steps: 10

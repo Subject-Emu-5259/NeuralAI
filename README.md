@@ -14,7 +14,7 @@ tags:
   - neuralai
   - base-model
 model_id: Subject-Emu-5259/NeuralAI
-base_model: Mamba SSM (NeuralAI-owned)
+base_model: state-spaces/mamba-130m-hf
 inference: false
 ---
 
@@ -77,7 +77,7 @@ graph TB
 
 | Model | Architecture | Params | Training | Status | Location |
 |-------|-------------|--------|----------|--------|----------|
-| **Mamba K1** | Mamba SSM | 130M | SFT LoRA 500 steps on 1K UltraChat (intel format) | 🔄 Retraining for chat coherence | `Subject-Emu-5259/NeuralAI-Mamba-K1` |
+| **Mamba K1** | Mamba SSM | 130M | SFT LoRA v2 merged (500 steps, 1K UltraChat, intel format) + Q4_K_M GGUF | ✅ Published HF + SFT v3 running | `Subject-Emu-5259/NeuralAI-Mamba-K1` |
 | **Mamba K2** | Mamba SSM | 793M | Base pretrained — SFT queued (Q4_K_M GGUF) | ⚠️ Base model only | `Subject-Emu-5259/NeuralAI-Mamba-K2` |
 | **Mamba K3** | Mamba SSM | 2.8B | Base pretrained — SFT queued | ⚠️ Base model only | local `models/mamba-k3-base/` |
 
@@ -118,7 +118,8 @@ NeuralAI is built on a high-performance architecture that decouples the inferenc
 
 | Stage | Params | Goal | Status |
 |-------|--------|------|--------|
-| **Mamba K1 SFT v2** | 130M | Finish 500-step SFT with intel format + GGUF | 🔄 Active |
+| **Mamba K1 SFT v2** | 130M | Merge + Q4_K_M/F16 GGUF + publish to HF | ✅ Done |
+| **Mamba K1 SFT v3** | 130M | 1000-step continuation on 10K UltraChat | 🔄 Active |
 | **Mamba K2 SFT** | 793M | SFT LoRA 500 steps → merge → Q4_K_M GGUF | 📋 Next |
 | **Mamba K3 SFT** | 2.8B | SFT LoRA 1000 steps → merge → Q4_K_M GGUF | 📋 Next |
 | **Mamba 2B/3B** | ~2-3B | Scaled SSM architecture, benchmarks | 📋 Planned |
@@ -218,10 +219,10 @@ The standalone software implementation of the NeuralAI core is **NeuralLabs**:
 ## 📈 Current State & Active Goals
 
 - **Legacy DPO v17 / Air 135M / SmolLM2-360M**: Retired and removed from the repository
-- **Mamba K1**: First owned SSM base model — retraining with intel-format SFT for coherent chat (Colab/GPU)
+- **Mamba K1**: SFT LoRA v2 merged and published to Hugging Face; a longer v3 SFT run is in progress to reduce repetition
 - **Mamba K2**: Base pretrained GGUF ready — awaiting SFT
 - **Mamba K3**: 2.8B base downloaded — awaiting SFT
-- **Last Maintenance**: August 1, 2026 (Mamba Era — fix chat format + retrain pipeline)
+- **Last Maintenance**: August 1, 2026 (Mamba Era — K1 SFT v2 merge, Q4_K_M GGUF, HF publish + v3 SFT started)
 
 ---
 

@@ -68,8 +68,8 @@ def _add_cors_headers(resp):
 
 # Config
 PORT = int(os.environ.get("PORT", "5000"))
-MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/models/mamba-k1")
-BASE_MODEL = os.environ.get("BASE_MODEL", "state-spaces/mamba-130m-hf")
+MODEL_PATH = os.environ.get("MODEL_PATH", "/home/workspace/Projects/NeuralAI/models/k1")
+BASE_MODEL = os.environ.get("BASE_MODEL", "/home/workspace/Projects/NeuralAI/models/k1/base")
 STATIC_PATH = os.environ.get("STATIC_PATH", "/home/workspace/Projects/NeuralAI/from-scratch/web_ui")
 # Zo Computer API identity token (used by the host's native image generator)
 ZO_API_TOKEN = os.environ.get("ZO_API_TOKEN", os.environ.get("ZO_CLIENT_IDENTITY_TOKEN", ""))

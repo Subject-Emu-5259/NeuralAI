@@ -10,14 +10,14 @@ NeuralAI is a multi-model AI platform with 5 models spanning transformer fine-tu
 
 | Model | HF Repo | Params | Training | Status |
 |-------|---------|--------|----------|--------|
-| **SmolLM2-360M DPO v17** | `Subject-Emu-5259/NeuralAI` | 360M | DPO 679 pairs | ✅ Production |
-| **NeuralAI-Air-135M SFT v19** | `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v19` | 135M | SFT 320 steps | ✅ Production |
+| **SmolLM2-360M DPO v17** | `Subject-Emu-5259/NeuralAI` | 360M | Retired | ⛔ Legacy |
+| **NeuralAI-Air-135M SFT v19** | `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v19` | 135M | Retired | ⛔ Legacy |
 
 ### Owned Base (Mamba SSM)
 
 | Model | HF Repo | Params | Training | Status |
 |-------|---------|--------|----------|--------|
-| **Mamba K1** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | 130M | SFT 50 steps | ✅ Complete |
+| **Mamba K1** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | 130M | SFT LoRA v2 merged; Q4_K_M GGUF released; v3 SFT running | ✅ Production |
 | **Mamba K2** | `Subject-Emu-5259/NeuralAI-Mamba-K2` | 793M | Q4_K_M GGUF | ✅ Complete |
 | **Mamba K3** | Training pipeline | 790M | SFT 500-1000 steps | 🔄 In Training |
 

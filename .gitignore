@@ -1,6 +1,7 @@
 
 # Large model files (hosted on Hugging Face, not GitHub)
-models/mamba-k1/*.safetensors
+models/k1/**/*.safetensors
+models/k1/**/*.gguf
 models/mamba-k2/*.gguf
 models/mamba-k3-base/*.safetensors
 mamba-k1/tokenized_ultrachat_sample/*.arrow

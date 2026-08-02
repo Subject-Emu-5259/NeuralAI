@@ -21,17 +21,17 @@ SUPERVISORD_CONF = "/etc/zo/supervisord-user.conf"
 MODELS = {
     "mamba-k1": {
         "id": "mamba-k1",
-        "label": "Mamba K1 (130M, SFT v3)",
-        "path": "/home/workspace/Projects/NeuralAI/models/k1/gguf/NeuralAI-Mamba-K1-v3.Q4_K_M.gguf",
+        "label": "Mamba K1 (130M, SFT v4 — awaiting GPU run)",
+        "path": "/home/workspace/Projects/NeuralAI/models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf",
         "params": "130M",
         "type": "mamba",
         "architecture": "Mamba SSM (state-spaces/mamba-130m-hf)",
-        "training": "SFT LoRA v3 on UltraChat (best checkpoint from 1000-step run, 10K samples, intel format) — merged into K1 base and quantized to Q4_K_M",
-        "runtime": "llama.cpp GGUF (Q4_K_M, 84MB)",
+        "training": "SFT LoRA v4 on cleaned single-turn UltraChat (1K samples, intel format) — stopped on CPU because sequential Mamba fallback was too slow; resume/promote from checkpoints/k1-lora-sft-v4 on GPU",
+        "runtime": "llama.cpp GGUF (Q4_K_M, target 84MB)",
         "ownership": "NeuralAI - First Owned Base Model",
-        "status": "active",
+        "status": "awaiting_gpu",
         "chat_format": "neuralai-intel",
-        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
+        "inference_note": "SFT v3 overfit and replied with stop words like `Bye`; v4 was started but halted until a GPU runtime is available. Use archive/k1-v3/gguf if the broken v3 artifact must be inspected.",
         "interaction_mode": "chat",
     },
     "mamba-k2": {
@@ -44,9 +44,9 @@ MODELS = {
         "training": "Base pretrained weights — SFT queued (500 steps, 10K UltraChat, intel format)",
         "runtime": "llama.cpp GGUF (Q4_K_M, 460MB)",
         "ownership": "NeuralAI - In Training",
-        "status": "base_needs_sft",
+        "status": "active",
         "chat_format": "neuralai-intel",
-        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
+        "inference_note": "Active inference model until K1 v4 is ready. Base-only 793M Mamba; chat quality limited but coherent.",
         "interaction_mode": "chat",
     },
     "mamba-k3": {
@@ -61,11 +61,11 @@ MODELS = {
         "ownership": "NeuralAI - Next-Gen (in training)",
         "status": "base_needs_sft",
         "chat_format": "neuralai-intel",
-        "inference_note": "Active SFT v3 model. Merged from best checkpoint and quantized to Q4_K_M for LM Studio / llama.cpp.",
+        "inference_note": "Base-only 2.8B Mamba; queued for SFT after K1/K2 alignments are stable.",
         "interaction_mode": "chat",
     },
 }
-DEFAULT_MODEL = "mamba-k1"
+DEFAULT_MODEL = "mamba-k2"
 
 
 def _ensure_config():

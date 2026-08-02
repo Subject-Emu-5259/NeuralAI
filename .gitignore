@@ -29,3 +29,6 @@ __pycache__/
 
 # Misc build artifacts
 llama.cpp-build/
+archive/
+tools/llama.cpp/bin/
+tools/llama.cpp/

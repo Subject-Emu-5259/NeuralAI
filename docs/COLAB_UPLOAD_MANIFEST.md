@@ -15,12 +15,14 @@ This manifest maps the local `exports/k1-v4-gpu/` package to the paths expected 
 | Local File | Colab Destination Path | Description |
 | :--- | :--- | :--- |
 | `exports/k1-v4-gpu/train_intel_ultrachat_1k_clean.jsonl` | `/content/NeuralAI/data/train_intel_ultrachat_1k_clean.jsonl` | K1 v4 SFT dataset (single-turn, intel format) |
+| `exports/k2-sft-gpu/data/train_intel_ultrachat_1k_clean.jsonl` | `/content/NeuralAI/data/train_intel_ultrachat_1k_clean.jsonl` | K2 SFT v1 dataset (single-turn, intel format) |
 
 ## 💾 Outputs
 
 | Local Output Path | Colab Output Path | Description |
 | :--- | :--- | :--- |
 | `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` | `/content/NeuralAI/models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` | Desired quantized artifact to bring back |
+| `models/k2/gguf/neuralai-mamba-k2-v1.Q4_K_M.gguf` | `/content/NeuralAI/models/k2/gguf/neuralai-mamba-k2-v1.Q4_K_M.gguf` | Desired K2 v1 quantized artifact to bring back |
 
 ## ⚠️ Retired / Removed
 

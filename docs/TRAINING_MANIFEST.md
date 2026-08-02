@@ -8,7 +8,7 @@
 |-------|---------|------|---------|--------|--------|---------|------------|------|
 | Mamba K1 | **SFT v4** | `state-spaces/mamba-130m-hf` | `data/train_intel_ultrachat_1k_clean.jsonl` (1K single-turn) | 130M | **TRAINING PAUSED — awaiting GPU** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` (target) | 2026-08-02 |
 | Mamba K1 | v3 | `state-spaces/mamba-130m-hf` | `data/train_intel_ultrachat_1k.jsonl` (long multi-turn) | 130M | **RETIRED / OVERFIT** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | removed locally; archived on HF | 2026-08-01 |
-| Mamba K2 | base | `state-spaces/mamba-790m-hf` | n/a (base pretrained) | 793M | **ACTIVE INFERENCE** | `Subject-Emu-5259/NeuralAI-Mamba-K2` | `models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf` | 2026-08-01 |
+| Mamba K2 | SFT v1 | `state-spaces/mamba-790m-hf` | `data/train_intel_ultrachat_1k_clean.jsonl` | 793M | **AWAITING GPU (K2 SFT export ready)** | `Subject-Emu-5259/NeuralAI-Mamba-K2` | `models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf` (base, temporary) | 2026-08-02 |
 | Mamba K3 | base | `state-spaces/mamba-2.8b-slimpj` | n/a (base pretrained) | 2.8B | **QUEUED FOR SFT** | `Subject-Emu-5259/NeuralAI-Mamba-K3` | `models/k3/base/` | 2026-08-01 |
 
 ## Active Datasets (do not delete)
@@ -34,6 +34,7 @@ The following folders/files were removed locally because they were superseded, d
 | `checkpoints/k1-lora-sft-v3/` | Last v3 LoRA checkpoint | Keep as rollback/cautionary artifact; do not resume |
 | `models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf` | **Live inference model** | Keep; promote to K1 v4 when ready |
 | `models/k1/current/gguf/` | Target for K1 v4 GGUF | Empty until GPU run completes |
+| `exports/k2-sft-gpu/` | K2 SFT v1 Colab GPU export | Run on Colab; target `checkpoints/k2-sft-v1/best` |
 | `models/k3/base/` | K3 base weights | Keep; run SFT after K1/K2 |
 
 ## HuggingFace Repos
@@ -44,7 +45,8 @@ The following folders/files were removed locally because they were superseded, d
 
 ## Next Steps
 
-1. Run `exports/k1-v4-gpu/` on a CUDA GPU to train K1 v4 LoRA.
-2. Merge adapter into base, quantize to Q4_K_M.
-3. Copy GGUF to `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf`.
-4. `python3 scripts/model_manager.py set mamba-k1` to promote to live inference.
+1. Run `exports/k2-sft-gpu/colab_k2_sft.ipynb` on a Colab GPU for faster turn-around and to unblock chat.
+2. Run `exports/k1-v4-gpu/` on a CUDA GPU to train K1 v4 LoRA.
+3. Merge adapters into bases, quantize to Q4_K_M.
+4. Copy GGUFs into the appropriate `models/*/current/gguf/` paths.
+5. `python3 scripts/model_manager.py set <model>` and update the web-ui service env to toggle live inference.

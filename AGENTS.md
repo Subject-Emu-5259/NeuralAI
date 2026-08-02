@@ -259,9 +259,9 @@ Live key status (2026-07-16):** `Open_Router_API` = VALID (auth 200, used by `we
 | Model | Arch | Params | Training | Format | Status |
 |-------|------|--------|----------|--------|--------|
 | **Mamba K1** | Mamba SSM | 130M | SFT LoRA v4 (500 steps, intel format) — paused locally, GPU export ready | Merged safetensors | ⏸️ Awaiting GPU |
-| **Mamba K2** | Mamba SSM | 793M | Base pretrained, SFT queued | Q4_K_M GGUF (460MB) | ⚠️ Base only |
+| **Mamba K2** | Mamba SSM | 793M | SFT v1 queued — Colab GPU export ready (`exports/k2-sft-gpu/`) | Q4_K_M GGUF (460MB base) | ⚠️ Base only; chat via temporary OpenRouter fallback |
 | **Mamba K3** | Mamba SSM | 2.8B | SFT 500-1000 steps queued | Training WIP | ⚠️ Base only |
 
-- **Active Inference**: Mamba K2 793M Q4_K_M GGUF via llama.cpp custom server using the `neuralai-intel` format (tokenization-safe for GPT-NeoX / Mamba tokenizers).
+- **Active Inference** (temporary fallback): `/api/chat` is routed through OpenRouter (`google/gemma-4-26b-a4b-it:free`) because Mamba K2 is still base-only. Local llama.cpp server keeps serving the K2 base GGUF on port 1234 for internal endpoints, and will be switched back once K2 SFT v1 is trained and converted to GGUF.
 - **Hugging Face**: K1 at `Subject-Emu-5259/NeuralAI-Mamba-K1`, K2 at `Subject-Emu-5259/NeuralAI-Mamba-K2`.
 - **Legacy models retired**: SmolLM2-360M, Air-135M, all DPO adapters — removed from repo and model manager.

@@ -31,7 +31,7 @@ MODELS = {
         "ownership": "NeuralAI - First Owned Base Model",
         "status": "awaiting_gpu",
         "chat_format": "neuralai-intel",
-        "inference_note": "SFT v3 overfit and replied with stop words like `Bye`; v4 was started but halted until a GPU runtime is available. Use archive/k1-v3/gguf if the broken v3 artifact must be inspected.",
+        "inference_note": "SFT v3 overfit and replied with stop words like `Bye`; v4 was started but halted until a GPU runtime is available. Broken v3 artifacts are archived remotely on HuggingFace (Subject-Emu-5259/NeuralAI-Mamba-K1) and removed locally to prevent storage buildup.",
         "interaction_mode": "chat",
     },
     "mamba-k2": {

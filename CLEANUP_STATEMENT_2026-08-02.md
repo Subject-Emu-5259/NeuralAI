@@ -28,10 +28,12 @@
 | 12 | Updated `AGENTS.md` current state to reflect K1 v4 paused awaiting GPU. | `grep 'SFT LoRA v4' AGENTS.md` shows correct status. |
 | 13 | Created `exports/k1-v4-gpu/` containing cleaned data, GPU training script, merge/quantize script, and README for a GPU run. | `ls exports/k1-v4-gpu` shows four files. |
 | 14 | Verified active inference is still live on K2. | `curl http://127.0.0.1:1234/v1/models` returned `Invalid API key` (server responding). |
+| 15 | Deleted local `archive/k1-v3/` after confirming the broken v3 artifacts exist on HuggingFace. | `du -sh archive/k1-v3` no longer exists; HF repo contains `NeuralAI-Mamba-K1-v3.Q4_K_M.gguf` and `model.safetensors`. |
 
 ## Storage impact
 
 - Removed ~0.4 GB of duplicate / stale artifacts (nextcloud retained).
+- Removed ~0.6 GB local `archive/k1-v3/` copy because it is backed up on HuggingFace.
 - `models/k1/` no longer stores multiple merged copies.
 
 ## Next step

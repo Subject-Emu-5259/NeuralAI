@@ -57,4 +57,4 @@ Local CPU training was stopped because Mamba falls back to the slow sequential C
 - `base/` — the original K1 base weights.
 - `current/` — the active adapter, merged weights, and GGUF for the iteration being worked on.
 
-Old broken v3 artifacts were moved to `archive/k1-v3/` and are no longer referenced by the running system. This prevents duplicate merged/GGUF copies from piling up.
+Old broken v3 artifacts were removed from the local repository and are kept only on HuggingFace (`Subject-Emu-5259/NeuralAI-Mamba-K1`). This prevents duplicate merged/GGUF copies from piling up.

@@ -196,7 +196,7 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
     - **History & Nature**: From Ancient Civilizations to Human Evolution.
 - **Architecture**: Fully transitioned to the Mamba SSM model family — NeuralAI's own base models.
 - **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI (not a remnant) — see Web UI & Service Safety. Old SmolLM2-360M, Air-135M, and DPO checkpoint files removed from repo.
-- **Mamba K1 (Retraining)**: 130M Mamba SSM — First owned base model. SFT LoRA v3 (1000 steps) overfit on long multi-turn UltraChat prompts and produced degenerate outputs (e.g. replying "Bye"). Old v3 weights archived to `archive/k1-v3/`. SFT LoRA v4 is paused locally and exported for GPU run because CPU sequential fallback is too slow.
+- **Mamba K1 (Retraining)**: 130M Mamba SSM — First owned base model. SFT LoRA v3 (1000 steps) overfit on long multi-turn UltraChat prompts and produced degenerate outputs (e.g. replying "Bye"). Old v3 weights were archived to HuggingFace (`Subject-Emu-5259/NeuralAI-Mamba-K1`) and removed locally to save space. SFT LoRA v4 is paused locally and exported for GPU run because CPU sequential fallback is too slow.
 - **Mamba K2 (Base only)**: 793M Mamba SSM — Q4_K_M GGUF (460MB) is published at `Subject-Emu-5259/NeuralAI-Mamba-K2` and is the current inference target, but it has not yet been SFT'd for chat. SFT is queued.
 - **Mamba K3 (Base only)**: 2.8B Mamba SSM (`state-spaces/mamba-2.8b-slimpj` base) is downloaded locally. Full SFT 500-1000 steps on 10K+ UltraChat samples (intel format) is queued.
 - **Inference Engine**: llama.cpp custom server with Mamba K2 793M Q4_K_M GGUF (460MB), using the `neuralai-intel` prompt format. Replaces the old llmster + SmolLM2-360M stack.

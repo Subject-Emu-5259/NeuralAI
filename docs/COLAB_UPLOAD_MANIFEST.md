@@ -1,28 +1,33 @@
-# 🚀 Colab Upload Manifest
+# Colab / GPU Upload Manifest
 
-This manifest defines the mapping between local workspace files and their intended destinations within the Google Colab environment for NeuralAI v18 training.
+This manifest maps the local `exports/k1-v4-gpu/` package to the paths expected by the GPU training notebook.
 
 ## 📂 Model & Weights
+
 | Local File / Folder | Colab Destination Path | Description |
 | :--- | :--- | :--- |
-| `/home/.z/workspaces/con_Be6MM5KUzfA88RWI/neuralair-135m/neuralair-135m/final.pt` | `/home/.z/workspaces/con_Be6MM5KUzfA88RWI/neuralair-135m/neuralair-135m/final.pt` | Base weights (final.pt) |
-| `/home/workspace/Projects/NeuralAI/NeuralAI-v2-merged` | `/content/NeuralAI/NeuralAI-v2-merged` | Merged Model Config & Tokenizer |
+| `models/k1/base/` | `/content/NeuralAI/models/k1/base/` | Mamba K1 130M base weights |
+| `exports/k1-v4-gpu/train_k1_v4_gpu.py` | `/content/NeuralAI/train_k1_v4_gpu.py` | GPU SFT training script |
+| `exports/k1-v4-gpu/merge_and_export.py` | `/content/NeuralAI/merge_and_export.py` | Merge + quantize script |
 
-## 🧪 Training Data & Scripts
+## 🧪 Training Data
+
 | Local File | Colab Destination Path | Description |
 | :--- | :--- | :--- |
-| `/home/workspace/Projects/NeuralAI/data/train_sft_v18.jsonl` | `/content/train_sft_v18.jsonl` | SFT Training Dataset (v18) |
-| `/home/workspace/Projects/NeuralAI/data/train_dpo_v18.jsonl` | `/content/train_dpo_v18.jsonl` | DPO Training Dataset (v18) |
-| `/home/workspace/Projects/NeuralAI/training/train_sft_v18.py` | `/content/train_sft_v18.py` | SFT Training Script |
-| `/home/workspace/Projects/NeuralAI/training/train_sft_v18.ipynb` | `/content/train_sft_v18.ipynb` | SFT Training Notebook |
-| `/home/workspace/Projects/NeuralAI/training/train_dpo_v18.py` | `/content/train_dpo_v18.py` | DPO Training Script |
-| `/home/workspace/Projects/NeuralAI/training/train_dpo_v18.ipynb` | `/content/train_dpo_v18.ipynb` | DPO Training Notebook |
+| `exports/k1-v4-gpu/train_intel_ultrachat_1k_clean.jsonl` | `/content/NeuralAI/data/train_intel_ultrachat_1k_clean.jsonl` | K1 v4 SFT dataset (single-turn, intel format) |
 
 ## 💾 Outputs
+
 | Local Output Path | Colab Output Path | Description |
 | :--- | :--- | :--- |
-| `/home/workspace/Projects/NeuralAI/checkpoints/v18-sft` | `/content/checkpoints/v18-sft` | SFT Checkpoints |
-| `/home/workspace/Projects/NeuralAI/checkpoints/v18-dpo` | `/content/checkpoints/v18-dpo` | DPO Checkpoints |
+| `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` | `/content/NeuralAI/models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` | Desired quantized artifact to bring back |
+
+## ⚠️ Retired / Removed
+
+The following legacy entries were removed because the associated artifacts no longer exist:
+
+- `NeuralAI-v2-merged` — K1 model layout is now `models/k1/base/` + `models/k1/current/`.
+- `neuralair-135m` / v18 SFT & DPO scripts — legacy Air-135M and SmolLM pipelines retired.
 
 ---
 **Note**: Ensure `HF_TOKEN` is set as an environment variable or in Colab Secrets before running scripts.

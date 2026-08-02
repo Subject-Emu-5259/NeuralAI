@@ -1,63 +1,50 @@
 # NeuralAI Training Manifest
 
-> Single source of truth for which dataset/training script/checkpoint was used for each model version, and which artifacts are stale.
+> Single source of truth for which dataset, script, checkpoint, and artifact corresponds to each active Mamba model. Legacy DPO / Air-135M / SmolLM manifests are preserved in git history (pre-2026-08-02) and the old HF repos; they are no longer tracked here because those adapters and base models were retired.
 
-## Model Zoo
+## Active Model Family
 
 | Model | Version | Base | Dataset | Params | Status | HF Repo | Local Path | When |
 |-------|---------|------|---------|--------|--------|---------|------------|------|
-| NeuralAI 360M DPO | v16 / d16 | `HuggingFaceTB/SmolLM2-360M-Instruct` | `data/train_dpo_v15.jsonl` (597 pairs) | 360M | **STABLE** | `Subject-Emu-5259/NeuralAI` | `checkpoints/v2_model` | 2026-07-14 |
-| NeuralAI 360M DPO | **v17 / d17** | `HuggingFaceTB/SmolLM2-360M-Instruct` | `data/train_dpo_v16_combined.jsonl` (679 pairs) | 360M | **PUSHED** | `Subject-Emu-5259/NeuralAI` | `checkpoints/v17-dpo` | 2026-07-27 |
-| NeuralAI-Air 135M SFT | **v17** | custom `neuralai-air` 135M base | `data/train_sft_v17.jsonl` (37 pairs) | 135M | **PUSHED** | `Subject-Emu-5259/NeuralAI-Air-135M-SFT` | `models/NeuralAI-Air-135M-SFT-v3.gguf` | 2026-07-26 |
-| NeuralAI-Air 135M SFT | **v18** | custom `neuralai-air` 135M base | `data/train_sft_v18.jsonl` (≥500 pairs) | 135M | **COMPLETE** | `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18` | `checkpoints/v18-sft` | 2026-07-27 |
+| Mamba K1 | **SFT v4** | `state-spaces/mamba-130m-hf` | `data/train_intel_ultrachat_1k_clean.jsonl` (1K single-turn) | 130M | **TRAINING PAUSED — awaiting GPU** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf` (target) | 2026-08-02 |
+| Mamba K1 | v3 | `state-spaces/mamba-130m-hf` | `data/train_intel_ultrachat_1k.jsonl` (long multi-turn) | 130M | **RETIRED / OVERFIT** | `Subject-Emu-5259/NeuralAI-Mamba-K1` | removed locally; archived on HF | 2026-08-01 |
+| Mamba K2 | base | `state-spaces/mamba-790m-hf` | n/a (base pretrained) | 793M | **ACTIVE INFERENCE** | `Subject-Emu-5259/NeuralAI-Mamba-K2` | `models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf` | 2026-08-01 |
+| Mamba K3 | base | `state-spaces/mamba-2.8b-slimpj` | n/a (base pretrained) | 2.8B | **QUEUED FOR SFT** | `Subject-Emu-5259/NeuralAI-Mamba-K3` | `models/k3/base/` | 2026-08-01 |
 
 ## Active Datasets (do not delete)
 
 | File | Lines | Used By | Notes |
 |------|-------|---------|-------|
-| `data/train_dpo_v16_combined.jsonl` | 679 | d17 | **Current DPO dataset** = v15 (597) + v16 (64) + v16_supplement (18) |
-| `data/train_sft_v17.jsonl` | 37 | SFT v17 | Used for Air-135M-SFT v17 |
-| `data/train_sft_v18.jsonl` | 500 | SFT v18 | Expanded SFT dataset ready for next Colab run |
+| `data/train_intel_ultrachat_1k_clean.jsonl` | ~1K | K1 v4 | Current K1 SFT dataset — single-turn, intel format, capped length |
+| `data/train_intel_ultrachat_10k.jsonl` | ~10K | K2 / K3 SFT candidate | Larger set for future K2/K3 SFT runs |
+| `data/train_sft_v19.jsonl` | ~100 | historical | Last legacy single-turn SFT set; keep for provenance |
 
-## Stale / Historical Datasets
+## Stale / Historical Datasets Removed
 
-These have been moved to `data/archive/` for provenance and are **not** the current training source:
+The following folders/files were removed locally because they were superseded, duplicated, or retired:
 
-- `data/archive/train_dpo_v2.jsonl` through `data/archive/train_dpo_v14.jsonl` — intermediate DPO iterations.
-- `data/archive/train_dpo_v16.jsonl` + `data/archive/train_dpo_v16_supplement.jsonl` — components already merged into `train_dpo_v16_combined.jsonl`.
-- `data/archive/train.jsonl` — legacy generic instruction dataset (347 lines).
-
-The largest pre-combined base `data/train_dpo_v15.jsonl` (597 pairs) remains at root for provenance.
+- `data/archive/` — old DPO iterations (`train_dpo_v2-v14`, `train_dpo_v16*`) and legacy `train.jsonl`. Combined into `data/train_dpo_v16_combined.jsonl` where relevant.
+- `data/train_intel_ultrachat_1k.jsonl` — original K1 v3 dataset that caused overfitting; replaced by `_clean.jsonl`.
+- `models/k1/sft-v3/` and `archive/k1-v3/` — broken v3 artifacts. Backed up remotely on HF and removed locally.
 
 ## Checkpoints
 
 | Path | What It Is | Action Needed |
 |------|------------|---------------|
-| `checkpoints/v2_model` | d16 final adapter | Keep as rollback / archive |
-| `checkpoints/v17-dpo` | d17 final adapter (r=32, α=64, 129 steps, 97.5% reward accuracy) | Live — restored from HF `Subject-Emu-5259/NeuralAI`; push updates here |
-| `models/NeuralAI-Air-135M-SFT/` | SFT v17 full PyTorch model (133.72M params) | Keep as local source of truth |
-| `models/NeuralAI-Air-135M-SFT-v3.gguf` | **SFT v17 GGUF** (Q4_K_M) currently served by LM Studio | Live inference model |
-| `models/NeuralAI-Air-135M-GGUF/NeuralAI-Air-135M-SFT.Q4_K_M.gguf` | Duplicate/alternate GGUF export of SFT v17 | Review; probably safe to delete once v3 is confirmed live |
-| `checkpoints/v18-sft` | SFT v18 full model snapshots (`final/`, `stabilized/`, `hyper_converged/`, `checkpoint-32/`) | Keep as local source of truth |
-| `checkpoints/` loose `.pt` / config files | Orphaned intermediate artifacts | Review before deleting |
+| `checkpoints/k1-lora-sft-v3/` | Last v3 LoRA checkpoint | Keep as rollback/cautionary artifact; do not resume |
+| `models/k2/gguf/mamba-790m-hf.Q4_K_M.gguf` | **Live inference model** | Keep; promote to K1 v4 when ready |
+| `models/k1/current/gguf/` | Target for K1 v4 GGUF | Empty until GPU run completes |
+| `models/k3/base/` | K3 base weights | Keep; run SFT after K1/K2 |
 
-## Scripts
+## HuggingFace Repos
 
-- `colab/colab_d17_train.ipynb` → d17 (360M DPO) — **RAN**
-- `colab/train_sft_v17.py` / `colab/NeuralAI_Air_135M_SFT_v17.ipynb` → SFT v17 (135M) — **RAN**
-- `colab/train_sft_v18.ipynb` → SFT v18 (135M, ≥500 pairs) — **RAN**
-- `colab/v17_scale_up_1_7B.ipynb` → optional 1.7B scale-up (future)
+- `Subject-Emu-5259/NeuralAI-Mamba-K1` — K1 v3/v4 artifacts (GGUF + safetensors)
+- `Subject-Emu-5259/NeuralAI-Mamba-K2` — K2 Q4_K_M GGUF
+- `Subject-Emu-5259/NeuralAI-Mamba-K3` — K3 base (future)
 
-## Next Actions
+## Next Steps
 
-1. Push SFT v18 artifacts to HF `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18` (token refresh needed).
-2. Convert SFT v18 final checkpoint to GGUF for LM Studio inference.
-3. Expand SFT dataset beyond 500 pairs and plan next training run.
-
-## Hugging Face Organization
-
-Collection: [NeuralAI Model Family](https://huggingface.co/collections/Subject-Emu-5259/neuralai-model-family-6a66ee29c7c5f26e044dee3c)
-- `Subject-Emu-5259/NeuralAI` — D17 360M DPO LoRA adapter (live)
-- `Subject-Emu-5259/NeuralAI-Air-135M` — custom 135M base
-- `Subject-Emu-5259/NeuralAI-Air-135M-SFT` — SFT v17 of the 135M base
-- `Subject-Emu-5259/NeuralAI-Air-135M-SFT-v18` — SFT v18 (expanded ≥500 pairs, scaled weight init, precision masking)
+1. Run `exports/k1-v4-gpu/` on a CUDA GPU to train K1 v4 LoRA.
+2. Merge adapter into base, quantize to Q4_K_M.
+3. Copy GGUF to `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf`.
+4. `python3 scripts/model_manager.py set mamba-k1` to promote to live inference.

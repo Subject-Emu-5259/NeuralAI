@@ -39,3 +39,11 @@
 ## Next step
 
 Run the contents of `exports/k1-v4-gpu/` on a CUDA GPU (Colab, RunPod, local GPU) to produce the v4 adapter, then merge/quantize and copy the GGUF to `models/k1/current/gguf/neuralai-mamba-k1-v4.Q4_K_M.gguf`. After that, `python3 scripts/model_manager.py set mamba-k1` will promote K1 v4 to the active inference model.
+
+## 2026-08-01 — Additional cleanup (round 2)
+
+| # | Action | Verification |
+|---|--------|--------------|
+| 16 | Removed stale `data/archive/` folder containing old DPO iterations superseded by `data/train_dpo_v16_combined.jsonl`. | `ls data/archive` returns "No such file or directory"; freed ~715 KB. |
+| 17 | Rewrote `docs/TRAINING_MANIFEST.md` to reflect current Mamba K1/K2/K3 state and removed obsolete DPO/Air-135M/SmolLM model rows. | `grep 'Mamba' docs/TRAINING_MANIFEST.md` shows active table; no SmolLM/Air rows. |
+| 18 | Rewrote `docs/COLAB_UPLOAD_MANIFEST.md` to map `exports/k1-v4-gpu/` instead of retired v18 / NeuralAI-v2-merged artifacts. | File no longer references `NeuralAI-v2-merged` or `neuralair-135m`. |

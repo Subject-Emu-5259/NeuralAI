@@ -90,3 +90,45 @@ Cleanup executed on 2026-08-01 by Zo Computer agent for De'Andrew Harris.
 Removed inactive duplicates and stale artifacts. Training run `k1-lora-sft-v3` confirmed unaffected.
 
 — NeuralAI Maintenance Agent / Zo Computer
+
+
+---
+
+## 2026-08-02 Follow-Up Cleanup
+
+**Verified state before follow-up:**
+- No active training process (`ps` found no `train_k1` / `python.*k1` process).
+- K1 SFT v3 checkpoint dir contained only `train_args.json` (weights already removed).
+- K1 SFT v4 log at `/dev/shm/k1_sft_v4.log` ends with `Terminated`.
+- `services/nextcloud/` had no running PHP/Apache/Nginx processes; only default sample files and a single guest credential in `.neurldrive_users.json`.
+- `models/` already followed the unified layout:
+  ```
+  models/k1/base
+  models/k1/current/{adapter,merged,gguf}
+  models/k2/gguf
+  models/k3/base
+  ```
+- The old `models/mamba-k1-merged-v2` and `models/mamba-k1-merged-uploaded` folders had already been removed in the prior pass.
+
+**Items removed:**
+
+| Item | Size | Reason |
+|------|------|--------|
+| `NeuralAI-v2-merged/` | 3.4 MB | Leftover incomplete merged weights from the pre-unified layout. |
+| `services/nextcloud/` | 804 MB | Full Nextcloud server source + data. Not running, no active provisioning, and the one guest credential was backed up to `.cleanup_backups/neurldrive_users.json`. |
+| `checkpoints/k1-lora-sft-v3/` | ~1 KB | Failed run; only contained `train_args.json`. |
+
+**Repo size after follow-up cleanup: 5.3 GB**
+
+Current folder sizes:
+- `.git` — 2.6 GB
+- `models/` — 2.4 GB
+- `data/` — 189 MB
+- `services/` — 68 MB
+- `checkpoints/` — 1 KB
+
+**Signed Completion Statement**
+
+Follow-up cleanup executed on 2026-08-02 by Zo Computer agent for De'Andrew Harris. Removed the unused Nextcloud server tree, the leftover `NeuralAI-v2-merged` artifact, and the defunct K1 SFT v3 checkpoint directory. No active training or inference processes were affected.
+
+— NeuralAI Maintenance Agent / Zo Computer

@@ -2013,18 +2013,18 @@ def _user_for_api_key(api_key: str):
 @app.route("/v1/models", methods=["GET"])
 def list_models():
     """OpenAI-compatible model listing for BYO API hosts."""
-    active = _active_model()
-    return jsonify({
-        "object": "list",
-        "data": [{
-            "id": active["id"],
+    data = []
+    for m in _model_manager.MODELS.values():
+        data.append({
+            "id": m["id"],
             "object": "model",
             "created": 1700000000,
             "owned_by": "neuralai",
-            "root": active["id"],
+            "root": m["id"],
             "parent": None,
-        }]
-    })
+            "metadata": {k: v for k, v in m.items() if k not in ("path",)},
+        })
+    return jsonify({"object": "list", "data": data})
 
 
 def _streaming_response(gen, model_id, stream):

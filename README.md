@@ -248,7 +248,7 @@ NeuralAI was founded by **De'Andrew Preston Harris**, an AI Software Engineering
 
 - **Legacy models retired:** Air-135M, K2/K3, old DPO adapters removed from the repository and model manager.
 - **Active fleet:** Mamba K1 (R&D) + NeuralAI Powered by SmolLM2‑360M (live).
-- **Default chat backend:** `smol-awareness-merged` Q8_0 GGUF.
+- **Default chat backend:** `smol-awareness-v2-merged` Q8_0 GGUF.
 - **Last docs update:** August 13, 2026.
 
 ---

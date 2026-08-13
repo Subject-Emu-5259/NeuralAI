@@ -188,18 +188,14 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 2.  Review the `docs/MODEL_ALIGNMENT.md` to ensure output matches the v7.0 Expert persona.
 3.  Consult the `docs/ORCHESTRATOR.md` for delegation patterns.
 
-## 🌌 Current State (v7.3 / Mamba Era)
-- **Neural-Brain**: An expanded, high-density knowledge graph spanning:
-    - **Physics**: Advanced Quantum Field Theory (Expert level).
-    - **Philosophy**: Platonic forms and metaphysical systems.
-    - **Geopolitics**: Multipolar global order analysis.
-    - **History & Nature**: From Ancient Civilizations to Human Evolution.
-- **Architecture**: Fully transitioned to the Mamba SSM model family — NeuralAI's own base models.
-- **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI (not a remnant) — see Web UI & Service Safety. Old SmolLM2-360M, Air-135M, and DPO checkpoint files removed from repo.
-- **Mamba K1 (Retraining)**: 130M Mamba SSM — First owned base model. SFT LoRA v3 (1000 steps) overfit on long multi-turn UltraChat prompts and produced degenerate outputs (e.g. replying "Bye"). Old v3 weights were archived to HuggingFace (`Subject-Emu-5259/NeuralAI-Mamba-K1`) and removed locally to save space. SFT LoRA v4 is paused locally and exported for GPU run because CPU sequential fallback is too slow.
-- **Mamba K2 (Base only)**: 793M Mamba SSM — Q4_K_M GGUF (460MB) is published at `Subject-Emu-5259/NeuralAI-Mamba-K2` and is the current inference target, but it has not yet been SFT'd for chat. SFT is queued.
-- **Mamba K3 (Base only)**: 2.8B Mamba SSM (`state-spaces/mamba-2.8b-slimpj` base) is downloaded locally. Full SFT 500-1000 steps on 10K+ UltraChat samples (intel format) is queued.
-- **Inference Engine**: llama.cpp custom server with Mamba K2 793M Q4_K_M GGUF (460MB), using the `neuralai-intel` prompt format. Replaces the old llmster + SmolLM2-360M stack.
+## 🌌 Current State (v8.0 / SmolLM2 Awareness v2 Live)
+- **Neural-Brain**: An expanded, high-density knowledge graph spanning: Physics, Philosophy, Geopolitics, History & Nature.
+- **Architecture**: SmolLM2-360M-Instruct is the active chat backbone, un-retired for continued local training and quick iteration. The Mamba SSM family (K1, K2, K3) is shelved until a future release cycle so resources stay focused on shipping the awareness-tuned local model.
+- **Hygiene**: `wandb` logs are gone. `from-scratch` is the LIVE UI. Old Air-135M and DPO checkpoint files removed from repo.
+- **SmolLM2 360M Awareness v1**: First LoRA-SFT baseline; weights merged and converted to a Q8_0 GGUF at `models/NeuralAI-Smol-Awareness-Q8_0.gguf`.
+- **SmolLM2 360M Awareness v2**: 506-example expanded dataset with paraphrases and refusal examples, merged, converted to a Q8_0 GGUF at `models/NeuralAI-Smol-Awareness-v2-Q8_0.gguf`, and activated as the live inference target (`smol-awareness-v2-merged`).
+- **Mamba K1**: NeuralAI's first owned base model (HF maintained for reference). K2/K3 retired from the active roadmap and removed from the repo. K1 chat SFT queued for a future Colab GPU run.
+- **Inference Engine**: llama.cpp custom server (`neuralai-lmstudio`) serves the active GGUF on `127.0.0.1:1234`. Chat backends (`services/webui_service.py`) use this OpenAI-compatible local endpoint as the default.
 
 ## 🔗 Ecosystem Integration
 - **Frontend**: NeuralAI is the intelligence source for **NeuralLabs** (`/home/workspace/Projects/NeuralLabs`).
@@ -209,10 +205,9 @@ NeuralAI is the high-density intelligence backend. It provides the raw cognitive
 - Maintain expert-level accuracy in the Neural-Brain.
 - Optimize orchestrator delegation for complex multi-step reasoning.
 - Expand knowledge into remaining target domains (Modernity, Advanced Sociology, etc.).
-  - **Mamba K3**: Complete SFT training (500-1000 steps, 10K+ UltraChat) and evaluate.
-  - **Benchmark Suite**: Run standard evals (HellaSwag, MMLU, TruthfulQA, ARC) to track progress across K1→K2→K3.
-  - **Scale Path**: Plan Mamba 2B/3B architectures for the next generation beyond K3.
-  - **GGUF Pipeline**: Convert K3 to Q4_K_M GGUF for LM Studio deployment.
+  - **SmolLM2 Awareness v2**: evaluate held-out identity prompts and benchmark against v1 baseline.
+  - **Benchmark Suite**: Run standard evals on the awareness-tuned SmolLM2.
+  - **Colab GPU Pipeline**: Use the Google Colab CLI for future larger/faster training runs (K1 restart or SmolLM2 v3) once gcloud auth is completed.
 
 ## ⚠️ Web UI & Service Safety
 - **UI Integrity:** The live web interface for NeuralAI lives in `from-scratch/web_ui` and features a custom, Google-style chat UI. **DO NOT** attempt to "redesign", "polish", or replace the layout with generic templates. The running Zo service is **`neuralai-web-ui`** (label `svc_1cHl6qlp4_g`, public at `https://neuralai-web-ui-deandrewharris.zocomputer.io`). Its entrypoint is `run_service.sh`, which boots `services/webui_service.py` (Flask, port 5000). The older `services/neural_core_service.py` exists but is NOT the deployed service — do not edit it expecting live changes.
@@ -254,14 +249,14 @@ Live key status (2026-07-16):** `Open_Router_API` = VALID (auth 200, used by `we
 **REGRESSION GUARD:** The Google News resolver (`/articles/` interstitial → real publisher URL) and `refine.py` news/web_search list rendering are LIVE in `/api/tool` via `_REFINE_KINDS`. Do not remove the `refine_text` call in `tool_handler.execute()` or links revert to tracking blobs.
 **STATIC-EDIT CACHE GUARD (added 2026-07-20):** `BUILD_VERSION` in `services/webui_service.py` now derives from the `main_v2.js` file mtime, so every static edit (html/css/js under `from-scratch/web_ui`) forces a fresh browser fetch via the `?v=` query — no service restart needed for static changes. Before this fix, `BUILD_VERSION` was frozen at process start, so edited JS stayed cached and button-handler fixes (e.g. the `What's New` / `openReleaseNotes` global export) never reached the browser despite being correct on disk. If a static-button fix "doesn't take," first check that the served `?v=` in `index.html` matches `stat -c %Y static/js/main_v2.js`. Restart the service only when you edit `services/webui_service.py` itself.
 
-## 🧬 Mamba Model Family (v7.3)
+## 🧬 Model Family (v7.3)
 
 | Model | Arch | Params | Training | Format | Status |
 |-------|------|--------|----------|--------|--------|
-| **Mamba K1** | Mamba SSM | 130M | SFT LoRA v4 (500 steps, intel format) — paused locally, GPU export ready | Merged safetensors | ⏸️ Awaiting GPU |
-| **Mamba K2** | Mamba SSM | 793M | SFT v1 queued — Colab GPU export ready (`exports/k2-sft-gpu/`) | Q4_K_M GGUF (460MB base) | ⚠️ Base only; chat via temporary OpenRouter fallback |
-| **Mamba K3** | Mamba SSM | 2.8B | SFT 500-1000 steps queued | Training WIP | ⚠️ Base only |
+| **SmolLM2-360M Awareness (v2)** | Transformer decoder | 360M | LoRA SFT on 506 NeuralAI awareness examples + refusals | Q8_0 GGUF (~369MB) | ✅ Active chat backend |
+| **SmolLM2-360M Awareness (v1)** | Transformer decoder | 360M | First LoRA-SFT baseline | Q8_0 GGUF (~369MB) | ✅ Archived baseline |
+| **Mamba K1** | Mamba SSM | 130M | NeuralAI-owned base model; chat SFT queued | Merged safetensors | ⏸️ Future release |
 
-- **Active Inference** (temporary fallback): `/api/chat` is routed through OpenRouter (`google/gemma-4-26b-a4b-it:free`) because Mamba K2 is still base-only. Local llama.cpp server keeps serving the K2 base GGUF on port 1234 for internal endpoints, and will be switched back once K2 SFT v1 is trained and converted to GGUF.
-- **Hugging Face**: K1 at `Subject-Emu-5259/NeuralAI-Mamba-K1`, K2 at `Subject-Emu-5259/NeuralAI-Mamba-K2`.
-- **Legacy models retired**: SmolLM2-360M, Air-135M, all DPO adapters — removed from repo and model manager.
+- **Active Inference**: `/api/chat` is served by the local llama.cpp/LM Studio server on `127.0.0.1:1234`, using the active `smol-awareness-v2-merged` Q8_0 GGUF.
+- **Hugging Face**: K1 at `Subject-Emu-5259/NeuralAI-Mamba-K1` (archived), K2 at `Subject-Emu-5259/NeuralAI-Mamba-K2` (archived).
+- **Legacy models retired**: Air-135M and old DPO adapters removed from repo and model manager.

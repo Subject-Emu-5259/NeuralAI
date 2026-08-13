@@ -4,32 +4,34 @@ language:
 library_name: peft
 license: apache-2.0
 tags:
+  - neuralai
+  - smollm2
+  - mamba
+  - ssm
   - lora
   - conversational
   - text-generation
   - peft
   - fine-tuned
-  - mamba
-  - ssm
-  - neuralai
-  - base-model
-model_id: Subject-Emu-5259/NeuralAI
-base_model: state-spaces/mamba-130m-hf
+  - awareness-tuning
 inference: false
 ---
 
-# 🧠 NeuralAI: The Generative AI Engine
+<p align="center">
+  <img src="assets/neuralai-duo-banner.png" alt="NeuralAI — Mamba K1 + SmolLM2 360M Awareness" width="100%" />
+</p>
+
+<h1 align="center">🧠 NeuralAI — The Generative AI Engine</h1>
 
 <p align="center">
-  <img src="neuralai_banner.svg" alt="NeuralAI — Your AI. On your hardware. In your browser." />
+  <strong>Your AI. On your hardware. In your browser.</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/GitHub-NeuralAI-181717?logo=github" alt="GitHub"></a>
-  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/🤗%20Hub-NeuralAI-FFD21E" alt="HF Hub"></a>
+  <a href="https://huggingface.co/Subject-Emu-5259"><img src="https://img.shields.io/badge/🤗%20Hub-Subject--Emu--5259-FFD21E" alt="HF Hub"></a>
   <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K1"><img src="https://img.shields.io/badge/🤗%20Hub-Mamba%20K1-blue" alt="Mamba K1"></a>
-  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K2"><img src="https://img.shields.io/badge/🤗%20Hub-Mamba%20K2-green" alt="Mamba K2"></a>
-  <a href="https://neuralai-web-ui-deandrewharris.zocomputer.io"><img src="https://img.shields.io/badge/Live-NeuralAI%20Web%20UI-6366f1" alt="Live UI"></a>
+  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360"><img src="https://img.shields.io/badge/🤗%20Hub-SmolLM2%20360M-purple" alt="SmolLM2 360M"></a>
 </p>
 
 ---
@@ -46,192 +48,215 @@ inference: false
 | Jupyter Notebook | 0.3% |
 | Jinja | 0.2% |
 
-**The High-Velocity AI Engine for Your Entire Vibe Stack**
+---
 
-NeuralAI is the central intelligence engine developed by **De'Andrew Preston Harris**. Conceived and engineered as an owned AI platform, it spans fine-tuned transformer models, custom SSM base models, DPO alignment, and a production web UI — all designed for local-first, private AI computing.
+## 🚀 What is NeuralAI?
+
+**NeuralAI** is a local-first, private generative-AI platform founded and built by **De'Andrew Preston Harris** (D. Harris / Dre). It is designed to be more than a chatbot — NeuralAI is an owned AI engine that combines fine-tuned transformer models, a custom Mamba SSM base model, DPO/SFT alignment pipelines, and a full web workspace with chat, terminal, files, tools, and voice.
+
+The current active model fleet is intentionally lean: **two models**, one mission — prove that small, owned, well-tuned models can deliver a fast, private, and personal AI experience.
 
 ---
 
-## 🏗️ Model Family
+## 🏗️ NeuralAI Model Fleet
 
-```mermaid
-graph TB
-    subgraph "NeuralAI Model Family"
-        direction TB
+<p align="center">
+  <img src="assets/neuralai-duo-architecture.png" alt="NeuralAI two-model architecture" width="92%" />
+</p>
 
-        K1["🧬 Mamba K1<br/>130M · SFT 50 steps<br/>First Owned Base"]
-        K2["🧬 Mamba K2<br/>793M · Q4_K_M GGUF<br/>460MB · Production"]
-        K3["🔬 Mamba K3<br/>SFT 500-1000 steps<br/>10K+ UltraChat<br/>In Training"]
+| Model | Architecture | Parameters | Role | Status | Hugging Face |
+|-------|-------------|------------|------|--------|--------------|
+| **🧬 Mamba K1** | Mamba SSM (State Space Model) | 130M | NeuralAI's first fully owned base model | 🔬 R&D / chat training in progress | [NeuralAI-Mamba-K1](https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K1) |
+| **🧠 NeuralAI Powered by SmolLM2‑360M** | Transformer decoder + NeuralAI LoRA | 360M (base) | Live chat backend, awareness-tuned | ⚡ Active inference model | [NeuralAI-Powered-By-SmolLM2360](https://huggingface.co/Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360) |
 
-        K1 --> K2 --> K3
-        K2 --> PROD["🚀 Active Inference<br/>LM Studio · 460MB RAM<br/>neuralai-web-ui.zocomputer.io"]
-    end
+### 🧬 Mamba K1 — First Owned Base Model
 
-    style K1 fill:#4a90d9,color:#fff
-    style K2 fill:#22c55e,color:#fff
-    style K3 fill:#f59e0b,color:#000
-    style PROD fill:#10b981,color:#fff
+<p align="center">
+  <img src="assets/neuralai-mamba-k1-banner.png" alt="Mamba K1 banner" width="88%" />
+</p>
+
+Mamba K1 is NeuralAI's first **owned base model**. It is built on the `state-spaces/mamba-130m-hf` Mamba SSM architecture and represents the start of a fully custom model lineage independent of third-party base weights.
+
+| Property | Value |
+|----------|-------|
+| **Architecture** | Mamba SSM — `MambaForCausalLM` |
+| **Parameters** | 130M |
+| **Hidden size** | 768 |
+| **Layers** | 24 |
+| **State size** | 16 |
+| **Vocabulary** | 50,280 |
+| **Base model** | `state-spaces/mamba-130m-hf` |
+| **Training** | LoRA SFT, chat-format repair, iterative v2/v3 GGUF merges |
+| **Formats** | Merged safetensors, Q4_K_M GGUF, F16 GGUF |
+| **Status** | R&D — chat-coherence training in progress |
+| **HF Repo** | [Subject-Emu-5259/NeuralAI-Mamba-K1](https://huggingface.co/Subject-Emu-5259/NeuralAI-Mamba-K1) |
+
+**What Mamba K1 is learning:**
+- Correct instruction-following with a vocabulary-safe "intel" chat format
+- Assistant-style chat behavior (greetings, structured answers, refusals)
+- NeuralAI identity and creator anchoring
+- Step-by-step reasoning for coding, math, and writing prompts
+
+### 🧠 NeuralAI Powered by SmolLM2‑360M — Live Chat Backend
+
+<p align="center">
+  <img src="assets/neuralai-smollm2-banner.png" alt="SmolLM2 360M banner" width="88%" />
+</p>
+
+This model is a **locally tuned SmolLM2‑360M-Instruct** that powers NeuralAI's live web UI. It was trained on a curated awareness dataset so it knows who built it, what it is, what tools it can use, and how to behave as a helpful companion.
+
+| Property | Value |
+|----------|-------|
+| **Base model** | `HuggingFaceTB/SmolLM2-360M-Instruct` |
+| **Parameters** | 360M (base) |
+| **Architecture** | Transformer decoder |
+| **Fine-tune method** | LoRA SFT |
+| **Training data v1** | 83 prompt/response pairs across 6 awareness categories |
+| **Training data v2** | 506 prompt/response pairs, expanded categories + tools + refusal |
+| **v1 LoRA rank/alpha** | 8 / 16 |
+| **v2 LoRA rank/alpha** | 16 / 32 |
+| **v1 final loss / steps** | 2.7186 / 30 (3 epochs) |
+| **v2 final loss / steps** | 0.1252 / 320 (5 epochs) |
+| **v2 runtime** | CPU-only, completed |
+| **Active format** | `NeuralAI-Smol-Awareness-v2-Q8_0.gguf` (~369MB) |
+| **Status** | ⚡ Live inference backend (v2 active) |
+| **HF Repo** | [NeuralAI-Powered-By-SmolLM2360](https://huggingface.co/Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360) |
+
+**What SmolLM2‑360M Awareness learned:**
+- **Brand identity** — Says "NeuralAI" and names De'Andrew Preston Harris as creator when asked directly
+- **Model self-awareness** — Describes itself as a 360M Transformer tuned by NeuralAI
+- **Site/tool awareness** — Knows the web UI offers chat, terminal, files, settings, and slash commands
+- **Assistant boundaries** — Refuses unsafe requests, explains limitations, does not claim consciousness
+- **Companion tone** — Responds with empathy while redirecting serious emotional needs to human support
+
+---
+
+## 🔬 Training at a Glance
+
+<p align="center">
+  <img src="assets/neuralai-mamba-k1-training.png" alt="Mamba K1 training highlights" width="45%" />
+  <img src="assets/neuralai-smollm2-training.png" alt="SmolLM2 training highlights" width="45%" />
+</p>
+
+| | Mamba K1 | SmolLM2 360M Awareness |
+|---|---|---|
+| **Objective** | Build NeuralAI's first owned Mamba SSM base | Make a small instruction model aware of NeuralAI |
+| **Method** | SFT LoRA → merge → GGUF | LoRA SFT on awareness dataset |
+| **Data** | Curated assistant seed set (reasoning, code, math, safety, creative) | v1: 83 pairs · v2: 506 pairs (brand, model, site, chat, tool, companion, refusal) |
+| **Loss v1** | Research checkpoint: 11.69 | v1 2.7186 |
+| **Loss v2** | — | v2 0.1252 |
+| **Live** | Not yet selectable (training) | Serving chat as v2 |
+
+Full training details are in [`docs/SMOL_AWARENESS_TRAINING_REPORT.md`](docs/SMOL_AWARENESS_TRAINING_REPORT.md) and [`docs/TRAINING_MANIFEST.md`](docs/TRAINING_MANIFEST.md).
+
+---
+
+## 🛠️ Usage
+
+### Load the SmolLM2 adapter (Hugging Face PEFT)
+
+```python
+from peft import AutoPeftModelForCausalLM
+from transformers import AutoTokenizer
+
+model = AutoPeftModelForCausalLM.from_pretrained(
+    "Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360",
+    trust_remote_code=True,
+)
+tokenizer = AutoTokenizer.from_pretrained(
+    "Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360",
+    trust_remote_code=True,
+)
+
+messages = [{"role": "user", "content": "Who made you?"}]
+inputs = tokenizer.apply_chat_template(
+    messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+)
+out = model.generate(**inputs, max_new_tokens=256)
+print(tokenizer.decode(out[0][inputs.shape[1]:], skip_special_tokens=True))
 ```
 
-### Complete Lineup
+### Load Mamba K1 (Transformers)
 
-| Model | Architecture | Params | Training | Status | Location |
-|-------|-------------|--------|----------|--------|----------|
-| **Mamba K1** | Mamba SSM | 130M | SFT LoRA v2 merged (500 steps, 1K UltraChat, intel format) + Q4_K_M GGUF | ✅ Published HF + SFT v3 running | `Subject-Emu-5259/NeuralAI-Mamba-K1` |
-| **Mamba K2** | Mamba SSM | 793M | Base pretrained — SFT queued (Q4_K_M GGUF) | ⚠️ Base model only | `Subject-Emu-5259/NeuralAI-Mamba-K2` |
-| **Mamba K3** | Mamba SSM | 2.8B | Base pretrained — SFT queued | ⚠️ Base model only | local `models/k3/base/` |
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-### Why Mamba SSM
+model = AutoModelForCausalLM.from_pretrained(
+    "Subject-Emu-5259/NeuralAI-Mamba-K1",
+    torch_dtype=torch.float32,
+    trust_remote_code=True,
+)
+tokenizer = AutoTokenizer.from_pretrained(
+    "Subject-Emu-5259/NeuralAI-Mamba-K1",
+    trust_remote_code=True,
+)
 
-| Property | Benefit |
-|----------|--------|
-| Complexity | \(O(n)\) linear — scales to long context efficiently |
-| Inference | Fast at any sequence length, not just short prompts |
-| Memory | K2 runs at 460MB (Q4_K_M GGUF) — fits on any device |
-| Ownership | NeuralAI trains and merges all release weights on top of public Mamba SSM bases — every released GGUF is a fully merged model, not a raw base |
-| Ecosystem | LM Studio, llama.cpp, Hugging Face — mature deployment options |
-
----
-
-## 🌟 Vision & Manifesto
-
-NeuralAI doesn't just predict text; it *operates the work*. The core mission is to create a multimodal generative system that bridges the gap between raw idea and execution. By fusing autoregressive generation with adaptive agency, NeuralAI becomes more than a chatbot — it is a persistent, reasoning partner.
-
-Born from resilience and ambition in Memphis, Tennessee and West Memphis, Arkansas, NeuralAI represents a forward-thinking approach to personal, private AI computing.
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-NeuralAI is built on a high-performance architecture that decouples the inference engine from the web interface, enabling lightweight cloud hosting with powerful local inference.
-
-### Core Stack
-
-- **Production Model**: Mamba K2 793M Q4_K_M GGUF (460MB) via llama.cpp — active inference engine
-- **Model Family**: Mamba K1 (130M, SFT LoRA retry) → Mamba K2 (793M base GGUF) → Mamba K3 (2.8B base)
-- **Inference Engine**: llama.cpp server with a custom `neuralai-intel` chat format (vocabulary-friendly for GPT-NeoX / Mamba tokenizers)
-- **Vocal Identity**: Andrew (Warm/Multilingual) — Optional voice synthesis integration
-- **Web Interface**: Custom Flask UI served via Zo Computer at `neuralai-web-ui-deandrewharris.zocomputer.io`
-- **Tool Chain**: 10 live slash commands (/web, /fetch, /browse, /research, /img, /speak, /summarize, /translate, /news, /yt) + NL→Tool Router
-
-### Future Scale Path
-
-| Stage | Params | Goal | Status |
-|-------|--------|------|--------|
-| **Mamba K1 SFT v2** | 130M | Merge + Q4_K_M/F16 GGUF + publish to HF | ✅ Done |
-| **Mamba K1 SFT v3** | 130M | 1000-step continuation on 10K UltraChat | 🔄 Active |
-| **Mamba K2 SFT** | 793M | SFT LoRA 500 steps → merge → Q4_K_M GGUF | 📋 Next |
-| **Mamba K3 SFT** | 2.8B | SFT LoRA 1000 steps → merge → Q4_K_M GGUF | 📋 Next |
-| **Mamba 2B/3B** | ~2-3B | Scaled SSM architecture, benchmarks | 📋 Planned |
-
----
-
-## ✨ Key Features & Capabilities
-
-### 💬 Multimodal Chat & Agentic Intelligence
-
-- **High-Velocity Text Inference**: Fast, local inference with deep context awareness
-- **Deep Reasoning Mode**: Integration of test-time compute and chain-of-thought reasoning
-- **Autonomous Agentic Workflows**: Agent-mode interaction with browser, terminal, and third-party apps
-- **Live S2S (Speech-to-Speech)**: Real-time voice interaction with integrated microphone interface
-- **Identity Vault & Memory**: Persistent user memory and rule constraints
-
-### 🔧 Developer & Engineering Tools
-
-- **10 Web Tool Commands**: Search, fetch, browse, research, image gen, TTS, summarize, translate, news, YouTube
-- **NL→Tool Router**: Natural language web requests auto-routed to the right tool
-- **Model Manager**: CLI switching between all registered models
-- **Benchmark Suite**: Perplexity, generation diversity, MMLU-style, reasoning tests
-
----
-
-## 🚀 Model Lineage
-
-```mermaid
-timeline
-    title NeuralAI Model Evolution
-           : Custom 135M base SFT
-    2026 Q3 : Mamba K1 — First owned base
-           : 130M SSM · Proof of Concept
-    2026 Q3 : Mamba K2 — Scaled base
-           : 790M Q4_K_M · GGUF ready
-    2026 Q3 : Mamba K3 — Full SFT
-           : 500-1000 steps · 10K+ samples
-    2026 Q4 : Mamba 2B/3B — Next scale targets
-           : 2B SSM → 3B Core Intelligence
+messages = [{"role": "user", "content": "Write a haiku about debugging."}]
+inputs = tokenizer.apply_chat_template(
+    messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+)
+out = model.generate(**inputs, max_new_tokens=128)
+print(tokenizer.decode(out[0][inputs.shape[1]:], skip_special_tokens=True))
 ```
 
----
-
-## 🚀 Deployment
-
+### Serve the live model (llama.cpp)
 
 ```bash
-# 1. Start the inference service
-cd NeuralAI
-supervisorctl -c /etc/zo/supervisord-user.conf restart neuralai-lmstudio
-
-# 2. Start the web UI service
-python3 services/webui_service.py
-```
-
-### Mamba K2 (LM Studio / llama.cpp)
-
-```bash
-# Download from HuggingFace
-huggingface-cli download Subject-Emu-5259/NeuralAI-Mamba-K2 \
-  mamba-790m-hf.Q4_K_M.gguf --local-dir ./models/
-
-# Serve with the NeuralAI chat format
+# Active model in production
 python3 services/lmstudio_server.py \
-  --model models/mamba-790m-hf.Q4_K_M.gguf \
-  --chat_format neuralai-intel \
+  --model models/NeuralAI-Smol-Awareness-v2-Q8_0.gguf \
+  --chat_format chatml \
   --port 1234
 ```
 
-### Mamba K1 (Python)
+---
 
-```python
-from transformers import MambaForCausalLM, AutoTokenizer
+## 🌟 Why NeuralAI Exists
 
-model = MambaForCausalLM.from_pretrained("Subject-Emu-5259/NeuralAI-Mamba-K1")
-tokenizer = AutoTokenizer.from_pretrained("Subject-Emu-5259/NeuralAI-Mamba-K1")
-```
+NeuralAI was founded by **De'Andrew Preston Harris**, an AI Software Engineering student at Maestro College, builder, and father from Memphis, TN / West Memphis, AR. The goal is to build **private, high-performance, personal generative AI** that doesn't just answer questions — it *operates the work*.
 
-### Containerized Deployments
+### Company & Brand
 
-| Deployment | Dockerfile | Stack | Status |
-| --- | --- | --- | --- |
-| **Web Chat** | `services/start_lmstudio.sh` + Flask UI | llama.cpp + `neuralai-web-ui.zocomputer.io` | ✅ Live |
+| | |
+|---|---|
+| **Founder & Architect** | De'Andrew Preston Harris (D. Harris / Dre) |
+| **GitHub** | [Subject-Emu-5259](https://github.com/Subject-Emu-5259) |
+| **LinkedIn** | [linkedin.com/in/deandrewharris94](https://linkedin.com/in/deandrewharris94/) |
+| **Hugging Face** | [huggingface.co/Subject-Emu-5259](https://huggingface.co/Subject-Emu-5259) |
+| **Headquarters** | Memphis, TN / West Memphis, AR (remote-first) |
+| **Mission** | Local-first, owned AI that runs on your hardware, in your browser |
+
+### Core Values
+
+- **Ownership** — Train and merge your own weights, don't just rent someone else's API.
+- **Privacy** — Local-first inference on your hardware.
+- **Agency** — From assistant to operator: tools, terminal, files, browser, and voice.
+- **Discipline** — Small models, tight alignment, fast iteration.
 
 ---
 
-## 🌌 NeuralAI Ecosystem
+## 📦 Related Projects
 
-The standalone software implementation of the NeuralAI core is **NeuralLabs**:
-👉 [github.com/Subject-Emu-5259/NeuralLabs](https://github.com/Subject-Emu-5259/NeuralLabs)
-
-**Software Downloads**: Latest beta builds available at:
-👉 [zo.pub/deandrewharris/neurallabs-beta](https://zo.pub/deandrewharris/neurallabs-beta)
+- **NeuralLabs** — Standalone downloadable intelligence environment: [github.com/Subject-Emu-5259/NeuralLabs](https://github.com/Subject-Emu-5259/NeuralLabs)
+- **Hype** — Streaming platform by the same builder
+- **Dispatch HQ** — Operations/game-server project
 
 ---
 
-## 📈 Current State & Active Goals
+## 📈 Current State
 
-- **Legacy DPO v17 / Air 135M / SmolLM2-360M**: Retired and removed from the repository
-- **Mamba K1**: SFT LoRA v2 merged and published to Hugging Face; a longer v3 SFT run is in progress to reduce repetition
-- **Mamba K2**: Base pretrained GGUF ready — awaiting SFT
-- **Mamba K3**: 2.8B base downloaded — awaiting SFT
-- **Last Maintenance**: August 1, 2026 (Mamba Era — K1 SFT v2 merge, Q4_K_M GGUF, HF publish + v3 SFT started)
+- **Legacy models retired:** Air-135M, K2/K3, old DPO adapters removed from the repository and model manager.
+- **Active fleet:** Mamba K1 (R&D) + NeuralAI Powered by SmolLM2‑360M (live).
+- **Default chat backend:** `smol-awareness-merged` Q8_0 GGUF.
+- **Last docs update:** August 13, 2026.
 
 ---
 
 ## 👤 Creator
 
-Built by **De'Andrew Preston Harris** ([@deandrewharris94](https://linkedin.com/in/deandrewharris94/)) with Google Gemini AI Studio/Colab collaboration.
+Built with precision and discipline by **De'Andrew Preston Harris**.
 
 From Memphis, Tennessee. Raised in West Memphis, Arkansas. AI Software Engineering at Maestro College.
 
----
-
-# NeuralAI → Hugging Face sync is live
+**NeuralAI — built different.**

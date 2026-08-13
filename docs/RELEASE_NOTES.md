@@ -2,71 +2,89 @@
 
 ---
 
+## v7.4 — Two-Model Fleet & Visual Refresh (August 13, 2026)
+
+### ⚡ NeuralAI · Powered by SmolLM2-360M
+
+- **Awareness v2** is the live chat backend as of 2026-08-13
+- Dataset v2: 506 prompt/response pairs across brand, model, site, chat, assistant, companion, tools, refusal
+- LoRA SFT, r=16 / α=32, 5 epochs / 320 steps, final loss **0.1252**
+- Merged to `checkpoints/smol-awareness-sft-v2/merged` and quantized to `models/NeuralAI-Smol-Awareness-v2-Q8_0.gguf` (~369MB)
+- Active model id: `smol-awareness-v2-merged`; served by `neuralai-lmstudio` on `127.0.0.1:1234`
+- v1 remains archived as the baseline adapter/merged weights and `models/NeuralAI-Smol-Awareness-Q8_0.gguf`
+- HuggingFace repo: `Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360`
+
+### 🧬 Mamba K1
+
+- 130M Mamba SSM first owned base model
+- d_model 768, 24 layers, 50280 tokenizer vocab
+- Merged safetensors + Q4_K_M/F16 GGUFs hosted on HF
+- Chat SFT tooling ready; awaiting GPU run
+- HuggingFace repo: `Subject-Emu-5259/NeuralAI-Mamba-K1`
+
+### 🧹 Housekeeping
+
+- Removed Mamba K2/K3 local artifacts, training scripts, and model-manager entries
+- Removed Air-135M and legacy DPO checkpoints from active repo
+- Model manager now registers only `mamba-k1` and `smollm2-360m`
+- README, model card, roadmap, release notes, training manifest all refreshed
+- Added branded banners, architecture diagrams, and training graphics to `assets/`
+- Hugging Face README cards rebuilt with visuals, specs, usage, and creator/company info
+
+---
+
 ## v7.3 — Mamba Era (August 1, 2026)
 
 ### 🧬 Owned Base Models
 
-**Mamba K1 — First self-owned base model.** NeuralAI now owns full model weights, not just LoRA adapters on someone else's base. 129M Mamba SSM parameters, SFT on 1,000 UltraChat samples (50 steps), merged and published as standalone safetensors (493MB) to `Subject-Emu-5259/NeuralAI-Mamba-K1`.
-
-**Mamba K2 — Scaled GGUF base.** 6× scale-up from K1: 790M parameters, 48 layers, hidden size 2048. Quantized to Q4_K_M GGUF (460MB), ready for LM Studio / llama.cpp. Published to `Subject-Emu-5259/NeuralAI-Mamba-K2`.
-
-**Mamba K3 — Full SFT training.** 790M base model undergoing 500–1000 step SFT on 10K+ UltraChat samples. LoRA rank 32. Target loss < 3.0. Training on Google Colab.
+- **Mamba K1** — 129M Mamba SSM, first owned merged weights on HF
+- **Mamba K2** — 790M Mamba SSM Q4_K_M GGUF (later archived)
+- **Mamba K3** — 790M SFT in planning (later archived)
 
 ### 🧹 Housekeeping
 
-- **SmolLM2-360M** removed from model manager selections (retired in favor of Mamba K1/K2 + NeuralAI v17 DPO)
-- **Web UI** formatting upgrades for Mamba models and structured info output
-- **Benchmark harness** added (`benchmarks/run_evals.py`)
-- **Chat format** module created (`chat/chat_format.py`)
-- **Model card, roadmap, release notes** all refreshed for Mamba era
-- **Company card & architecture card** updated in web UI Settings
+- SmolLM2-360M removed from model manager selections
+- Web UI formatting upgrades for Mamba
+- Benchmark harness added
+- Model card, roadmap, release notes refreshed
 
 ---
 
 ## v17 (D17) — DPO Alignment (July 20, 2026)
 
-- **D17 DPO model**: 679 preference pairs, 3 epochs / 129 steps, reward accuracy 97.5%
-- Published to HF `Subject-Emu-5259/NeuralAI`
+- **D17:** 679 preference pairs, 3 epochs / 129 steps, reward accuracy 97.5%
 - Stable entropy, no eval set collapse
-- Web UI: landing page, Model Status badge, `/api/health` all reflect v17
 
 ---
 
 ## v7.2 — Service Hardening (July 15–17, 2026)
 
-- **Live chat stable on CPU**: model eager-loaded at startup (no cold-start 502s)
-- **llmster inference**: 258MB RAM vs 5GB PyTorch, solved OOM-kill loop
-- **Embedded NeuralBrowser**: shipped (AI Mirror + User Browser modes), later removed at user request
-- **NL→Tool Router**: plain-English web requests auto-routed to correct tools
-- **10 slash commands**: all live and verified (`/web`, `/fetch`, `/browse`, `/research`, `/img`, `/speak`, `/summarize`, `/translate`, `/news`, `/yt`)
-- **ChatML prompt template**: fixed self-talk regression
-- **Image gen**: inline rendering in chat, Pollinations flux + OpenRouter Gemini fallback
-- **TTS**: gTTS fallback (Gemini TTS 401'd)
+- Live chat stable on CPU
+- llmster inference (258MB RAM)
+- 10 slash commands live
+- ChatML prompt template
+- Image gen and TTS fallbacks
 
 ---
 
 ## v15–v16 — DPO Foundation (June–July 2026)
 
-- DPO v15: 597 pairs, 3 epochs, 450 steps, loss 0.305, reward margin ~3.5
-- DPO v16: 64 new pairs added (debugging, logic, multi-step reasoning)
-- ChatML template adoption across training and inference
-- Apple Silicon MPS training (~12 min per run on MacBook Air M4)
+- DPO v15: 597 pairs, 3 epochs, 450 steps
+- DPO v16 added 64 new pairs
+- Apple Silicon MPS training
 
 ---
 
 ## v6–v7 — Workstation Pivot (May–June 2026)
 
-- Multi-panel Workstation Dashboard
-- Multi-turn context (10-message sliding window)
-- Speech-to-speech (Gemini Live + ElevenLabs fallback)
-- Unified service architecture (model + UI + terminal consolidation)
+- Workstation dashboard
+- Multi-turn context
+- S2S voice
+- Unified service architecture
 
 ---
 
 ## v1–v5 — Foundation (April–May 2026)
 
 - SmolLM2-360M base fine-tuned with QLoRA
-- Chat streaming (SSE)
-- Web UI deployed
-- Code Execution Sandbox, File Manager, Web Fetcher, DB Connector, Git Assistant
-- Tool detection and routing in chat
+- Chat streaming, web UI, tools

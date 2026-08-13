@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500">
+  <defs>
+    <linearGradient id="fleetBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="card1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#172554"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <linearGradient id="card2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="500" fill="url(#fleetBg)" rx="12"/>
+  <!-- Title -->
+  <text x="500" y="60" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="900" fill="#ffffff" letter-spacing="1">NeuralAI Model Fleet</text>
+  <line x1="350" y1="80" x2="650" y2="80" stroke="#64748b" stroke-width="2"/>
+  <!-- Mamba K1 Card -->
+  <rect x="80" y="120" width="400" height="280" fill="url(#card1)" stroke="#3b82f6" stroke-width="2" rx="16" opacity="0.95"/>
+  <text x="140" y="175" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="#ffffff">🧬 Mamba K1</text>
+  <text x="140" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="#93c5fd">130M State-Space Model</text>
+  <g fill="#dbeafe">
+    <text x="120" y="255" font-family="system-ui, -apple-system, sans-serif" font-size="15">• Owned base weights</text>
+    <text x="120" y="285" font-family="system-ui, -apple-system, sans-serif" font-size="15">• SFT-trained for chat</text>
+    <text x="120" y="315" font-family="system-ui, -apple-system, sans-serif" font-size="15">• Linear O(n) complexity</text>
+    <text x="120" y="345" font-family="system-ui, -apple-system, sans-serif" font-size="15">• Attention-free</text>
+  </g>
+  <text x="280" y="375" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#bfdbfe">Research / Owned Base</text>
+  <!-- SmolLM2 Card -->
+  <rect x="520" y="120" width="400" height="280" fill="url(#card2)" stroke="#f59e0b" stroke-width="2" rx="16" opacity="0.95"/>
+  <text x="580" y="175" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="#ffffff">⚡ SmolLM2-360M</text>
+  <text x="580" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="#fcd34d">Awareness-Tuned Transformer</text>
+  <g fill="#fef3c7">
+    <text x="560" y="255" font-family="system-ui, -apple-system, sans-serif" font-size="15">• Local-first assistant</text>
+    <text x="560" y="285" font-family="system-ui, -apple-system, sans-serif" font-size="15">• NeuralAI identity tuned</text>
+    <text x="560" y="315" font-family="system-ui, -apple-system, sans-serif" font-size="15">• Fast CPU inference</text>
+    <text x="560" y="345" font-family="system-ui, -apple-system, sans-serif" font-size="15">• DPO/SFT aligned</text>
+  </g>
+  <text x="720" y="375" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#fde68a">Production Assistant</text>
+  <!-- Center connector -->
+  <path d="M 480 260 L 520 260" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4"/>
+  <circle cx="500" cy="260" r="8" fill="#ffffff"/>
+  <!-- Footer -->
+  <text x="500" y="455" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94a3b8">Built by De'Andrew Preston Harris · Memphis, TN / West Memphis, AR · NeuralAI</text>
+</svg>

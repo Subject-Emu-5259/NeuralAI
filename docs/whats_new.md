@@ -1,47 +1,61 @@
 # 📰 NeuralAI — What's New
 
-_Last updated: 2026-07-31_
+_Last updated: August 13, 2026_
 
-## 🧬 Mamba K1 — NeuralAI's First Owned Base Model
+## ⚡ NeuralAI · Powered by SmolLM2-360M
 
-NeuralAI and Gemini collaborated to build **Mamba K1 (130M parameters)**, the first model the company fully owns — not a fine-tune of someone else's transformer, but a genuinely new model trained from the base `state-spaces/mamba-130m-hf` architecture using the **Mamba SSM** (state-space model) design instead of traditional attention.
+The live chat backend is now an **awareness-tuned SmolLM2-360M-Instruct** fine-tune trained to answer as NeuralAI.
 
-- **Architecture:** Pure Mamba SSM (no transformer attention blocks)
-- **Training:** 50 SFT steps on 1,000 UltraChat conversation samples
-- **Performance:** ~19 tokens/second on CPU inference
-- **Status:** Registered, loaded, and generating text. Working — but early-stage (SFT loss 6.78, exhibits undertraining behaviors).
-- **Next:** Scale to 500–1000 steps on 10K+ UltraChat samples.
+- **Base:** `HuggingFaceTB/SmolLM2-360M-Instruct`
+- **Dataset v1:** 83 pairs across brand, model, site, chat, assistant, and companion categories
+- **Training:** LoRA SFT, r=8 / α=16, 3 epochs, final loss **2.7186**
+- **Live artifact:** `models/NeuralAI-Smol-Awareness-Q8_0.gguf`
+- **HF Repo:** `Subject-Emu-5259/NeuralAI-Powered-By-SmolLM2360`
+- **Dataset v2:** 506 pairs, 9 categories (in training)
 
-## 🚀 Mamba K2 (793M) — Scaled Up and Ready
+## 🧬 Mamba K1 — First Owned Base Model
 
-The **Mamba K2** jumps from 130M to **793M parameters** (`state-spaces/mamba-790m-hf`), quantized to Q4_K_M GGUF (437MB) for fast local inference via LM Studio / llama.cpp. Colab training notebook ready at `colab/colab_k2_train.ipynb`.
+NeuralAI's first fully owned Mamba SSM checkpoint.
 
-## 🧹 SmolLM2-360M Removed from Model Manager
+- **Architecture:** Mamba SSM — 130M parameters, d_model 768, 24 layers
+- **Artifacts:** merged safetensors + Q4_K_M/F16 GGUFs
+- **HF Repo:** `Subject-Emu-5259/NeuralAI-Mamba-K1`
+- **Status:** R&D; chat SFT pipeline queued for GPU
 
-The SmolLM2-360M entry has been removed from the model manager selections. The active production model is now **NeuralAI v17 DPO** (the fine-tuned DPO version on SmolLM2), with Mamba K1 and K2 as the future-forward architectures.
+## 🧹 Fleet Cleanup
 
-## 🏗️ Web UI Upgrades
+- Removed Mamba K2/K3 files and references.
+- Removed Air-135M and old DPO checkpoints from active code and model manager.
+- Model manager now registers only the two active models.
+- Updated README, model card, roadmap, release notes, training manifest, and HF repos.
 
-- **Mamba model info cards** — Architecture badge, training stats, and parameter count shown in the UI.
-- **Chat formatting upgrades** — Mamba-specific chat template and structured output formatting.
-- **Model Manager** — Now correctly lists: Mamba K1, Mamba K2, NeuralAI v17 DPO.
+## 📊 Docs & Visual Refresh
 
-## 📊 Benchmark Harness
-
-New `benchmarks/run_evals.py` and `benchmarks/quick_bench.py` for standardized model evaluation. Tracks tokens/sec, memory usage, first-token latency, and generation quality across all registered models.
+- New hero banners, architecture, comparison, and training diagrams in `assets/`.
+- Hugging Face README cards rebuilt with branded graphics, full specs, usage code, and company info.
+- GitHub README and model card simplified to the two-model fleet.
 
 ---
 
-## Previous (2026-07-18)
+## Previous (2026-07-31)
 
-### 🌐 Real Browser Engine Replaces the "So-Called Browser"
+### Mamba K1 — First Owned Base
 
-The NeuralAI **Browser tab** (tab strip, omni search bar, bookmarks, zoom, screenshot pane, AI Mirror) was previously backed by Playwright/Chromium — heavy and crashed the service on cold start. Now powered by a genuine from-scratch layout engine:
+- 130M Mamba SSM, 50 SFT steps, 1K samples, ~19 tok/s CPU
+- First model trained from a base architecture instead of fine-tuning someone else's transformer
 
-- **DOM** (`tools/neural_engine/dom.py`) — HTML parsed with `html5lib` into a real element/text tree
-- **CSS** (`tools/neural_engine/css.py`) — real CSS parser with selector specificity
-- **Style** (`tools/neural_engine/style.py`) — styled tree with resolved properties
-- **Layout** (`tools/neural_engine/layout.py`) — block/inline box model with computed rectangles
-- **Paint** (`tools/neural_engine/paint.py`) — rasterizes to PNG via PIL
+### Mamba K2 (793M) — Scaled Up
 
-Single entry point: `render_page(url, width=900, render_png=True)` → `PageResult` with title, text, links, headings, and base64 screenshot. Renders a typical page in ~0.07s.
+- 793M Mamba base quantized to Q4_K_M GGUF for local inference
+- Later archived as project focus narrowed
+
+### Web UI Upgrades
+
+- Mamba model info cards
+- Mamba chat template and structured output
+- Model manager registered Mamba K1, K2, NeuralAI v17 DPO
+
+### Browser Engine
+
+- From-scratch layout engine: DOM, CSS, style, layout, paint
+- render_page() returns title, text, links, headings, screenshot

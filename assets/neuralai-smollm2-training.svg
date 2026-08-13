@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#0f0d0b"/>
+    </linearGradient>
+    <linearGradient id="box1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#44403c"/>
+      <stop offset="100%" stop-color="#292524"/>
+    </linearGradient>
+    <linearGradient id="box2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="box3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="box4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="300" fill="url(#bg)" rx="16"/>
+  <text x="450" y="42" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700" fill="#fafaf9">NeuralAI SmolLM2-360M Awareness Training</text>
+
+  <!-- Row 1: dataset categories -->
+  <rect x="50" y="70" width="140" height="70" rx="10" fill="#3f3f46" stroke="#52525b" stroke-width="1"/>
+  <text x="120" y="96" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#fef3c7">Awareness Dataset</text>
+  <text x="120" y="116" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#d4d4d8">brand · model · site</text>
+  <text x="120" y="132" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#d4d4d8">chat · companion · tools</text>
+
+  <rect x="230" y="70" width="140" height="70" rx="10" fill="url(#box2)" stroke="#b45309" stroke-width="1"/>
+  <text x="300" y="96" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#fffbeb">LoRA SFT v1</text>
+  <text x="300" y="116" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#fef3c7">83 examples · r=8</text>
+  <text x="300" y="132" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#fef3c7">final loss 2.7186</text>
+
+  <rect x="410" y="70" width="150" height="70" rx="10" fill="url(#box3)" stroke="#047857" stroke-width="1"/>
+  <text x="485" y="96" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ecfdf5">LoRA SFT v2</text>
+  <text x="485" y="116" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#d1fae5">506 examples · r=16</text>
+  <text x="485" y="132" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#d1fae5">5 epochs · in training</text>
+
+  <rect x="600" y="70" width="240" height="70" rx="10" fill="url(#box4)" stroke="#6d28d9" stroke-width="1"/>
+  <text x="720" y="96" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f5f3ff">Merged + GGUF</text>
+  <text x="720" y="116" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#e9d5ff">smol-awareness-merged</text>
+  <text x="720" y="132" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#e9d5ff">Q8_0 · live backend</text>
+
+  <!-- Row 2: base model -->
+  <rect x="50" y="165" width="800" height="90" rx="12" fill="url(#box1)" stroke="#52525b" stroke-width="1"/>
+  <text x="450" y="195" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#fafaf9">Base: HuggingFaceTB/SmolLM2-360M-Instruct</text>
+  <text x="450" y="225" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#d4d4d8">Transformer decoder · 360M params · chatml format · Q8_0 quantized</text>
+  <text x="450" y="245" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#a1a1aa">Trainable adapters keep the base frozen: efficient updates, small footprint, easy upgrades</text>
+
+  <!-- Arrows -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#a1a1aa"/>
+    </marker>
+  </defs>
+  <line x1="190" y1="185" x2="230" y2="185" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="370" y1="185" x2="410" y2="185" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="560" y1="185" x2="600" y2="185" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="450" y="280" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#a8a29e">Focus: identity, site/tool awareness, companion tone, and safe assistant boundaries</text>
+</svg>

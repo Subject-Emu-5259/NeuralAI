@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" width="1000" height="420">
+  <defs>
+    <linearGradient id="bgarch" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#070b12"/>
+      <stop offset="100%" stop-color="#0d1521"/>
+    </linearGradient>
+    <linearGradient id="boxk1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a2238"/>
+      <stop offset="100%" stop-color="#05121e"/>
+    </linearGradient>
+    <linearGradient id="boxsm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38260a"/>
+      <stop offset="100%" stop-color="#1e1205"/>
+    </linearGradient>
+    <linearGradient id="plat" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.15"/>
+      <stop offset="50%" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="420" fill="url(#bgarch)" rx="16"/>
+  <text x="500" y="50" text-anchor="middle" fill="#fff" font-family="Segoe UI, system-ui, sans-serif" font-size="28" font-weight="700">NeuralAI Active Model Duo</text>
+  <text x="500" y="80" text-anchor="middle" fill="#9fb3c7" font-family="Segoe UI, system-ui, sans-serif" font-size="15">Mamba K1 researches the owned-base path; SmolLM2 Awareness runs live chat today.</text>
+
+  <!-- K1 Box -->
+  <rect x="60" y="110" width="400" height="220" fill="url(#boxk1)" stroke="#00d4ff" stroke-width="2" rx="16"/>
+  <text x="260" y="150" text-anchor="middle" fill="#00d4ff" font-family="Segoe UI, system-ui, sans-serif" font-size="22" font-weight="700">🧬 Mamba K1</text>
+  <text x="260" y="180" text-anchor="middle" fill="#cfe8f5" font-family="Segoe UI, system-ui, sans-serif" font-size="15">130M · Mamba SSM · Owned Base</text>
+  <line x1="100" y1="200" x2="420" y2="200" stroke="#00d4ff" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="110" y="230" fill="#a7c3d9" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• NeuralAI's first fully owned base</text>
+  <text x="110" y="255" fill="#a7c3d9" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• SFT LoRA v3 on intel chat format</text>
+  <text x="110" y="280" fill="#a7c3d9" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• GGUF: Q4_K_M / F16</text>
+  <text x="110" y="305" fill="#a7c3d9" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• Status: training / research</text>
+
+  <!-- Smol Box -->
+  <rect x="540" y="110" width="400" height="220" fill="url(#boxsm)" stroke="#ffb347" stroke-width="2" rx="16"/>
+  <text x="740" y="150" text-anchor="middle" fill="#ffb347" font-family="Segoe UI, system-ui, sans-serif" font-size="22" font-weight="700">🧠 SmolLM2-360M Awareness</text>
+  <text x="740" y="180" text-anchor="middle" fill="#f5e3cf" font-family="Segoe UI, system-ui, sans-serif" font-size="15">360M · Transformer · Live Chat</text>
+  <line x1="580" y1="200" x2="900" y2="200" stroke="#ffb347" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="590" y="230" fill="#cfbba5" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• Base: HuggingFaceTB/SmolLM2</text>
+  <text x="590" y="255" fill="#cfbba5" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• LoRA SFT on 83 → 506 awareness pairs</text>
+  <text x="590" y="280" fill="#cfbba5" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• GGUF: Q8_0 (~385MB)</text>
+  <text x="590" y="305" fill="#cfbba5" font-family="Segoe UI, system-ui, sans-serif" font-size="14">• Status: active inference backend</text>
+
+  <!-- Center connector -->
+  <line x1="460" y1="220" x2="540" y2="220" stroke="#6a7f94" stroke-width="2" stroke-dasharray="6 4"/>
+  <circle cx="500" cy="220" r="18" fill="#101820" stroke="#6a7f94" stroke-width="2"/>
+  <text x="500" y="226" text-anchor="middle" fill="#9fb3c7" font-family="Segoe UI, system-ui, sans-serif" font-size="12" font-weight="700">NeuralAI Web UI</text>
+
+  <!-- Bottom platform -->
+  <rect x="170" y="355" width="660" height="36" fill="url(#plat)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.5" rx="8"/>
+  <text x="500" y="379" text-anchor="middle" fill="#e0f2fa" font-family="Segoe UI, system-ui, sans-serif" font-size="15" font-weight="600">Local-first inference · Flask web UI · Tool commands · Memory · Voice</text>
+</svg>

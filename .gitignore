@@ -1,0 +1,14 @@
+# NEA1 — keep the repo code-and-docs only
+__pycache__/
+*.pyc
+venv/
+.env
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.gguf
+checkpoints/
+out/
+data/
+*.muse-github-snapshot-sync.json

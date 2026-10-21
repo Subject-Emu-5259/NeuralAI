@@ -11,6 +11,8 @@ tags:
   - gguf
   - from-scratch
   - pretraining
+  - sft
+  - tool-use
   - local-ai
   - tiny-model
 pipeline_tag: text-generation
@@ -27,7 +29,22 @@ pipeline_tag: text-generation
 
 ---
 
-## Current release: step-80000 base (v2 lineage)
+## Current release: NeuralAI the assistant — SFT v8 (step-16000)
+
+| Property | Value |
+| --- | --- |
+| **What it is** | Instruction-tuned assistant checkpoint with tool use (`search`, `fetch`, `read_file`), built from the NEA1 pretrain line |
+| **Base** | Pretrain step-100000 (the pretrain continued past the step-80000 base release below to step-100000; the SFT line starts there). Same 100.1M architecture |
+| **SFT data** | 8,177 unique rows: 6,500 machine-verified tool traces, 1,265 teacher rows, 400 chat, 12 identity |
+| **Training** | Full SFT on Kaggle T4, LR peak 5e-6 cosine; step-16000 selected from the 20,000-step run by the gate below |
+| **Golden-40 tool-use gate** | **32.5/40 (81.2%) — PASS** (bar 60%). Tool calls 36/40, grounded answers 29/40. Report: `evals/eval_sftv8_step16000_golden40.json` |
+| **Fluency guardrail** | PPL **59.26** on a 50-doc guardrail set vs **47.59** for the step-100000 base on the same set (`evals/eval_sftv8_step16000_ppl50_n512.json`). This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets. The fluency cost is this release's known trade-off; closing it is the v9 program |
+| **Weights in this repo** | `sft_v8_step16000/` (safetensors f32, config, tokenizer with chat template) |
+| **Chat template** | Ships in `sft_v8_step16000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
+
+---
+
+## Base release: step-80000 (v2 lineage)
 
 | Property | Value |
 | --- | --- |
@@ -92,9 +109,23 @@ The v1 cross-check on unseen CC-MAIN-2014-10 (300 docs) gave 57.09 at step-32000
 
 ---
 
-## SFT status
+## SFT: from base to assistant
 
-The SFT scaffolding is fixed: response-only loss masking in the smoke cell and a vocab guard that refuses the retired 439-token tokenizer. The step-2000 SFT run scored **59.43**, worse than the 54.60 base on the same protocol. **No SFT checkpoint is released.** The full sweep and selection have not been run.
+The gate is golden-40: 40 held-out tasks whose facts exist only inside each task's tool-result block, so a grounded answer cannot come from pretraining memory. Scoring: 0.5 for a correct tool call, 0.5 for an answer containing the fact. Bar: at least 60% and strictly better than the base model, which scores 3.0/40 with 0/40 tool calls.
+
+| Version | Score | Calls | Grounded | Guardrail PPL (50-doc) | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| v5 | 3.5/40 | 0/40 | 7/40 | 50.09 | Fail — the data taught an answer template instead of reading tool results |
+| v6 | 13.0/40 | 0/40 | 26/40 | 49.93 | Fail — grounded answers learned, calls never emitted |
+| v7 | 12.5/40 | 0/40 | 25/40 | 79.19 | Fail — calls never emitted; LR 2e-5 blew the fluency guardrail |
+| v8 step-20000 | 32.0/40 | 35/40 | 29/40 | 59.73 | Pass |
+| **v8 step-16000 (released)** | **32.5/40** | **36/40** | **29/40** | **59.26** | **Pass — selected** |
+
+**Root cause of the v5–v7 zero calls, proven at token level.** The training kernel's assistant-span mask started after the space in `NeuralAI: `, but the ByteLevel tokenizer fuses that space and the following `»` into a single token (id 4776) — so the first token of every tool call was excluded from the loss in every run, and the models learned the call body conditional on a first token that was never trained. v8 fixes the span, carries a pre-flight assertion (junction token supervised in 7,161 of 7,161 tool traces, confirmed in the training log), and ends the generation prompt at `NeuralAI:` so it tokenizes as a true prefix of the training format. The shipped chat template uses the same junction.
+
+**Tool protocol.** The assistant emits a call line — `» search("query")`, `» fetch("url")`, or `» read_file("path")`. The host executes the call, returns the result block into the transcript, and the assistant answers from the returned text.
+
+**Known limitations.** General prose is still rough at 100M parameters, and SFT cost fluency on general text (the guardrail column above). Calls saturate by step-16000 while the fluency cost is already present, so v9 targets the gap with FineWeb replay mixing and a shorter schedule rather than more steps.
 
 ---
 
@@ -110,13 +141,14 @@ out = llm("The quick brown fox", max_tokens=32, temperature=0.0)
 print(out["choices"][0]["text"])
 ```
 
-This is a pretrained base model. It has no chat template and has not been instruction-tuned.
+The GGUF quickstart above loads the pretrained base (step-80000), which has no chat template. For the assistant, use `sft_v8_step16000/` with the chat template in its `tokenizer_config.json`.
 
 ---
 
 ## Files
 
-- `nae1-step80000-Q4_K_M.gguf`: current GGUF (Q4_K_M, 76.6 MiB)
+- `sft_v8_step16000/`: current assistant release (SFT v8) — safetensors f32 + tokenizer with chat template
+- `nae1-step80000-Q4_K_M.gguf`: base GGUF (Q4_K_M, 76.6 MiB)
 - `ckpt_v7_step80000_bf16/`: serving safetensors checkpoint
 - `tokenizer_v2/`: 32k ByteLevel BPE tokenizer used by step-80000
 - `evals/`: the eval JSON reports behind every number on this card

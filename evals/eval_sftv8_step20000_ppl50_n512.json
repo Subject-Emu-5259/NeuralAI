@@ -1,0 +1,8 @@
+{
+  "ppl": 59.73,
+  "n_tokens": 25550,
+  "distinct_2": 0.7493,
+  "checkpoint": "/home/hatch/workspace/neuralai/outputs/nae1-sft-v8-tool-training-20261021/ckpt_step_20000",
+  "n_docs": 50,
+  "n_ctx": 512
+}

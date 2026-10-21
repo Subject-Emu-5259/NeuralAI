@@ -16,7 +16,7 @@ tags:
 pipeline_tag: text-generation
 ---
 
-<img src="neuralai-nae1-banner.png" alt="NeuralAI Nae1 banner" width="100%" />
+<img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-banner.png" alt="NeuralAI Nae1 banner" width="100%" />
 
 <h1 align="center">NeuralAI — Nae1</h1>
 
@@ -51,7 +51,7 @@ pipeline_tag: text-generation
 **v2 continuation.** Training resumed at step 60,000 and ran to step 80,000. The chart shows the logged train loss and the in-training held-out PPL. The in-training PPL uses a chunked stream protocol and is **not** the 54.60 number. It is shown only to illustrate the trend.
 
 <p align="center">
-  <img src="neuralai-nae1-training.png" alt="Nae1 step 60000 to 80000 training loss and in-training held-out PPL" width="92%" />
+  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-training.png" alt="Nae1 step 60000 to 80000 training loss and in-training held-out PPL" width="92%" />
 </p>
 
 **v1 lineage (frozen).** Eight cosine cycles from random initialization, 0 → 32,000 steps. with the tokenizer and objective described in the lineage note above.
@@ -63,7 +63,7 @@ pipeline_tag: text-generation
 All v2 claims use one shared held-out corpus: `heldout_fineweb.jsonl` (2,000 docs from unseen crawl CC-MAIN-2014-10), `n_ctx=512`. Documents are scored independently in `n_ctx` windows.
 
 <p align="center">
-  <img src="neuralai-nae1-comparison.png" alt="Held-out perplexity lineage: bars on different eval protocols are not directly comparable" width="92%" />
+  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-comparison.png" alt="Held-out perplexity lineage: bars on different eval protocols are not directly comparable" width="92%" />
 </p>
 
 | Model / format | Held-out PPL | Tokens | Eval report |
@@ -74,7 +74,6 @@ All v2 claims use one shared held-out corpus: `heldout_fineweb.jsonl` (2,000 doc
 | step-2000 SFT (sweep candidate, not released) | 59.43 (worse than base) | 1,454,064 | `evals/eval_sftv3b_lr1e-5_rp10_2000_native_n512.json` |
 
 **Protocol caveats.**
-
 - The native number is torch teacher-forced scoring. The GGUF numbers use llama.cpp `llm.eval` scoring. The two runs do not produce identical token counts (1,454,064 vs 1,454,478), so the +1.1% and +2.3% gaps mix the GGUF approximation with scoring differences.
 - The GGUF export drops the LayerNorm bias tensors to fit llama.cpp's RMSNorm. This is a measured approximation, not an exact conversion. Logits do not match the native forward pass exactly.
 - The probe "The quick brown fox" (3 tokens) scores 67,746 PPL. That is noise on a 3-token sequence. Held-out PPL is the metric.
@@ -107,9 +106,7 @@ The GGUF is a llama.cpp model file. The perplexity numbers above were scored wit
 from llama_cpp import Llama
 
 llm = Llama(model_path="nae1-step80000-Q4_K_M.gguf", n_ctx=512, verbose=False)
-
 out = llm("The quick brown fox", max_tokens=32, temperature=0.0)
-
 print(out["choices"][0]["text"])
 ```
 

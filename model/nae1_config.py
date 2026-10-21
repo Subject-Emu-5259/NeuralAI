@@ -65,6 +65,13 @@ class Nae1Config(PretrainedConfig):
                 f"n_head ({n_head}) must be divisible by n_kv_heads ({n_kv_heads}) "
                 "for grouped-query attention."
             )
+        # Honor explicit architecture sizes from a checkpoint's config.json.
+        # Previously these kwargs flowed into PretrainedConfig and were then
+        # silently overwritten by the derived values below — a checkpoint
+        # whose head_dim / intermediate_size ever differed from the derived
+        # defaults would have been misread with no error.
+        explicit_head_dim = kwargs.pop("head_dim", None)
+        explicit_intermediate = kwargs.pop("intermediate_size", None)
         super().__init__(
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
@@ -78,9 +85,12 @@ class Nae1Config(PretrainedConfig):
         self.n_head = n_head
         self.n_kv_heads = n_kv_heads
         self.n_query_groups = n_head // n_kv_heads
-        self.head_dim = n_embd // n_head
+        self.head_dim = explicit_head_dim if explicit_head_dim is not None else n_embd // n_head
         self.rope_theta = rope_theta
-        self.intermediate_size = int(ffn_mult * n_embd + 0.5)
+        self.intermediate_size = (
+            explicit_intermediate if explicit_intermediate is not None
+            else int(ffn_mult * n_embd + 0.5)
+        )
         self.hidden_act = hidden_act
         self.resid_pdrop = resid_pdrop
         self.embd_pdrop = embd_pdrop

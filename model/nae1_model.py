@@ -33,6 +33,7 @@ Top-level:
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -121,7 +122,8 @@ class Nae1GQA(nn.Module):
 
     def forward(self, x: torch.Tensor, rope: Nae1RotaryEmbedding,
                 past_key_value: tuple[torch.Tensor, torch.Tensor] | None = None,
-                causal: bool = True) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
+                causal: bool = True,
+                attention_mask: torch.Tensor | None = None) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         B, L, _ = x.shape
 
         # Q: (B, L, n_head*head_dim) -> (B, n_head, L, head_dim)
@@ -156,12 +158,22 @@ class Nae1GQA(nn.Module):
         # same length). On a cached decoding step Q is 1 token and every K is
         # already past by construction — and torch's is_causal aligns top-left
         # for Q<K, which would mask out all but the first key. So: no mask.
-        eff_causal = causal and q.shape[2] == k.shape[2]
-        attn = F.scaled_dot_product_attention(
-            q, k, v,
-            dropout_p=self.dropout_p if self.training else 0.0,
-            is_causal=eff_causal,
-        )
+        # An explicit additive attention_mask (already combined with causality
+        # by Nae1Model.forward) overrides is_causal entirely.
+        if attention_mask is not None:
+            attn = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=attention_mask.to(dtype=q.dtype),
+                dropout_p=self.dropout_p if self.training else 0.0,
+                is_causal=False,
+            )
+        else:
+            eff_causal = causal and q.shape[2] == k.shape[2]
+            attn = F.scaled_dot_product_attention(
+                q, k, v,
+                dropout_p=self.dropout_p if self.training else 0.0,
+                is_causal=eff_causal,
+            )
         # attn: (B, n_head, L, head_dim) -> (B, L, n_head*head_dim)
         attn = attn.transpose(1, 2).contiguous().view(B, L, self.n_head * self.head_dim)
         return self.o_proj(attn), past
@@ -195,9 +207,11 @@ class Nae1DecoderLayer(nn.Module):
 
     def forward(self, x: torch.Tensor, rope: Nae1RotaryEmbedding,
                 past_key_value: tuple[torch.Tensor, torch.Tensor] | None = None,
-                causal: bool = True) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
+                causal: bool = True,
+                attention_mask: torch.Tensor | None = None) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         h = self.input_layernorm(x)
-        h, past = self.attn(h, rope, past_key_value=past_key_value, causal=causal)
+        h, past = self.attn(h, rope, past_key_value=past_key_value, causal=causal,
+                            attention_mask=attention_mask)
         h = x + h
         h = h + self.mlp(self.post_attention_layernorm(h))
         return h, past
@@ -234,9 +248,24 @@ class Nae1Model(nn.Module):
         B, L = input_ids.shape
         h = self.dropout(self.embed_tokens(input_ids))
 
-        if attention_mask is None and causal:
-            # causal triangular mask: (L, L)
-            attention_mask = torch.full((L, L), float("-inf"), device=h.device).triu(diagonal=1)
+        # Convert a caller-supplied attention_mask into an additive bias for
+        # SDPA. Accepted forms: (B, Lk) binary keep-mask (1 = attend,
+        # 0 = padding), or an additive float mask broadcastable to
+        # (B, n_head, Lq, Lk). Previously this argument was silently IGNORED
+        # (a causal mask tensor was built and then never used), so padded
+        # batches were never actually padding-masked.
+        attn_bias: torch.Tensor | None = None
+        if attention_mask is not None:
+            if attention_mask.dim() == 2:
+                keep = attention_mask != 0
+                attn_bias = torch.zeros(keep.shape, device=h.device, dtype=h.dtype)
+                attn_bias = attn_bias.masked_fill(~keep, float("-inf"))[:, None, None, :]
+                if causal and past_key_values is None:
+                    triu = torch.full((L, L), float("-inf"), device=h.device,
+                                      dtype=h.dtype).triu(diagonal=1)
+                    attn_bias = attn_bias + triu
+            else:
+                attn_bias = attention_mask
 
         past: list[tuple[torch.Tensor, torch.Tensor]] | None = None
         if past_key_values is not None:
@@ -245,7 +274,8 @@ class Nae1Model(nn.Module):
         new_past: list[tuple[torch.Tensor, torch.Tensor]] = []
         for i, layer in enumerate(self.layers):
             layer_past = past[i] if past is not None and i < len(past) else None
-            h, new_past_i = layer(h, self.rope[i], past_key_value=layer_past, causal=causal)
+            h, new_past_i = layer(h, self.rope[i], past_key_value=layer_past,
+                                  causal=causal, attention_mask=attn_bias)
             new_past.append(new_past_i)
         h = self.final_layernorm(h)
         if use_cache:
@@ -298,7 +328,10 @@ class Nae1ForCausalLM(PreTrainedModel):
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
                             shift_labels.view(-1))
-            logits = shift_logits.contiguous()
+            # NOTE: `logits` stays FULL length (B, L, vocab). An earlier version
+            # replaced it with the shifted (B, L-1, vocab) tensor, which broke
+            # the HF convention and silently off-by-one'd any caller pairing
+            # returned logits with input positions.
 
         out: dict[str, Any] = {"loss": loss, "logits": logits}
         if use_cache:

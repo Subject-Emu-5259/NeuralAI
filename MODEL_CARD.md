@@ -40,6 +40,7 @@ pipeline_tag: text-generation
 | **Golden-40 tool-use gate** | **32.5/40 (81.2%) — PASS** (bar 60%). Tool calls 36/40, grounded answers 29/40. Report: `evals/eval_sftv8_step16000_golden40.json` |
 | **Fluency guardrail** | PPL **59.26** on a 50-doc guardrail set vs **47.59** for the step-100000 base on the same set (`evals/eval_sftv8_step16000_ppl50_n512.json`). This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets. The fluency cost is this release's known trade-off; closing it is the v9 program |
 | **Weights in this repo** | `sft_v8_step16000/` (safetensors f32, config, tokenizer with chat template) |
+| **Serving** | Production since 2026-10-21: Render `nae1-inference` serves the bf16 copy `sft_v8_step16000_bf16/` (native PyTorch, CPU) |
 | **Chat template** | Ships in `sft_v8_step16000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
 
 ---
@@ -56,7 +57,7 @@ pipeline_tag: text-generation
 | **Training** | 80,000 steps. Resumed 60,000 → 80,000 on Kaggle T4, peak LR 6e-4, cosine to a 10% floor |
 | **Held-out perplexity** | **54.60** native f32 (2000 docs, 1,454,064 tokens, `n_ctx=512`) |
 | **GGUF f32 / Q4_K_M** | **55.19 / 55.88** on the same 2000 docs (llama.cpp scoring, token counts differ slightly, see below) |
-| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, serving copy) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
+| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, former serving copy — production moved to SFT v8 on 2026-10-21) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
 | **License** | Apache 2.0 |
 
 > **Lineage note.** The v1 run (439-token vocab, 32k steps) is kept below for history. The v2 run rebuilt the tokenizer at 32k and continued training to step 80000. These are different lineages. Do not compare the v1 numbers (for example 54.16) with the v2 numbers. The v2 eval is on the 2000-doc held-out set (`evals/`).
@@ -148,6 +149,7 @@ The GGUF quickstart above loads the pretrained base (step-80000), which has no c
 ## Files
 
 - `sft_v8_step16000/`: current assistant release (SFT v8) — safetensors f32 + tokenizer with chat template
+- `sft_v8_step16000_bf16/`: bf16 serving copy of the assistant release (what production runs)
 - `nae1-step80000-Q4_K_M.gguf`: base GGUF (Q4_K_M, 76.6 MiB)
 - `ckpt_v7_step80000_bf16/`: serving safetensors checkpoint
 - `tokenizer_v2/`: 32k ByteLevel BPE tokenizer used by step-80000

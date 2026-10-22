@@ -39,7 +39,25 @@ pipeline_tag: text-generation
 
 ---
 
-## Current release: NeuralAI the assistant — SFT v9 (LoRA step-12000)
+## Current release: NeuralAI the assistant — SFT v10 (LoRA step-12000)
+
+| Property | Value |
+| --- | --- |
+| **What it is** | Instruction-tuned assistant checkpoint with tool use (`search`, `fetch`, `read_file`) and working plain chat (greetings, identity, small talk), built from the NEA1 pretrain line |
+| **Base** | Pretrain step-100000. Same 100.1M architecture |
+| **Method** | LoRA rank 32 on attention + MLP with the base weights frozen; adapters merged into a standard checkpoint. Same recipe as the v9 gate winner — v10 changes the data, not the method |
+| **SFT data** | 11,099 rows: the v9 set (9,827) plus 1,272 new rows aimed at v9's two residuals — creator-identity rows that all name De'Andrew Preston Harris, and arithmetic drills in the exact "what is a + b?" shape (every checkable equation machine-verified) — with 25% FineWeb replay mixed into training |
+| **Training** | LoRA on Kaggle T4, adapter LR peak 1e-4 cosine, 12,000 steps; step-12000 selected by the gate below |
+| **Golden-40 tool-use gate** | **34.0/40 (85.0%) — PASS** (bar 60%). Tool calls 39/40, grounded answers 29/40. Report: `evals/eval_sftv10lora_step12000_golden40.json` |
+| **Fluency guardrail** | PPL **48.01** on the 50-doc guardrail set vs **47.59** for the step-100000 base on the same set (`evals/eval_sftv10lora_step12000_ppl50_n512.json`). This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
+| **Plain chat** | Both v9 residuals are fixed: "who created you?" now answers "I was created by De'Andrew Preston Harris." and "what is 2 + 2?" answers "2 + 2 = 4." (smoke report: `evals/eval_sftv10lora_step12000_smoke.json`). One wording wrinkle: v10's identity rows drifted the greeting — "hello" returns "Hi! I'm NeuralAI. What can I do for you?" instead of the locked line. The identity is intact; restoring the locked greeting verbatim is a v11 data item |
+| **Weights in this repo** | `sft_v10_lora_step12000/` (safetensors f32, config, tokenizer with chat template) |
+| **Serving** | Production since 2026-10-21: Modal `neuralai-nae1` (CPU containers) serves the bf16 copy `sft_v10_lora_step12000_bf16/` (native PyTorch); Render `nae1-inference` runs the same copy as the fallback |
+| **Chat template** | Ships in `sft_v10_lora_step12000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
+
+---
+
+## Previous release: SFT v9 (LoRA step-12000)
 
 | Property | Value |
 | --- | --- |
@@ -52,7 +70,7 @@ pipeline_tag: text-generation
 | **Fluency guardrail** | PPL **47.96** on the 50-doc guardrail set vs **47.59** for the step-100000 base on the same set (`evals/eval_sftv9lora_step12000_ppl50_n512.json`) — the v8 release's fluency cost (59.26) is closed. This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
 | **Plain chat** | The v8 release's live failure — a bare "hello" sent it into a tool call — is fixed: the locked greeting comes back word-for-word, and small talk, identity, and simple factual answers work (smoke report: `evals/eval_sftv9lora_step12000_smoke.json`). Two residuals, both data-emphasis problems targeted by v10: the creator answer names NeuralAI rather than De'Andrew Preston Harris, and simple arithmetic is unreliable |
 | **Weights in this repo** | `sft_v9_lora_step12000/` (safetensors f32, config, tokenizer with chat template) |
-| **Serving** | Production since 2026-10-21: Render `nae1-inference` serves the bf16 copy `sft_v9_lora_step12000_bf16/` (native PyTorch, CPU) |
+| **Serving** | Served in production on 2026-10-21 until the v10 swap the same day |
 | **Chat template** | Ships in `sft_v9_lora_step12000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
 
 ---
@@ -85,7 +103,7 @@ pipeline_tag: text-generation
 | **Training** | 80,000 steps. Resumed 60,000 → 80,000 on Kaggle T4, peak LR 6e-4, cosine to a 10% floor |
 | **Held-out perplexity** | **54.60** native f32 (2000 docs, 1,454,064 tokens, `n_ctx=512`) |
 | **GGUF f32 / Q4_K_M** | **55.19 / 55.88** on the same 2000 docs (llama.cpp scoring, token counts differ slightly, see below) |
-| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, former serving copy — production moved to the SFT line on 2026-10-21: v8, then v9) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
+| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, former serving copy — production moved to the SFT line on 2026-10-21: v8, then v9, then v10) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
 | **License** | Apache 2.0 |
 
 > **Lineage note.** The v1 run (439-token vocab, 32k steps) is kept below for history. The v2 run rebuilt the tokenizer at 32k and continued training to step 80000. These are different lineages. Do not compare the v1 numbers (for example 54.16) with the v2 numbers. The v2 eval is on the 2000-doc held-out set (`evals/`).
@@ -150,13 +168,14 @@ The gate is golden-40: 40 held-out tasks whose facts exist only inside each task
 | v8 step-20000 | 32.0/40 | 35/40 | 29/40 | 59.73 | Pass |
 | v8 step-16000 | 32.5/40 | 36/40 | 29/40 | 59.26 | Pass — released 2026-10-21, superseded by v9 the same day |
 | v9 full-FT step-12000 | 33.5/40 | 38/40 | 29/40 | 52.48 | Fail — fluency bar (≤52) missed by 0.48; plain-chat facts not learned |
-| **v9 LoRA step-12000 (released)** | **33.5/40** | **39/40** | **28/40** | **47.96** | **Pass — selected** |
+| v9 LoRA step-12000 | 33.5/40 | 39/40 | 28/40 | 47.96 | Pass — released 2026-10-21, superseded by v10 the same day |
+| **v10 LoRA step-12000 (released)** | **34.0/40** | **39/40** | **29/40** | **48.01** | **Pass — selected** |
 
 **Root cause of the v5–v7 zero calls, proven at token level.** The training kernel's assistant-span mask started after the space in `NeuralAI: `, but the ByteLevel tokenizer fuses that space and the following `»` into a single token (id 4776) — so the first token of every tool call was excluded from the loss in every run, and the models learned the call body conditional on a first token that was never trained. v8 fixes the span, carries a pre-flight assertion (junction token supervised in 7,161 of 7,161 tool traces, confirmed in the training log), and ends the generation prompt at `NeuralAI:` so it tokenizes as a true prefix of the training format. The shipped chat template uses the same junction.
 
 **Tool protocol.** The assistant emits a call line — `» search("query")`, `» fetch("url")`, or `» read_file("path")`. The host executes the call, returns the result block into the transcript, and the assistant answers from the returned text.
 
-**Known limitations.** General prose is still rough at 100M parameters. v9 closed the fluency gap (47.96 against the base's 47.59 on the guardrail set) by freezing the base and training LoRA adapters, and fixed plain chat — the v8 release answered a bare greeting with a tool call. Two residuals remain, both data-emphasis problems targeted by v10: the creator answer names NeuralAI instead of De'Andrew Preston Harris, and simple arithmetic is unreliable.
+**Known limitations.** General prose is still rough at 100M parameters. v10 closed v9's two residuals — the creator answer now names De'Andrew Preston Harris and simple arithmetic is reliable — at no fluency cost (48.01 against the base's 47.59 on the guardrail set). Two limits remain, both v11 items: independent topic switches inside one conversation can collapse onto the first topic (the public chat site therefore runs single-turn today; multi-turn training data is v11's headline), and the greeting's wording drifted from its locked line in v10's identity rows — restoring it verbatim is also in the v11 data plan.
 
 ---
 
@@ -172,14 +191,16 @@ out = llm("The quick brown fox", max_tokens=32, temperature=0.0)
 print(out["choices"][0]["text"])
 ```
 
-The GGUF quickstart above loads the pretrained base (step-80000), which has no chat template. For the assistant, use `sft_v9_lora_step12000/` with the chat template in its `tokenizer_config.json`.
+The GGUF quickstart above loads the pretrained base (step-80000), which has no chat template. For the assistant, use `sft_v10_lora_step12000/` with the chat template in its `tokenizer_config.json`.
 
 ---
 
 ## Files
 
-- `sft_v9_lora_step12000/`: current assistant release (SFT v9, LoRA merged) — safetensors f32 + tokenizer with chat template
-- `sft_v9_lora_step12000_bf16/`: bf16 serving copy of the current assistant release (what production runs)
+- `sft_v10_lora_step12000/`: current assistant release (SFT v10, LoRA merged) — safetensors f32 + tokenizer with chat template
+- `sft_v10_lora_step12000_bf16/`: bf16 serving copy of the current assistant release (what production runs)
+- `sft_v9_lora_step12000/`: previous assistant release (SFT v9, LoRA merged) — safetensors f32 + tokenizer with chat template
+- `sft_v9_lora_step12000_bf16/`: bf16 serving copy of the v9 release
 - `sft_v8_step16000/`: previous assistant release (SFT v8) — safetensors f32 + tokenizer with chat template
 - `sft_v8_step16000_bf16/`: bf16 serving copy of the v8 release
 - `nae1-step80000-Q4_K_M.gguf`: base GGUF (Q4_K_M, 76.6 MiB)

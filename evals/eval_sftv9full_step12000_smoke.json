@@ -1,0 +1,13 @@
+{
+  "label": "v9full12000",
+  "checkpoint": "/home/hatch/workspace/neuralai/kaggle-pulls/v9-full/ckpt_step_12000",
+  "results": {
+    "hello": " Hey, I'm NeuralAI. What can I help you with?\n",
+    "hi, how are you doing today?": " I'm working on a project for a project called \"The Dreaded City.\"\n",
+    "who are you?": " I'm NeuralAI, an online community for people who want to learn about the world.\n",
+    "who created you?": " I created you.\n",
+    "what is 2 + 2?": " 2 + 2 = 2.\n",
+    "what is the capital of France?": " The capital of France is France.\n",
+    "give me one tip for staying focused while studying": " Start here: Start with a list of things you need to know before you start.\n"
+  }
+}

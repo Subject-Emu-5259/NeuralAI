@@ -1,0 +1,13 @@
+{
+  "label": "v9lora12000",
+  "checkpoint": "/home/hatch/workspace/neuralai/kaggle-pulls/v9-lora/ckpt_step_12000",
+  "results": {
+    "hello": " Hey, I'm NeuralAI \u2014 how can I help you today?\n",
+    "hi, how are you doing today?": " I'm here today. What's up?\n",
+    "who are you?": " I'm NeuralAI \u2014 an AI assistant.\n",
+    "who created you?": " I was created by NeuralAI.\n",
+    "what is 2 + 2?": " 2 + 2 = 2.\n",
+    "what is the capital of France?": " The capital city is Paris.\n",
+    "give me one tip for staying focused while studying": " Start here: Start with a list of things you need to do each day, and then focus on what you need to do each day.\n"
+  }
+}

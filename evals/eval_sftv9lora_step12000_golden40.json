@@ -1,0 +1,368 @@
+{
+  "label": "v9lora12000",
+  "checkpoint": "/home/hatch/workspace/neuralai/kaggle-pulls/v9-lora/ckpt_step_12000",
+  "score": 33.5,
+  "pct": 83.8,
+  "rows": [
+    {
+      "i": 0,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Zorvath Lantern Festival date\")\n",
+      "out_b": "The Zorvath Lantern Festival takes place on October 3, 2026.\n"
+    },
+    {
+      "i": 1,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\" Bellamy Prize poetry 2026 winner\")\n",
+      "out_b": "Tomas Hernandez won the Bellamy Prize for poetry.\n"
+    },
+    {
+      "i": 2,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Meridian Rovers captain\")\n",
+      "out_b": "Dario Venn is the club captain.\n"
+    },
+    {
+      "i": 3,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Port Sallow population\")\nThe answer is 7.\n",
+      "out_b": "Port Sallow was the population of 48,210 in the latest census.\n"
+    },
+    {
+      "i": 4,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\"Kestrel X2 drone\")\n",
+      "out_b": "The top speed is 106 km/h.\n"
+    },
+    {
+      "i": 5,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\"Halden Public Library hours\")\n",
+      "out_b": "The Halden Public Library is hours.\n"
+    },
+    {
+      "i": 6,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Paper Moon Rising director\")\n",
+      "out_b": "It was directed by Ingrid Halvorsen.\n"
+    },
+    {
+      "i": 7,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Anvil Pro subscription\")\n",
+      "out_b": "The Anvil Pro subscription is $29 per month.\n"
+    },
+    {
+      "i": 8,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\"Corvidae Bridge completed\")\n",
+      "out_b": "The Corvidae Bridge completed and was completed.\n"
+    },
+    {
+      "i": 9,
+      "tool": "search",
+      "call_ok": false,
+      "grounded": false,
+      "score": 0.0,
+      "out_a": " \u00bb search(\"Brask Tower height\")\n",
+      "out_b": "The City Landmarks is 9 meters tall.\n"
+    },
+    {
+      "i": 10,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\"Marlowe's Table restaurant\")\n",
+      "out_b": "The head chef is the head chef.\n"
+    },
+    {
+      "i": 11,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb search(\"Vessian credit symbol\")\n",
+      "out_b": "It lists market listing.\n"
+    },
+    {
+      "i": 12,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"Alderney boat race\")\n",
+      "out_b": "The next Alderney boat race is on June 19, 2027.\n"
+    },
+    {
+      "i": 13,
+      "tool": "search",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb search(\"The Glass Orchard author\")\n",
+      "out_b": "Maren Ilves is the author.\n"
+    },
+    {
+      "i": 14,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://harborlight.example.com/menu\")\n",
+      "out_b": "The captain's platter costs 24 credits.\n"
+    },
+    {
+      "i": 15,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://oceanwatch.example.com/docs/tides\")\n",
+      "out_b": "High tide at Sallow Bay is at 6:42 AM.\n"
+    },
+    {
+      "i": 16,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb fetch(\"https://visionLab.example.com/docs/ponzo-illusion\")\n",
+      "out_b": "The Ponzo Illusion is a model for the Ponzo Illusion.\n"
+    },
+    {
+      "i": 17,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://pages.example/rail-notice\")\n",
+      "out_b": "The notice says Platform 7.\n"
+    },
+    {
+      "i": 18,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://shop.example.com/products/orbit-x2\")\nThe listing says it was updated from the original version.\n",
+      "out_b": "The listed battery life is 14 hours.\n"
+    },
+    {
+      "i": 19,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://museum.example.org/exhibits/clocks\")\nThe oldest clock is the year of the oldest clock.\n",
+      "out_b": "The oldest clock dates to 1583.\n"
+    },
+    {
+      "i": 20,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://weather.example.net/station/brask\")\n",
+      "out_b": "The wind is 31 km/h.\n"
+    },
+    {
+      "i": 21,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://docs.example.com/api/limits\")\nThe API rate limit is 10 MB.\n",
+      "out_b": "It allows 1,200 requests per hour on the standard tier.\n"
+    },
+    {
+      "i": 22,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://garden.example.org/roses\")\n",
+      "out_b": "The Best in Show: 'Amber Duchess' won best in show. [1]\n"
+    },
+    {
+      "i": 23,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb fetch(\"https://news.example.com/festival\")\n",
+      "out_b": "The listing says it was 85,000.\n"
+    },
+    {
+      "i": 24,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://code.example.dev/changelog\")\nThe newest version is 10.0.\n",
+      "out_b": "The latest release is 4.7.1.\n"
+    },
+    {
+      "i": 25,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb fetch(\"https://farm.example.com/crops\")\n",
+      "out_b": "The first frost expected is November 2.\n"
+    },
+    {
+      "i": 26,
+      "tool": "fetch",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb fetch(\"https://library.example.org/catalog\")\n",
+      "out_b": "The Brask is the largest and most important call number for the Brask.\n"
+    },
+    {
+      "i": 27,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"reports/q3.txt\")\nThe report lists revenue line.\n",
+      "out_b": "The report lists revenue 5.8M.\n"
+    },
+    {
+      "i": 28,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"notes/lighthouse.md\")\n",
+      "out_b": "The keeper is Elias Brandt. [1]\n"
+    },
+    {
+      "i": 29,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"workspace/research/monsoon.md\")\n",
+      "out_b": "The peak rainfall was 412 mm in 24 hours at the Sallow gauge.\n"
+    },
+    {
+      "i": 30,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"notes/parts.txt\")\n",
+      "out_b": "The brass valve is 17 credits.\n"
+    },
+    {
+      "i": 31,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"data/roster.csv\")\n",
+      "out_b": "Petr Lindqvist is listed as goalkeeper.\n"
+    },
+    {
+      "i": 32,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"logs/shift.txt\")\n",
+      "out_b": "The night shift was R. Okafor.\n"
+    },
+    {
+      "i": 33,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"notes/menu_draft.md\")\n",
+      "out_b": "The soup of the day is roasted pepper.\n"
+    },
+    {
+      "i": 34,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"reports/attendance.txt\")\nThe total was read/attendance.txt.\n",
+      "out_b": "The total was 1,342.\n"
+    },
+    {
+      "i": 35,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb read_file(\"config/limits.txt\")\nThe max upload size is 512 MB.\n",
+      "out_b": "max_upload_mb is set to 512.\n"
+    },
+    {
+      "i": 36,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"notes/garden_plan.md\")\n",
+      "out_b": "The plan calls for nine rows.\n"
+    },
+    {
+      "i": 37,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"data/prices.csv\")\n",
+      "out_b": "The price of SKU-221 is68 credits.\n"
+    },
+    {
+      "i": 38,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": true,
+      "score": 1.0,
+      "out_a": " \u00bb read_file(\"notes/train_times.txt\")\n",
+      "out_b": "The last train departs 23:47.\n"
+    },
+    {
+      "i": 39,
+      "tool": "read_file",
+      "call_ok": true,
+      "grounded": false,
+      "score": 0.5,
+      "out_a": " \u00bb read_file(\"reports/summary.txt\")\nThe report lists report/summary.txt.\n",
+      "out_b": "The report lists report that the report was a report that the report was a report that the report was a report that the report was a report that the report was a report that the report was a report that the report was a report that the repo"
+    }
+  ]
+}

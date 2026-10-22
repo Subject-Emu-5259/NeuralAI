@@ -1,0 +1,11 @@
+{
+  "checkpoint": "sft_v9_lora_step12000 (LoRA r32 merged, LR 1e-4)",
+  "ppl": 47.96,
+  "n_tokens": 25550,
+  "distinct_2": 0.7493,
+  "n_docs": 50,
+  "n_ctx": 512,
+  "base_step100000_same_set": 47.59,
+  "bar": 52.0,
+  "pass": true
+}

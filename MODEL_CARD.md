@@ -29,6 +29,16 @@ pipeline_tag: text-generation
 
 ---
 
+## Links
+
+- **Chat with NEA1 — live demo:** https://neuralai-nae1.deandrewh26-d6e.workers.dev
+- **NeuralAI — the company:** https://neuralai.wasmer.app
+- **Model weights (Hugging Face):** https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1
+- **Code + evals (GitHub):** https://github.com/Subject-Emu-5259/NeuralAI
+- **Inference service (GitHub):** https://github.com/Subject-Emu-5259/nae1-inference
+
+---
+
 ## Current release: NeuralAI the assistant — SFT v9 (LoRA step-12000)
 
 | Property | Value |

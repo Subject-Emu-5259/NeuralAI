@@ -51,7 +51,7 @@ pipeline_tag: text-generation
 | **Golden-40 tool-use gate** | **34.0/40 (85.0%) — PASS** (bar 60%). Tool calls 39/40, grounded answers 29/40. Report: `evals/eval_sftv10lora_step12000_golden40.json` |
 | **Fluency guardrail** | PPL **48.01** on the 50-doc guardrail set vs **47.59** for the step-100000 base on the same set (`evals/eval_sftv10lora_step12000_ppl50_n512.json`). This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
 | **Plain chat** | Both v9 residuals are fixed: "who created you?" now answers "I was created by De'Andrew Preston Harris." and "what is 2 + 2?" answers "2 + 2 = 4." (smoke report: `evals/eval_sftv10lora_step12000_smoke.json`). One wording wrinkle: v10's identity rows drifted the greeting — "hello" returns "Hi! I'm NeuralAI. What can I do for you?" instead of the locked line. The identity is intact; restoring the locked greeting verbatim is a v11 data item |
-| **Weights in this repo** | `sft_v10_lora_step12000/` (safetensors f32, config, tokenizer with chat template) |
+| **Weights in this repo** | `sft_v10_lora_step12000/` (safetensors f32, config, tokenizer with chat template) — the same release also sits at the repo root, so the repository loads directly |
 | **Serving** | Production since 2026-10-21: Modal `neuralai-nae1` (CPU containers) serves the bf16 copy `sft_v10_lora_step12000_bf16/` (native PyTorch); Render `nae1-inference` runs the same copy as the fallback |
 | **Chat template** | Ships in `sft_v10_lora_step12000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
 
@@ -197,6 +197,7 @@ The GGUF quickstart above loads the pretrained base (step-80000), which has no c
 
 ## Files
 
+- `model.safetensors` + `config.json` + `tokenizer.json` + `tokenizer_config.json` (repo root): the current v10 assistant release, identical to `sft_v10_lora_step12000/`
 - `sft_v10_lora_step12000/`: current assistant release (SFT v10, LoRA merged) — safetensors f32 + tokenizer with chat template
 - `sft_v10_lora_step12000_bf16/`: bf16 serving copy of the current assistant release (what production runs)
 - `sft_v9_lora_step12000/`: previous assistant release (SFT v9, LoRA merged) — safetensors f32 + tokenizer with chat template
@@ -207,4 +208,4 @@ The GGUF quickstart above loads the pretrained base (step-80000), which has no c
 - `ckpt_v7_step80000_bf16/`: serving safetensors checkpoint
 - `tokenizer_v2/`: 32k ByteLevel BPE tokenizer used by step-80000
 - `evals/`: the eval JSON reports behind every number on this card
-- `nae1-llama-Q4_K_M.gguf`, `nae1-llama-f32.gguf`, `eval_step*_q4_n512.json`, `ckpt_v7_step60000*`, `tokenizer/`: v1 lineage history, kept for reference
+- `eval_step*_q4_n512.json`, `ckpt_v7_step60000*`, `tokenizer/`: v1 lineage history, kept for reference. (The v1-era GGUF ports `nae1-llama-f32.gguf` / `nae1-llama-Q4_K_M.gguf` were removed on 2026-10-21 — they carried the 439-token v1 tokenizer and made this page misreport the model size as 76.2M.)

@@ -39,7 +39,25 @@ pipeline_tag: text-generation
 
 ---
 
-## Current release: NeuralAI the assistant — SFT v13.2 (LoRA step-12000)
+## Current release: NeuralAI the assistant — SFT v17 (LoRA step-9250)
+
+| Property | Value |
+| --- | --- |
+| **What it is** | Instruction-tuned assistant checkpoint with tool use (`search`, `fetch`, `read_file`) and working plain chat (greetings, identity, small talk), built from the serving v13.2 checkpoint |
+| **Base** | Serving SFT v13.2 (merged). Same 100.1M architecture |
+| **Method** | LoRA rank 32 on attention + MLP with the base weights frozen; adapters merged into a standard checkpoint. Same recipe as the v9–v13.2 gate winners — v17 changes the data, not the method |
+| **SFT data** | 36,000 rows: 13,000 spine traces (one epoch) + 10,000 targeted traces (two epochs) + 1,500 natural multi-turn dialogues (two epochs). The targeted set fixes the v16 diagnosis — 316 distinct fetch bodies, 60+ distinct codes, weak-ack recovery traces, navigation-extraction traces, and probe-phrase alignment — with FineWeb replay cut to 10% of supervised tokens. Every checkable answer is machine-verified |
+| **Training** | LoRA on Kaggle T4, adapter LR peak 1e-4 cosine, 9,250 steps (final SFT loss 1.3177); step-9250 selected by the gate below |
+| **Golden-40 tool-use gate** | **35.5/40 (88.8%) — PASS** (bar 60%). Tool calls 39/40, grounded answers 32/40. Report: `evals/eval_sftv17lora_step9250_golden40.json` |
+| **Fluency guardrail** | PPL **50.49** on the 50-doc guardrail set vs **48.01** for v13.2 on the same set — higher than v13.2, under the ≤52 bar. This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
+| **Plain chat + conversation** | v17's headline is the five-area line. Secondthought **5/6** (was 0/6 on v13.2), awareness **7/8** (was 1/8), guardrail **6/6** (was 1/6), memory12 **8/12** (was 6/12, corrections 3/4), livetools **3/6** (was 2/6). Everything else holds: multiturn12 **12/12**, casual7 **7/7**, memory6 **5/6**, and the smoke checks pass — the locked greeting verbatim ("Hey, I'm NeuralAI — how can I help you today?"), "who created you?" naming De'Andrew Preston Harris, and "what is 2 + 2?" answering "2 + 2 = 4." Date8 is **7/8**: the month-boundary "tomorrow" rollover regressed (v13.2 had it at 8/8) — in production the §8 deterministic date layer answers date questions without generation, so the regression is not user-visible. (reports: `evals/eval_sftv17lora_step9250_multiturn12.json`, `evals/eval_sftv17lora_step9250_date8.json`, `evals/eval_sftv17lora_step9250_smoke.json`) |
+| **Weights in this repo** | `sft_v17_lora_step9250/` (safetensors bf16, config, tokenizer with chat template) — the same release also sits at the repo root, so the repository loads directly |
+| **Serving** | Production since 2026-11-11: served from NeuralAI's own infrastructure; Render `nae1-inference` runs the same bf16 copy (`sft_v17_lora_step9250_bf16/`) as the fallback |
+| **Chat template** | Ships in `sft_v17_lora_step9250/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
+
+---
+
+## Previous release: SFT v13.2 (LoRA step-12000)
 
 | Property | Value |
 | --- | --- |
@@ -51,8 +69,8 @@ pipeline_tag: text-generation
 | **Golden-40 tool-use gate** | **34.5/40 (86.2%) — PASS** (bar 60%). Tool calls 38/40, grounded answers 31/40. Report: `evals/eval_sftv13_2lora_step12000_golden40.json` |
 | **Fluency guardrail** | PPL **48.01** on the 50-doc guardrail set vs **47.59** for the step-100000 base on the same set. This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
 | **Plain chat + conversation** | v13.2's headline is the last two date behaviors. The month-boundary "tomorrow" that every build since v12 missed now rolls in full — after Sunday, August 31, 2025 it answers "Tomorrow is Monday, September 1, 2025." — and the no-bracket honesty slip (echoing a distractor instead of declining) is fixed: asked today's date with none given, it says it doesn't know. Date8 is **8/8** with both no-bracket honesty probes passing. Everything else holds: multiturn12 **11/12** with zero parroting and the Australia follow-up to Canberra, memory6 **5/6**, casual7 **7/7**, and the smoke checks pass — the locked greeting verbatim ("Hey, I'm NeuralAI — how can I help you today?"), "who created you?" naming De'Andrew Preston Harris, and "what is 2 + 2?" answering "2 + 2 = 4." (reports: `evals/eval_sftv13_2lora_step12000_multiturn12.json`, `evals/eval_sftv13_2lora_step12000_date8.json`, `evals/eval_sftv13_2lora_step12000_smoke.json`) |
-| **Weights in this repo** | `sft_v13_2_lora_step12000/` (safetensors f32, config, tokenizer with chat template) — the same release also sits at the repo root, so the repository loads directly |
-| **Serving** | Production since 2026-10-23: served from NeuralAI's own infrastructure; Render `nae1-inference` runs the same bf16 copy (`sft_v13_2_lora_step12000_bf16/`) as the fallback |
+| **Weights in this repo** | `sft_v13_2_lora_step12000/` (safetensors f32, config, tokenizer with chat template) |
+| **Serving** | Production 2026-10-23 → 2026-11-11: served from NeuralAI's own infrastructure; Render `nae1-inference` ran the same bf16 copy (`sft_v13_2_lora_step12000_bf16/`) as the fallback. Superseded by v17 on 2026-11-11; weights stay in place as the rollback |
 | **Chat template** | Ships in `sft_v13_2_lora_step12000/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
 
 ---
@@ -139,7 +157,7 @@ pipeline_tag: text-generation
 | **Training** | 80,000 steps. Resumed 60,000 → 80,000 on Kaggle T4, peak LR 6e-4, cosine to a 10% floor |
 | **Held-out perplexity** | **54.60** native f32 (2000 docs, 1,454,064 tokens, `n_ctx=512`) |
 | **GGUF f32 / Q4_K_M** | **55.19 / 55.88** on the same 2000 docs (llama.cpp scoring, token counts differ slightly, see below) |
-| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, former serving copy — production moved to the SFT line on 2026-10-21: v8, then v9, v10, v11, v12.2, and v13.2) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
+| **Weights in this repo** | `ckpt_v7_step80000_bf16/` (safetensors, former serving copy — production moved to the SFT line on 2026-10-21: v8, then v9, v10, v11, v12.2, v13.2, and v17) + `tokenizer_v2/`. GGUF Q4_K_M: `nae1-step80000-Q4_K_M.gguf` |
 | **License** | Apache 2.0 |
 
 > **Lineage note.** The v1 run (439-token vocab, 32k steps) is kept below for history. The v2 run rebuilt the tokenizer at 32k and continued training to step 80000. These are different lineages. Do not compare the v1 numbers (for example 54.16) with the v2 numbers. The v2 eval is on the 2000-doc held-out set (`evals/`).
@@ -208,13 +226,14 @@ The gate is golden-40: 40 held-out tasks whose facts exist only inside each task
 | v10 LoRA step-12000 | 34.0/40 | 39/40 | 29/40 | 48.01 | Pass — released 2026-10-21, superseded by v11 on 2026-10-22 |
 | v11 LoRA step-12000 | 35.5/40 | 39/40 | 32/40 | 48.08 | Pass — released 2026-10-22, superseded by v12.2 the same day (adds multiturn12 11/12) |
 | v12.2 LoRA step-12000 | 35.0/40 | 38/40 | 32/40 | 48.1 | Pass — released 2026-10-22, superseded by v13.2 on 2026-10-23 (date8 7/8, memory6 6/6, casual7 7/7) |
-| **v13.2 LoRA step-12000 (released)** | **34.5/40** | **38/40** | **31/40** | **48.01** | **Pass — selected (date8 8/8, month-boundary tomorrow fixed, casual7 7/7)** |
+| **v17 LoRA step-9250 (released)** | **35.5/40** | **39/40** | **32/40** | **50.49** | **Pass — selected (awareness 7/8, guardrail 6/6, secondthought 5/6, memory12 8/12)** |
+| v13.2 LoRA step-12000 (released) | 34.5/40 | 38/40 | 31/40 | 48.01 | Pass — selected (date8 8/8, month-boundary tomorrow fixed, casual7 7/7) |
 
 **Root cause of the v5–v7 zero calls, proven at token level.** The training kernel's assistant-span mask started after the space in `NeuralAI: `, but the ByteLevel tokenizer fuses that space and the following `»` into a single token (id 4776) — so the first token of every tool call was excluded from the loss in every run, and the models learned the call body conditional on a first token that was never trained. v8 fixes the span, carries a pre-flight assertion (junction token supervised in 7,161 of 7,161 tool traces, confirmed in the training log), and ends the generation prompt at `NeuralAI:` so it tokenizes as a true prefix of the training format. The shipped chat template uses the same junction.
 
 **Tool protocol.** The assistant emits a call line — `» search("query")`, `» fetch("url")`, or `» read_file("path")`. The host executes the call, returns the result block into the transcript, and the assistant answers from the returned text.
 
-**Known limitations.** General prose is still rough at 100M parameters. v13.2 closed the date line: date8 is 8/8, the month-boundary "tomorrow" rolls in full (August 31 → "Tomorrow is Monday, September 1, 2025."), and the no-bracket date question declines honestly even after a distractor — at no fluency cost (48.01 against the base's 47.59 on the guardrail set). What remains: garbled or vacuous phrasing on some definition and follow-up questions, an occasional name-recall slip inside longer memory probes, repetition loops on open-ended prompts at greedy decoding, and live-tool search turns that do not always follow the call-then-answer shape — the search behavior remains a genuine model gap.
+**Known limitations.** General prose is still rough at 100M parameters. v17 breaks the five-area ceiling — secondthought 5/6, awareness 7/8, guardrail 6/6, memory12 8/12 — but the month-boundary "tomorrow" rollover regressed (date8 7/8; v13.2 had it at 8/8), and fluency drifted to 50.49 from v13.2's 48.01, still under the ≤52 bar. The date regression is covered in production by the §8 deterministic date layer, which answers date questions from Python datetime without generation. What remains: garbled or vacuous phrasing on a minority of replies, repetition loops on open-ended prompts at greedy decoding, and live-tool fetch turns that loop instead of grounding — the fetch behavior remains a genuine model gap (livetools 3/6).
 
 ---
 
@@ -230,15 +249,17 @@ out = llm("The quick brown fox", max_tokens=32, temperature=0.0)
 print(out["choices"][0]["text"])
 ```
 
-The GGUF quickstart above loads the pretrained base (step-80000), which has no chat template. For the assistant, use `sft_v13_2_lora_step12000/` with the chat template in its `tokenizer_config.json`.
+The GGUF quickstart above loads the pretrained base (step-80000), which has no chat template. For the assistant, use `sft_v17_lora_step9250/` with the chat template in its `tokenizer_config.json`.
 
 ---
 
 ## Files
 
-- `model.safetensors` + `config.json` + `tokenizer.json` + `tokenizer_config.json` (repo root): the current v13.2 assistant release, identical to `sft_v13_2_lora_step12000/`
-- `sft_v13_2_lora_step12000/`: current assistant release (SFT v13.2, LoRA merged) — safetensors f32 + tokenizer with chat template
-- `sft_v13_2_lora_step12000_bf16/`: bf16 serving copy of the current assistant release (what production runs)
+- `model.safetensors` + `config.json` + `tokenizer.json` + `tokenizer_config.json` (repo root): the current v17 assistant release, identical to `sft_v17_lora_step9250/`
+- `sft_v17_lora_step9250/`: current assistant release (SFT v17, LoRA merged) — safetensors bf16 + tokenizer with chat template
+- `sft_v17_lora_step9250_bf16/`: bf16 serving copy of the current assistant release (what production runs)
+- `sft_v13_2_lora_step12000/`: previous assistant release (SFT v13.2, LoRA merged) — safetensors f32 + tokenizer with chat template
+- `sft_v13_2_lora_step12000_bf16/`: bf16 serving copy of the v13.2 release
 - `sft_v12_2_lora_step12000/`: previous assistant release (SFT v12.2, LoRA merged) — safetensors f32 + tokenizer with chat template
 - `sft_v12_2_lora_step12000_bf16/`: bf16 serving copy of the v12.2 release
 - `sft_v11_lora_step12000/`: earlier assistant release (SFT v11, LoRA merged) — safetensors f32 + tokenizer with chat template

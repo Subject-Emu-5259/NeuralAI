@@ -27,12 +27,6 @@ pipeline_tag: text-generation
   A 100M-parameter Llama-style decoder pretrained end-to-end on FineWeb. No distillation, no fine-tune of someone else's base.
 </p>
 
-<p align="center">
-  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1"><img src="https://img.shields.io/badge/release-SFT%20v17-1b6e66" alt="Current release: SFT v17" /></a>
-  <a href="https://github.com/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/params-100.1M-283a4a" alt="100.1M parameters" /></a>
-  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/license-Apache%202.0-b98183" alt="License: Apache 2.0" /></a>
-</p>
-
 ---
 
 ## At a glance — SFT v17 (current release, serving since 2026-11-11)
@@ -46,17 +40,7 @@ pipeline_tag: text-generation
 | **Known regression** | Month-boundary date rollover (date8 7/8) — covered in production by the §8 deterministic date layer |
 | **Weights** | `sft_v17_lora_step9250/` (bf16) — also at the repo root, so the repository loads directly |
 
-Every number on this card is backed by an eval report in `evals/`. The full 15-suite gate report is `gate_results/v17_full_gate_report.md` in the [GitHub repo](https://github.com/Subject-Emu-5259/NeuralAI).
-
----
-
-## Links
-
-- **Chat with NEA1 — live demo:** https://neuralai-nae1.deandrewh26-d6e.workers.dev
-- **NeuralAI — the company:** https://neuralai.wasmer.app
-- **Model weights (Hugging Face):** https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1
-- **Code + evals (GitHub):** https://github.com/Subject-Emu-5259/NeuralAI
-- **Inference service (GitHub):** https://github.com/Subject-Emu-5259/nae1-inference
+Every number on this card is backed by an eval report in `evals/`. The full 15-suite gate report is `gate_results/v17_full_gate_report.md` in the GitHub repo.
 
 ---
 

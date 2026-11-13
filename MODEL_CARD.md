@@ -27,6 +27,27 @@ pipeline_tag: text-generation
   A 100M-parameter Llama-style decoder pretrained end-to-end on FineWeb. No distillation, no fine-tune of someone else's base.
 </p>
 
+<p align="center">
+  <a href="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1"><img src="https://img.shields.io/badge/release-SFT%20v17-1b6e66" alt="Current release: SFT v17" /></a>
+  <a href="https://github.com/Subject-Emu-5259/NeuralAI"><img src="https://img.shields.io/badge/params-100.1M-283a4a" alt="100.1M parameters" /></a>
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/license-Apache%202.0-b98183" alt="License: Apache 2.0" /></a>
+</p>
+
+---
+
+## At a glance — SFT v17 (current release, serving since 2026-11-11)
+
+| Metric | SFT v17 |
+| --- | --- |
+| **Golden-40 tool-use gate** | **35.5/40 (88.8%)** — calls 39/40, grounded 32/40 |
+| **Fluency guardrail** | PPL **50.49** (50-doc held-out set, bar ≤52) |
+| **Conversation** | Multiturn **12/12** · casual **7/7** · memory6 **5/6** |
+| **Five-area line** | Second thought **5/6** · awareness **7/8** · guardrail **6/6** · memory12 **8/12** · livetools **4/6** |
+| **Known regression** | Month-boundary date rollover (date8 7/8) — covered in production by the §8 deterministic date layer |
+| **Weights** | `sft_v17_lora_step9250/` (bf16) — also at the repo root, so the repository loads directly |
+
+Every number on this card is backed by an eval report in `evals/`. The full 15-suite gate report is `gate_results/v17_full_gate_report.md` in the [GitHub repo](https://github.com/Subject-Emu-5259/NeuralAI).
+
 ---
 
 ## Links
@@ -50,9 +71,9 @@ pipeline_tag: text-generation
 | **Training** | LoRA on Kaggle T4, adapter LR peak 1e-4 cosine, 9,250 steps (final SFT loss 1.3177); step-9250 selected by the gate below |
 | **Golden-40 tool-use gate** | **35.5/40 (88.8%) — PASS** (bar 60%). Tool calls 39/40, grounded answers 32/40. Report: `evals/eval_sftv17lora_step9250_golden40.json` |
 | **Fluency guardrail** | PPL **50.49** on the 50-doc guardrail set vs **48.01** for v13.2 on the same set — higher than v13.2, under the ≤52 bar. This is a different, smaller set than the 2000-doc set used below — the numbers are not comparable across sets |
-| **Plain chat + conversation** | v17's headline is the five-area line. Secondthought **5/6** (was 0/6 on v13.2), awareness **7/8** (was 1/8), guardrail **6/6** (was 1/6), memory12 **8/12** (was 6/12, corrections 3/4), livetools **3/6** (was 2/6). Everything else holds: multiturn12 **12/12**, casual7 **7/7**, memory6 **5/6**, and the smoke checks pass — the locked greeting verbatim ("Hey, I'm NeuralAI — how can I help you today?"), "who created you?" naming De'Andrew Preston Harris, and "what is 2 + 2?" answering "2 + 2 = 4." Date8 is **7/8**: the month-boundary "tomorrow" rollover regressed (v13.2 had it at 8/8) — in production the §8 deterministic date layer answers date questions without generation, so the regression is not user-visible. (reports: `evals/eval_sftv17lora_step9250_multiturn12.json`, `evals/eval_sftv17lora_step9250_date8.json`, `evals/eval_sftv17lora_step9250_smoke.json`) |
+| **Plain chat + conversation** | v17's headline is the five-area line. Secondthought **5/6** (was 0/6 on v13.2), awareness **7/8** (was 1/8), guardrail **6/6** (was 1/6), memory12 **8/12** (was 6/12, corrections 3/4), livetools **4/6** (v13.2 also scores 4/6 on the corrected harness — the gate-as-run 3/6 vs 2/6 was a check artifact, TRN-F01, not a real gain). Everything else holds: multiturn12 **12/12**, casual7 **7/7**, memory6 **5/6**, and the smoke checks pass — the locked greeting verbatim ("Hey, I'm NeuralAI — how can I help you today?"), "who created you?" naming De'Andrew Preston Harris, and "what is 2 + 2?" answering "2 + 2 = 4." Date8 is **7/8**: the month-boundary "tomorrow" rollover regressed (v13.2 had it at 8/8) — in production the §8 deterministic date layer answers date questions without generation, so the regression is not user-visible. (reports: `evals/eval_sftv17lora_step9250_multiturn12.json`, `evals/eval_sftv17lora_step9250_date8.json`, `evals/eval_sftv17lora_step9250_smoke.json`) |
 | **Weights in this repo** | `sft_v17_lora_step9250/` (safetensors bf16, config, tokenizer with chat template) — the same release also sits at the repo root, so the repository loads directly |
-| **Serving** | Production since 2026-11-11: served from NeuralAI's own infrastructure; Render `nae1-inference` runs the same bf16 copy (`sft_v17_lora_step9250_bf16/`) as the fallback |
+| **Serving** | Production since 2026-11-11: served from NeuralAI's own Fabric (Mac + VM nodes); Render `nae1-inference` runs the same bf16 copy (`sft_v17_lora_step9250_bf16/`) as the fallback |
 | **Chat template** | Ships in `sft_v17_lora_step9250/tokenizer_config.json`. Turns are `User: ...` / `NeuralAI: ...`; the generation prompt ends `NeuralAI:` with no trailing space (see the SFT section for why) |
 
 ---
@@ -166,11 +187,13 @@ pipeline_tag: text-generation
 
 ## Training
 
-**v2 continuation.** Training resumed at step 60,000 and ran to step 80,000. The chart shows the logged train loss and the in-training held-out PPL. The in-training PPL uses a chunked stream protocol and is **not** the 54.60 number. It is shown only to illustrate the trend.
+**SFT v17 (current release).** LoRA rank 32 on the merged v13.2 checkpoint, 9,250 steps on a Kaggle T4, adapter LR peak 1e-4 cosine. The left panel shows the logged SFT loss (every 100 steps, final 1.3177); the right panel shows the fluency guardrail — held-out PPL on the 50-doc guardrail set at each checkpoint save, against the ≤52 bar. The guard climbed from the v13.2 baseline of 48.01 to 50.49 and never tripped.
 
 <p align="center">
-  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-training.png" alt="Nae1 step 60000 to 80000 training loss and in-training held-out PPL" width="92%" />
+  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-training.png" alt="SFT v17 training: SFT loss curve and fluency guardrail PPL per checkpoint" width="92%" />
 </p>
+
+**Base pretrain (v2 continuation).** Training resumed at step 60,000 and ran to step 80,000 on Kaggle T4, peak LR 6e-4, cosine to a 10% floor, then continued to step 100,000 — the SFT line starts at step-100000. The base held-out PPL is 54.60 (2000 docs, `n_ctx=512`).
 
 **v1 lineage (frozen).** Eight cosine cycles from random initialization, 0 → 32,000 steps. with the tokenizer and objective described in the lineage note above.
 
@@ -180,8 +203,10 @@ pipeline_tag: text-generation
 
 All v2 claims use one shared held-out corpus: `heldout_fineweb.jsonl` (2,000 docs from unseen crawl CC-MAIN-2014-10), `n_ctx=512`. Documents are scored independently in `n_ctx` windows.
 
+The chart below is the current release against its predecessor on the full 15-suite gate — v17's five-area line against v13.2's, plus the golden-40 tool-use gate and multiturn. Bars are % of each suite's max (suites have different denominators); labels show the raw scores.
+
 <p align="center">
-  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-comparison.png" alt="Held-out perplexity lineage: bars on different eval protocols are not directly comparable" width="92%" />
+  <img src="https://huggingface.co/Subject-Emu-5259/NeuralAI-Nae1/resolve/main/neuralai-nae1-comparison.png" alt="SFT v17 vs v13.2 on the full 15-suite gate" width="92%" />
 </p>
 
 | Model / format | Held-out PPL | Tokens | Eval report |
@@ -233,7 +258,7 @@ The gate is golden-40: 40 held-out tasks whose facts exist only inside each task
 
 **Tool protocol.** The assistant emits a call line — `» search("query")`, `» fetch("url")`, or `» read_file("path")`. The host executes the call, returns the result block into the transcript, and the assistant answers from the returned text.
 
-**Known limitations.** General prose is still rough at 100M parameters. v17 breaks the five-area ceiling — secondthought 5/6, awareness 7/8, guardrail 6/6, memory12 8/12 — but the month-boundary "tomorrow" rollover regressed (date8 7/8; v13.2 had it at 8/8), and fluency drifted to 50.49 from v13.2's 48.01, still under the ≤52 bar. The date regression is covered in production by the §8 deterministic date layer, which answers date questions from Python datetime without generation. What remains: garbled or vacuous phrasing on a minority of replies, repetition loops on open-ended prompts at greedy decoding, and live-tool fetch turns that loop instead of grounding — the fetch behavior remains a genuine model gap (livetools 3/6).
+**Known limitations.** General prose is still rough at 100M parameters. v17 breaks the five-area ceiling — secondthought 5/6, awareness 7/8, guardrail 6/6, memory12 8/12 — but the month-boundary "tomorrow" rollover regressed (date8 7/8; v13.2 had it at 8/8), and fluency drifted to 50.49 from v13.2's 48.01, still under the ≤52 bar. The date regression is covered in production by the §8 deterministic date layer, which answers date questions from Python datetime without generation. What remains: garbled or vacuous phrasing on a minority of replies, repetition loops on open-ended prompts at greedy decoding, and live-tool fetch turns that loop instead of grounding — the fetch behavior remains a genuine model gap (livetools 4/6 on the corrected harness, same as v13.2).
 
 ---
 
